@@ -8,7 +8,6 @@
 
 import argparse
 import json
-import math
 import pathlib
 import struct
 
@@ -28,13 +27,40 @@ LEVELS = {
 
 OUT_DIR = pathlib.Path(__file__).resolve().parent.parent / "src" / "data"
 
-# 简化容差（度）。越大越精简，但边界越粗糙。
-SIMPLIFY_TOLERANCE = 0.05
-# 投影后的地图宽度（视图单位）。
+# 投影后简化容差（米）。越大越精简，但边界越粗糙。
+SIMPLIFY_TOLERANCE_METERS = 3800.0
+# 画布总宽度（视图单位）。
 PROJECT_WIDTH = 1200
+# 主图省界实际占用宽度；右侧留白给南海小地图。
+MAIN_MAP_WIDTH = 1000
+# 右下角南海小地图的视图宽度（单位）。
+INSET_WIDTH = 300
+# 小地图在整张 SVG 中的放置区域 [x, y, width, height]。
+INSET_BOX = [1002, 665, 196, 330]
+# 小地图内容与边框之间保留的边距比例（相对数据范围）。
+INSET_PADDING_RATIO = 0.06
 # 南海诸岛等远离主岛的碎岛，纬度低于该值则剔除（保留海南主岛）。
 MIN_ISLAND_LAT = 18.0
 MIN_ISLAND_AREA = 0.0002
+
+# 中国地图常用 Albers 等积圆锥投影：
+# 中央经线 105°E，两条标准纬线 25°N / 47°N，椭球体使用 WGS84。
+ALBERS_PROJ = (
+    "+proj=aea +lat_1=25 +lat_2=47 +lat_0=0 +lon_0=105 "
+    "+x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+)
+ALBERS_CRS = "EPSG:102025"
+
+# pyproj 数据库不一定内置 EPSG:102025（部分版本是 ESRI 专有码），
+# 因此优先用自定义 proj4，避免依赖本地数据库。
+from pyproj import CRS
+
+try:
+    ALBERS_CRS = CRS.from_epsg(102025)
+except Exception:
+    ALBERS_CRS = CRS.from_proj4(ALBERS_PROJ)
+
+NINE_DASH_FILE = BASE / "九段线" / "九段线.shp"
 
 
 def read_dbf(path: pathlib.Path, encoding: str = "utf-8"):
@@ -123,8 +149,8 @@ def inspect(level: str):
     print(f"\ntotal vertices: {total_vertices}")
 
 
-def project_coords(geometry, lon0, lat_max, xscale, yscale):
-    """把 WGS84 坐标投影成 SVG 视图坐标（整数）。"""
+def project_coords(geometry, x_min, y_max, x_scale, y_scale):
+    """把投影坐标系几何转成 SVG 视图坐标。"""
     out = []
     for poly in geometry.geoms if isinstance(geometry, MultiPolygon) else [geometry]:
         poly_rings = []
@@ -132,8 +158,8 @@ def project_coords(geometry, lon0, lat_max, xscale, yscale):
         for ring in rings:
             coords = []
             for x, y in ring.coords:
-                px = round((x - lon0) * xscale)
-                py = round((lat_max - y) * yscale)
+                px = round((x - x_min) * x_scale)
+                py = round((y_max - y) * y_scale)
                 coords.append((px, py))
             poly_rings.append(coords)
         out.append(poly_rings)
@@ -171,6 +197,86 @@ def filter_geometry(geom):
     return MultiPolygon(keep)
 
 
+def reproject(geom, source_crs, target_crs):
+    """把 shapely 几何转换到目标 CRS。"""
+    return gpd.GeoSeries([geom], crs=source_crs).to_crs(target_crs)[0]
+
+
+def build_inset(province_gdf):
+    """生成右下角「南海诸岛」小地图：九段线 + 岛礁点。"""
+    nine_path = NINE_DASH_FILE
+    if not nine_path.exists():
+        return None
+
+    nine_df = gpd.read_file(nine_path)
+    province_geom = province_gdf.loc[
+        province_gdf["FIRST_GID"].astype(str) == "460000", "geometry"
+    ].iloc[0]
+    if isinstance(province_geom, MultiPolygon):
+        all_parts = list(province_geom.geoms)
+    elif isinstance(province_geom, Polygon):
+        all_parts = [province_geom]
+    else:
+        all_parts = []
+
+    # 只取海南省里代表点低于 18°N 的南海岛礁，海南主岛仍保留在大图。
+    islands_4326 = [
+        part
+        for part in all_parts
+        if part.representative_point().y < MIN_ISLAND_LAT
+    ]
+
+    nine_proj = nine_df.geometry.apply(
+        lambda geom: reproject(geom, nine_df.crs, ALBERS_CRS)
+    )
+    islands_proj = [
+        reproject(geom, province_gdf.crs, ALBERS_CRS) for geom in islands_4326
+    ]
+
+    all_bounds = [tuple(nine_proj.total_bounds)]
+    all_bounds.extend(geom.bounds for geom in islands_proj)
+    x_min = min(b[0] for b in all_bounds)
+    y_min = min(b[1] for b in all_bounds)
+    x_max = max(b[2] for b in all_bounds)
+    y_max = max(b[3] for b in all_bounds)
+
+    x_span = max(x_max - x_min, 1e-9)
+    y_span = max(y_max - y_min, 1e-9)
+    pad_x = x_span * INSET_PADDING_RATIO
+    pad_y = y_span * INSET_PADDING_RATIO
+    x_min -= pad_x
+    x_max += pad_x
+    y_min -= pad_y
+    y_max += pad_y
+    x_span = x_max - x_min
+    y_span = y_max - y_min
+    scale = INSET_WIDTH / x_span
+    inset_height = round(y_span * scale)
+
+    dash_parts = []
+    for line in nine_proj:
+        coords = []
+        for x, y in line.coords:
+            px = round((x - x_min) * scale)
+            py = round((y_max - y) * scale)
+            coords.append(f"{px},{py}")
+        if coords:
+            dash_parts.append("M" + "L".join(coords))
+
+    island_parts = []
+    for geom in islands_proj:
+        rings = project_coords(geom, x_min, y_max, scale, scale)
+        island_parts.append(rings_to_path(rings))
+
+    return {
+        "projection": {"name": "albers", "proj4": ALBERS_PROJ.strip()},
+        "box": INSET_BOX,
+        "viewBox": [0, 0, INSET_WIDTH, inset_height],
+        "dashD": "".join(dash_parts),
+        "islandsD": "".join(island_parts),
+    }
+
+
 def emit(level: str):
     folder, shp = LEVELS[level]
     shp_path = BASE / folder / shp
@@ -193,7 +299,10 @@ def emit(level: str):
         cleaned = filter_geometry(geom)
         if cleaned is None:
             continue
-        simplified = cleaned.simplify(SIMPLIFY_TOLERANCE, preserve_topology=True)
+        projected = reproject(cleaned, gdf.crs, ALBERS_CRS)
+        simplified = projected.simplify(
+            SIMPLIFY_TOLERANCE_METERS, preserve_topology=True
+        )
         if simplified.is_empty:
             continue
         features.append(
@@ -205,30 +314,27 @@ def emit(level: str):
             }
         )
 
-    # 计算投影参数。
+    # 计算 Albers 投影坐标系下的总范围。
     all_bounds = [f["geom"].bounds for f in features]
-    lon_min = min(b[0] for b in all_bounds)
-    lon_max = max(b[2] for b in all_bounds)
-    lat_min = min(b[1] for b in all_bounds)
-    lat_max = max(b[3] for b in all_bounds)
+    x_min = min(b[0] for b in all_bounds)
+    y_min = min(b[1] for b in all_bounds)
+    x_max = max(b[2] for b in all_bounds)
+    y_max = max(b[3] for b in all_bounds)
 
-    mid_lat = math.radians((lat_min + lat_max) / 2)
-    cos_lat = math.cos(mid_lat)
-    lon_span = max(lon_max - lon_min, 1e-9)
-    lat_span = max(lat_max - lat_min, 1e-9)
-    scale = PROJECT_WIDTH / (lon_span * cos_lat)
-    xscale = cos_lat * scale
-    yscale = scale
-    height = round(lat_span * yscale)
+    x_span = max(x_max - x_min, 1e-9)
+    y_span = max(y_max - y_min, 1e-9)
+    scale = MAIN_MAP_WIDTH / x_span
+    # 画布仍按原来的全宽比例定高，主图位于左上方，右下留出海域。
+    height = round(y_span * (PROJECT_WIDTH / x_span))
 
     out_features = []
     for f in features:
         geom = f["geom"]
-        rings = project_coords(geom, lon_min, lat_max, xscale, yscale)
+        rings = project_coords(geom, x_min, y_max, scale, scale)
         path = rings_to_path(rings)
         centroid = geom.centroid
-        cx = round((centroid.x - lon_min) * xscale)
-        cy = round((lat_max - centroid.y) * yscale)
+        cx = round((centroid.x - x_min) * scale)
+        cy = round((y_max - centroid.y) * scale)
         bbox = geom.bounds
         out_features.append(
             {
@@ -236,21 +342,30 @@ def emit(level: str):
                 "name": f["name"],
                 "centroid": [cx, cy],
                 "bbox": [
-                    round((bbox[0] - lon_min) * xscale),
-                    round((lat_max - bbox[3]) * yscale),
-                    round((bbox[2] - lon_min) * xscale),
-                    round((lat_max - bbox[1]) * yscale),
+                    round((bbox[0] - x_min) * scale),
+                    round((y_max - bbox[3]) * scale),
+                    round((bbox[2] - x_min) * scale),
+                    round((y_max - bbox[1]) * scale),
                 ],
                 "d": path,
             }
         )
 
     payload = {
-        "version": "0.2.0",
+        "version": "0.3.3",
         "level": level,
+        "projection": {
+            "name": "albers",
+            "proj4": ALBERS_PROJ.strip(),
+        },
         "viewBox": [0, 0, PROJECT_WIDTH, height],
         "features": out_features,
     }
+
+    if level == "province":
+        inset = build_inset(gdf)
+        if inset:
+            payload["inset"] = inset
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = OUT_DIR / f"{level}.json"
@@ -263,6 +378,13 @@ def emit(level: str):
     print(f"wrote {out_path}")
     print(f"features: {len(out_features)}")
     print(f"viewBox: {payload['viewBox']}")
+    if "inset" in payload:
+        inset = payload["inset"]
+        print(
+            f"inset: viewBox={inset['viewBox']} "
+            f"dashParts={inset['dashD'].count('M')} "
+            f"islandRings={inset['islandsD'].count('M')}"
+        )
     print(f"size: {size_kb:.1f} KB")
 
 
