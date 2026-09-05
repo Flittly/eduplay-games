@@ -1,0 +1,12 @@
+{
+  "gameCode": "geo_gomoku",
+  "name": "经纬度五子棋",
+  "version": "0.1.0",
+  "minPlatformVersion": "0.1.0",
+  "maxPlatformVersion": "1.0.0",
+  "type": "iframe",
+  "sdkVersion": "1",
+  "entry": "web/index.html",
+  "backendPlugin": null,
+  "description": "两位学生在经纬线棋盘上轮流报出坐标后落子，先连成五子者获胜。"
+}
