@@ -90,8 +90,9 @@ function bboxSize(feature: Feature): number {
 }
 
 function colorFor(index: number): string {
-  const hue = (index * 137.508) % 360;
-  return `hsl(${hue}, 56%, 62%)`;
+  // 全部使用与泛黄纸底有明显反差的颜色，避免小块区域融入背景。
+  const palette = ["#cc0000", "#d4a843", "#8b4513", "#1a1a1a"];
+  return palette[index % palette.length];
 }
 
 function shortName(fullName: string): string {
@@ -619,24 +620,13 @@ export default function ProvincePuzzle({
           >
             <g className="board-layer">
               {FEATURES.map((feature) => {
-                const tiny = bboxSize(feature) < 22;
                 return (
-                  <g key={feature.id}>
-                    <path
-                      d={feature.d}
-                      className="ghost"
-                      fillRule="evenodd"
-                    />
-                    <text
-                      x={feature.centroid[0]}
-                      y={feature.centroid[1]}
-                      className={
-                        tiny ? "ghost-label ghost-label-tiny" : "ghost-label"
-                      }
-                    >
-                      {feature.name}
-                    </text>
-                  </g>
+                  <path
+                    key={feature.id}
+                    d={feature.d}
+                    className="ghost"
+                    fillRule="evenodd"
+                  />
                 );
               })}
             </g>
@@ -646,14 +636,27 @@ export default function ProvincePuzzle({
                 if (!placed.has(feature.id)) {
                   return null;
                 }
+                const tiny = bboxSize(feature) < 22;
                 return (
-                  <path
-                    key={feature.id}
-                    d={feature.d}
-                    fill={colorFor(FEATURES.indexOf(feature))}
-                    className="piece"
-                    fillRule="evenodd"
-                  />
+                  <g key={feature.id}>
+                    <path
+                      d={feature.d}
+                      fill={colorFor(FEATURES.indexOf(feature))}
+                      className="piece"
+                      fillRule="evenodd"
+                    />
+                    <text
+                      x={feature.centroid[0]}
+                      y={feature.centroid[1]}
+                      className={
+                        tiny
+                          ? "placed-label placed-label-tiny"
+                          : "placed-label"
+                      }
+                    >
+                      {feature.name}
+                    </text>
+                  </g>
                 );
               })}
             </g>

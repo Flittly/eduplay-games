@@ -45,12 +45,51 @@ interface ProvinceQuizProps {
 const DATA = provinceData as unknown as QuizData;
 const FEATURES = DATA.features;
 
-const BASE_POINTS = 10;
-const WRONG_PENALTY = 2;
-const HINT_PENALTY = 2;
 const QUESTION_CHOICES = [10, 20, 34];
+const RULES_STORAGE_KEY = "eduplay.province-quiz.rules.v1";
+
+export interface ScoreRules {
+  perCorrect: number;
+  wrongPenalty: number;
+  hintPenalty: number;
+}
+
+const DEFAULT_RULES: ScoreRules = {
+  perCorrect: 10,
+  wrongPenalty: 2,
+  hintPenalty: 2
+};
 
 type Phase = "ready" | "playing" | "answered" | "roundDone";
+
+function readSavedRules(): ScoreRules {
+  try {
+    const raw = localStorage.getItem(RULES_STORAGE_KEY);
+    if (!raw) {
+      return { ...DEFAULT_RULES };
+    }
+    const parsed = JSON.parse(raw) as Partial<ScoreRules>;
+    const toNumber = (value: unknown, fallback: number): number => {
+      const num = Number(value);
+      return Number.isFinite(num) && num >= 0 ? Math.round(num) : fallback;
+    };
+    return {
+      perCorrect: toNumber(parsed.perCorrect, DEFAULT_RULES.perCorrect),
+      wrongPenalty: toNumber(parsed.wrongPenalty, DEFAULT_RULES.wrongPenalty),
+      hintPenalty: toNumber(parsed.hintPenalty, DEFAULT_RULES.hintPenalty)
+    };
+  } catch {
+    return { ...DEFAULT_RULES };
+  }
+}
+
+function saveRules(rules: ScoreRules) {
+  try {
+    localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(rules));
+  } catch {
+    // 忽略浏览器禁用 localStorage 的情况。
+  }
+}
 
 function shuffle<T>(items: T[]): T[] {
   const arr = [...items];
@@ -98,6 +137,9 @@ export default function ProvinceQuiz({
 
   const [records, setRecords] = useState<RoundRecord[]>([]);
   const [roundWinner, setRoundWinner] = useState<RoundRecord | null>(null);
+  const [rules, setRules] = useState<ScoreRules>(() => readSavedRules());
+  const [draftRules, setDraftRules] = useState<ScoreRules>(DEFAULT_RULES);
+  const [rulesEditorOpen, setRulesEditorOpen] = useState(false);
 
   const completedIds = useMemo(
     () => new Set(records.map((record) => record.player.studentId)),
@@ -231,6 +273,27 @@ export default function ProvinceQuiz({
     setHintExpanded(true);
   }
 
+  function openRulesEditor() {
+    if (phase !== "ready") {
+      return;
+    }
+    setDraftRules({ ...rules });
+    setRulesEditorOpen(true);
+  }
+
+  function saveRulesEditor() {
+    const toNumber = (value: number): number =>
+      Number.isFinite(value) && value >= 0 ? Math.round(value) : 0;
+    const next: ScoreRules = {
+      perCorrect: toNumber(draftRules.perCorrect),
+      wrongPenalty: toNumber(draftRules.wrongPenalty),
+      hintPenalty: toNumber(draftRules.hintPenalty)
+    };
+    setRules(next);
+    saveRules(next);
+    setRulesEditorOpen(false);
+  }
+
   function chooseOption(name: string) {
     if (!currentQuestion || phase !== "playing" || wrongPicked.has(name)) {
       return;
@@ -238,7 +301,9 @@ export default function ProvinceQuiz({
     if (name === currentQuestion.name) {
       const gained = Math.max(
         0,
-        BASE_POINTS - wrongClicks * WRONG_PENALTY - hintsUsed * HINT_PENALTY
+        rules.perCorrect -
+          wrongClicks * rules.wrongPenalty -
+          hintsUsed * rules.hintPenalty
       );
       setScore((value) => value + gained);
       setFirstTryCorrect((value) => value + (wrongClicks === 0 ? 1 : 0));
@@ -334,6 +399,14 @@ export default function ProvinceQuiz({
               <span>错误 {mistakes}</span>
             </div>
           </div>
+          <button
+            type="button"
+            className="control-btn"
+            disabled={phase !== "ready"}
+            onClick={openRulesEditor}
+          >
+            积分规则
+          </button>
         </div>
       </header>
 
@@ -344,8 +417,19 @@ export default function ProvinceQuiz({
               <h2>省级行政区识别</h2>
               <p>
                 观察省级行政区轮廓，从四个选项中选出正确名称。
-                每个提示会从本省得分中扣除 2 分。
               </p>
+
+              <div className="rules-summary">
+                当前规则：答对 +{rules.perCorrect} · 答错 −
+                {rules.wrongPenalty} · 每条提示 −{rules.hintPenalty}
+              </div>
+              <button
+                type="button"
+                className="rules-edit-btn"
+                onClick={openRulesEditor}
+              >
+                修改积分规则
+              </button>
 
               {roster.length > 1 && (
                 <div className="player-pick">
@@ -407,7 +491,7 @@ export default function ProvinceQuiz({
             <section className="question-stage">
               <div className="question-progress">
                 第 {Math.min(questionIndex + 1, roundQuestions.length)} /{" "}
-                {roundQuestions.length} 题 · 每答对基础 +{BASE_POINTS}
+                {roundQuestions.length} 题 · 每答对 +{rules.perCorrect}
               </div>
 
               <div className="silhouette-wrap">
@@ -432,7 +516,7 @@ export default function ProvinceQuiz({
                     disabled={hintsUsed >= currentHints.length}
                     onClick={revealHint}
                   >
-                    查看提示（扣 {HINT_PENALTY} 分）
+                    查看提示（扣 {rules.hintPenalty} 分）
                   </button>
                 )}
                 {hintExpanded && (
@@ -489,7 +573,7 @@ export default function ProvinceQuiz({
 
               {wrongPicked.size > 0 && phase === "playing" && (
                 <p className="feedback-wrong">
-                  选错了，再试一次（已扣 {WRONG_PENALTY} 分）
+                  选错了，再试一次（已扣 {rules.wrongPenalty} 分）
                 </p>
               )}
               {phase === "answered" && (
@@ -618,6 +702,71 @@ export default function ProvinceQuiz({
                 onClick={finishSession}
               >
                 {nextPlayer ? "提前结束活动" : "结束活动并结算"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rulesEditorOpen && (
+        <div className="overlay-mask">
+          <div className="rules-card">
+            <h2>积分规则设置</h2>
+            <p className="rules-tip">由教师自定义本题积分，保存后下一轮生效</p>
+
+            <label className="rules-field">
+              每答对一题得分
+              <input
+                type="number"
+                min="0"
+                value={draftRules.perCorrect}
+                onChange={(event) =>
+                  setDraftRules({
+                    ...draftRules,
+                    perCorrect: Number(event.target.value)
+                  })
+                }
+              />
+            </label>
+            <label className="rules-field">
+              每答错一次扣分
+              <input
+                type="number"
+                min="0"
+                value={draftRules.wrongPenalty}
+                onChange={(event) =>
+                  setDraftRules({
+                    ...draftRules,
+                    wrongPenalty: Number(event.target.value)
+                  })
+                }
+              />
+            </label>
+            <label className="rules-field">
+              每查看一条提示扣分
+              <input
+                type="number"
+                min="0"
+                value={draftRules.hintPenalty}
+                onChange={(event) =>
+                  setDraftRules({
+                    ...draftRules,
+                    hintPenalty: Number(event.target.value)
+                  })
+                }
+              />
+            </label>
+
+            <div className="rules-actions">
+              <button type="button" className="primary" onClick={saveRulesEditor}>
+                保存规则
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setRulesEditorOpen(false)}
+              >
+                取消
               </button>
             </div>
           </div>

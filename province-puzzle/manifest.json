@@ -1,7 +1,7 @@
 {
   "gameCode": "province_puzzle",
   "name": "行政区拼图",
-  "version": "0.3.3",
+  "version": "0.3.6",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
