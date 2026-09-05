@@ -5,6 +5,7 @@ EduPlay 平台的可插拔游戏模块仓库。
 当前模块：
 
 - 行政区拼图 `province-puzzle`
+- 省级行政区识别 `province-quiz`
 
 每个游戏是一个独立插件包，平台底座通过插件包的 `manifest.json` 和前端入口进行加载。
 
