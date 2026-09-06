@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import ProvinceQuiz from "./ProvinceQuiz";
+import DualQuiz from "./DualQuiz";
 import type {
   PlayerInfo,
   QuizResult,
@@ -9,7 +10,7 @@ import type {
 import "./styles.css";
 
 const gameCode = "province_quiz";
-const version = "0.1.2";
+const version = "0.2.0";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {
@@ -136,6 +137,7 @@ function parseRoster(payload: InitPayload): PlayerInfo[] {
 
 function GameApp() {
   const [roster, setRoster] = useState<PlayerInfo[]>([]);
+  const [mode, setMode] = useState<"pick" | "single" | "dual">("pick");
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -166,6 +168,29 @@ function GameApp() {
         <p>正在等待平台下发学生名单…</p>
       </div>
     );
+  }
+
+  if (mode === "pick") {
+    return (
+      <div className="mode-picker">
+        <h1>省级行政区识别</h1>
+        <p>选择本局游戏模式</p>
+        <div className="mode-cards">
+          <button onClick={() => setMode("single")}>
+            <strong>单人模式</strong>
+            <span>个人完成全部题目</span>
+          </button>
+          <button onClick={() => setMode("dual")}>
+            <strong>双人 PK</strong>
+            <span>大屏抢答，看谁更快更准</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "dual") {
+    return <DualQuiz onBack={() => setMode("pick")} />;
   }
 
   return (
