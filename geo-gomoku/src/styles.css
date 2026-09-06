@@ -228,8 +228,9 @@ input:focus {
 .game-main {
   flex: 1;
   min-width: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 10px;
   overflow-y: auto;
   background: var(--paper);
@@ -285,6 +286,28 @@ input:focus {
   font-weight: 900;
 }
 
+.mode-select {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.mode-select button {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.mode-select button.is-active {
+  background: var(--red);
+  color: var(--paper);
+}
+
 .setup-error {
   padding: 10px;
   border: 3px solid var(--ink);
@@ -299,6 +322,10 @@ input:focus {
   gap: 10px;
   margin-bottom: 16px;
   text-align: left;
+}
+
+.pair-select.is-ai {
+  grid-template-columns: 1fr;
 }
 
 .pair-column {
@@ -359,11 +386,180 @@ input:focus {
 }
 
 .board-section {
-  width: 100%;
+  flex: 1 1 600px;
+  min-width: 0;
+  max-width: 760px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
+}
+
+.match-area {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+  max-width: 1080px;
+}
+
+.coordinate-panel {
+  flex: 0 0 280px;
+  max-width: 300px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  padding: 14px;
+  border: 4px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.coordinate-panel h3 {
+  margin: 0 0 10px;
+  color: var(--red);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.coord-current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 7px;
+  border: 3px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.color-dot {
+  font-size: 14px;
+}
+
+.red-dot {
+  color: var(--red);
+}
+
+.black-dot {
+  color: var(--paper);
+}
+
+.coord-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.coord-field input {
+  width: 100%;
+  padding: 8px 9px;
+}
+
+.coord-error {
+  margin: 8px 0 0;
+  padding: 7px;
+  border: 3px solid var(--ink);
+  background: var(--red);
+  color: var(--paper);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.ai-thinking {
+  margin: 6px 0 12px;
+  padding: 12px 8px;
+  border: 3px solid var(--ink);
+  background: var(--ink);
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.place-btn {
+  width: 100%;
+  margin-top: 2px;
+  padding: 9px 10px;
+  background: var(--red);
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.place-btn:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--red);
+}
+
+.move-history {
+  margin-top: 14px;
+  border-top: 4px solid var(--ink);
+  padding-top: 10px;
+}
+
+.move-history h4 {
+  margin: 0 0 7px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.move-history ol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.move-history li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.move-history li span {
+  color: var(--red);
+  font-weight: 900;
+}
+
+.move-history li strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 80px;
+  font-weight: 900;
+}
+
+.move-history li em {
+  color: var(--brown);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.result-panel .result-main {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.6;
+}
+
+.result-panel .result-sub {
+  margin: 0 0 14px;
+  color: var(--brown);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .board-legend {
@@ -399,7 +595,7 @@ input:focus {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  cursor: crosshair;
+  cursor: default;
 }
 
 .board-bg {
@@ -429,7 +625,7 @@ input:focus {
   fill: var(--red);
 }
 
-.pending-marker {
+.last-marker {
   fill: none;
   stroke: var(--gold);
   stroke-width: 4;

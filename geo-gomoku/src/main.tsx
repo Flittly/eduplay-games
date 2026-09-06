@@ -9,7 +9,7 @@ import type {
 import "./styles.css";
 
 const gameCode = "geo_gomoku";
-const version = "0.1.0";
+const version = "0.1.3";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {
