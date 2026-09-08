@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- 纸墨拼贴 · 山河三消 · 朱红 -->
+  <rect x="9" y="11" width="104" height="104" rx="14" fill="#2b2620"/>
+  <rect x="6" y="6" width="104" height="104" rx="14" fill="#f7f1e3" stroke="#2b2620" stroke-width="3"/>
+  <!-- 三张要素卡：轮廓 / 简称 / 行政中心 -->
+  <g transform="rotate(-8 44 66)">
+    <rect x="26" y="40" width="34" height="44" rx="4" fill="#fdf8ec" stroke="#2b2620" stroke-width="2.5"/>
+    <path d="M34,62 L39,52 L47,49 L52,53 L56,50 L58,58 L54,64 L58,68 L52,74 L44,72 L38,75 L34,68 Z"
+          fill="#2f6db3" stroke="#2b2620" stroke-width="1.8" stroke-linejoin="round"/>
+  </g>
+  <g transform="rotate(2 60 62)">
+    <rect x="44" y="36" width="34" height="44" rx="4" fill="#fdf8ec" stroke="#2b2620" stroke-width="2.5"/>
+    <text x="61" y="66" font-family="'Kaiti SC','STKaiti',KaiTi,serif" font-size="24" fill="#c94f43"
+          text-anchor="middle" font-weight="bold">粤</text>
+  </g>
+  <g transform="rotate(11 78 62)">
+    <rect x="62" y="40" width="34" height="44" rx="4" fill="#fdf8ec" stroke="#2b2620" stroke-width="2.5"/>
+    <text x="79" y="60" font-family="'Kaiti SC','STKaiti',KaiTi,serif" font-size="13" fill="#2b2620"
+          text-anchor="middle" font-weight="bold">广州</text>
+    <rect x="68" y="66" width="22" height="3" rx="1.5" fill="#c94f43"/>
+  </g>
+  <!-- 消除火花 -->
+  <g stroke="#c94f43" stroke-width="2.5" stroke-linecap="round">
+    <line x1="96" y1="34" x2="101" y2="29"/>
+    <line x1="99" y1="44" x2="106" y2="43"/>
+  </g>
+  <!-- 印章 -->
+  <rect x="14" y="14" width="22" height="22" rx="4" fill="#c94f43" stroke="#2b2620" stroke-width="2.5"/>
+  <text x="25" y="31" font-family="'Kaiti SC','STKaiti',KaiTi,serif" font-size="15" fill="#fdf8ec" text-anchor="middle" font-weight="bold">消</text>
+</svg>

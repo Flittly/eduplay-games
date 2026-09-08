@@ -1,0 +1,12 @@
+{
+  "gameCode": "shanhe_match3",
+  "name": "山河三消",
+  "version": "0.1.0",
+  "minPlatformVersion": "0.1.0",
+  "maxPlatformVersion": "1.0.0",
+  "type": "iframe",
+  "sdkVersion": "1",
+  "entry": "web/index.html",
+  "backendPlugin": null,
+  "description": "省级行政区三要素匹配消消乐：集齐同一省份的轮廓、简称、行政中心三张卡牌即可消除，三层难度适配课前课中课后。"
+}
