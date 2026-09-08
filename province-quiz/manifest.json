@@ -1,12 +1,13 @@
 {
   "gameCode": "province_quiz",
   "name": "省级行政区识别",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
   "sdkVersion": "1",
   "entry": "web/index.html",
+  "cover": "web/cover.svg",
   "backendPlugin": null,
   "description": "根据省级行政区轮廓与提示选择名称，适合初中地理复习。"
 }

@@ -1,12 +1,13 @@
 {
   "gameCode": "province_puzzle",
   "name": "行政区拼图",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
   "sdkVersion": "1",
   "entry": "web/index.html",
+  "cover": "web/cover.svg",
   "backendPlugin": null,
   "description": "拖动省级行政区到地图正确位置，支持教师自定义积分、多人轮流计时排行，含南海诸岛小地图。"
 }
