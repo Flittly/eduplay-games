@@ -54,10 +54,30 @@ const DEFAULT_RULES: ScoreRules = {
   drawPoints: 10
 };
 
-// 经线：东经 60°—130°，每 5° 一条。
-const LONGS = Array.from({ length: GRID }, (_, index) => 60 + index * 5);
-// 纬线：北纬 70°—0°，从上往下排列。
-const LATS = Array.from({ length: GRID }, (_, index) => 70 - index * 5);
+// 棋盘经纬度范围：每局随机生成，避免学生死记固定范围。
+// 网格固定 15 条线、间隔 5°，因此每轴跨度恒为 70°，只随机平移窗口位置。
+// 纬度窗口：底部最低 0°、顶部最高 90°（北纬）；
+// 经度窗口：左侧最低 0°、右侧最高 180°（东经）。
+interface BoardRange {
+  latTop: number;
+  lonLeft: number;
+}
+
+const LAT_TOPS = [70, 75, 80, 85, 90];
+const LON_LEFTS = Array.from({ length: 23 }, (_, index) => index * 5);
+
+function randomBoardRange(): BoardRange {
+  return {
+    latTop: LAT_TOPS[Math.floor(Math.random() * LAT_TOPS.length)],
+    lonLeft: LON_LEFTS[Math.floor(Math.random() * LON_LEFTS.length)]
+  };
+}
+
+function buildAxes(range: BoardRange) {
+  const lats = Array.from({ length: GRID }, (_, index) => range.latTop - index * 5);
+  const lons = Array.from({ length: GRID }, (_, index) => range.lonLeft + index * 5);
+  return { lats, lons };
+}
 
 type Phase = "setup" | "playing" | "roundDone";
 type GameMode = "pvp" | "ai";
@@ -288,6 +308,14 @@ export default function GeoGomoku({
   const [rulesEditorOpen, setRulesEditorOpen] = useState(false);
   const [matchNo, setMatchNo] = useState(1);
   const [finishedMatches, setFinishedMatches] = useState(0);
+  const [range, setRange] = useState<BoardRange>(() => randomBoardRange());
+
+  const { lats: LATS, lons: LONGS } = useMemo(
+    () => buildAxes(range),
+    [range]
+  );
+  const latBottom = range.latTop - 70;
+  const lonRight = range.lonLeft + 70;
 
   const completedIds = useMemo(
     () => new Set(records.map((record) => record.player.studentId)),
@@ -425,18 +453,20 @@ export default function GeoGomoku({
       return;
     }
     if (
-      lat < 0 ||
-      lat > 70 ||
-      lon < 60 ||
-      lon > 130 ||
+      lat < latBottom ||
+      lat > range.latTop ||
+      lon < range.lonLeft ||
+      lon > lonRight ||
       lat % 5 !== 0 ||
       lon % 5 !== 0
     ) {
-      setInputError("本棋盘纬度为 0°—70°、经度为 60°—130°，且必须是 5° 的倍数");
+      setInputError(
+        `本棋盘纬度为北纬 ${latBottom}°—${range.latTop}°、经度为东经 ${range.lonLeft}°—${lonRight}°，且必须是 5° 的倍数`
+      );
       return;
     }
-    const row = (70 - lat) / 5;
-    const col = (lon - 60) / 5;
+    const row = (range.latTop - lat) / 5;
+    const col = (lon - range.lonLeft) / 5;
     if (board[row][col] !== null) {
       setInputError("该交点已有棋子，请换一个坐标");
       return;
@@ -588,6 +618,7 @@ export default function GeoGomoku({
     );
     const need = gameMode === "ai" ? 1 : 2;
     setMatchNo((value) => value + 1);
+    setRange(randomBoardRange());
     resetBoard();
     if (available.length >= need) {
       setPairAId(available[0].studentId);
@@ -685,6 +716,20 @@ export default function GeoGomoku({
               <div className="rules-summary">
                 胜方 +{rules.winPoints} · 负方 +{rules.losePoints} · 平局 +
                 {rules.drawPoints}
+              </div>
+
+              <div className="range-summary">
+                <span>
+                  本局棋盘：北纬 {latBottom}°—{range.latTop}° · 东经{" "}
+                  {range.lonLeft}°—{lonRight}°
+                </span>
+                <button
+                  type="button"
+                  className="control-btn range-reroll"
+                  onClick={() => setRange(randomBoardRange())}
+                >
+                  换一个范围
+                </button>
               </div>
 
               <div className="mode-select">
@@ -894,6 +939,10 @@ export default function GeoGomoku({
             {phase === "playing" && (
               <aside className="coordinate-panel">
                 <h3>输入坐标落子</h3>
+                <p className="coord-range-hint">
+                  本棋盘：北纬 {latBottom}°—{range.latTop}° · 东经{" "}
+                  {range.lonLeft}°—{lonRight}°
+                </p>
                 <p className="coord-current">
                   <span
                     className={

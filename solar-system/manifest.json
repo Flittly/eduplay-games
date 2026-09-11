@@ -1,0 +1,13 @@
+{
+  "gameCode": "solar_system",
+  "name": "寰宇太阳系",
+  "version": "1.0.0",
+  "minPlatformVersion": "0.1.0",
+  "maxPlatformVersion": "2.0.0",
+  "type": "iframe",
+  "sdkVersion": "1",
+  "entry": "web/index.html",
+  "cover": "web/cover.svg",
+  "backendPlugin": null,
+  "description": "三维交互太阳系：按真实偏心率与倾角绘制的八大行星轨道、自转轴倾角与自转、太阳与主要卫星、小行星带与柯伊伯带。可调节时间流速观察公转与自转，点击任意天体查看图文档案（直径、距日、公转与自转周期、卫星数量等），适合八年级地球与宇宙单元教学。"
+}

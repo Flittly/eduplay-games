@@ -1,0 +1,422 @@
+:root {
+  --paper: #f2e8d5;
+  --paper-dim: #e6d8bd;
+  --ink: #1a1a1a;
+  --red: #cc0000;
+  --gold: #d4a843;
+  --brown: #8b4513;
+  --space: #04060f;
+  --space-soft: rgba(18, 32, 58, 0.78);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family:
+    "Arial Black",
+    "Franklin Gothic Heavy",
+    "Microsoft YaHei",
+    "PingFang SC",
+    sans-serif;
+  background: var(--space);
+  color: var(--paper);
+  overflow: hidden;
+  font-weight: 800;
+}
+
+button,
+input {
+  font: inherit;
+  border-radius: 0 !important;
+}
+
+/* ---------- 布局 ---------- */
+.solar-app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.solar-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.solar-canvas canvas {
+  display: block;
+}
+
+/* ---------- 标题 ---------- */
+.solar-title {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 3px solid #2b2620;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  padding: 10px 18px 12px;
+  max-width: 280px;
+}
+
+.solar-title h1 {
+  font-size: 22px;
+  letter-spacing: 0.08em;
+}
+
+.solar-title span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--brown);
+  letter-spacing: 0.16em;
+}
+
+/* ---------- 时间 HUD ---------- */
+.solar-hud {
+  position: absolute;
+  left: 18px;
+  top: 108px;
+  background: var(--space-soft);
+  border: 1px solid rgba(212, 168, 67, 0.55);
+  padding: 8px 14px;
+  min-width: 190px;
+  backdrop-filter: blur(3px);
+}
+
+.hud-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+.hud-label {
+  color: rgba(226, 236, 255, 0.72);
+  letter-spacing: 0.1em;
+}
+
+.hud-row strong {
+  color: var(--gold);
+}
+
+/* ---------- 控制面板 ---------- */
+.solar-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  bottom: 56px;
+  width: 286px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 3px solid #2b2620;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  padding: 12px 14px 16px;
+  overflow-y: auto;
+}
+
+.solar-panel section + section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed rgba(43, 38, 32, 0.28);
+}
+
+.solar-panel h2 {
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--brown);
+  margin-bottom: 8px;
+}
+
+/* ---------- 天体导航 ---------- */
+.body-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.body-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  text-align: left;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+}
+
+.body-chip:hover {
+  background: #dccfae;
+}
+
+.body-chip.is-active {
+  background: var(--gold);
+}
+
+.chip-dot {
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgba(20, 16, 10, 0.5);
+  flex-shrink: 0;
+}
+
+/* ---------- 天体档案 ---------- */
+.info-card {
+  border: 2px solid #2b2620;
+  background: rgba(255, 252, 244, 0.7);
+  padding: 10px;
+}
+
+.info-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.info-head strong {
+  font-size: 17px;
+}
+
+.info-en {
+  font-size: 11px;
+  color: #6b6154;
+  letter-spacing: 0.06em;
+}
+
+.info-kind {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--gold);
+  color: #4a3208;
+  border: 1px solid #8a5a12;
+}
+
+.info-parent {
+  display: block;
+  margin-bottom: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+}
+
+.info-desc {
+  font-size: 12px;
+  line-height: 1.85;
+  color: #33302a;
+  font-weight: 400;
+  margin-bottom: 8px;
+}
+
+.facts-table {
+  list-style: none;
+}
+
+.facts-table li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px dashed rgba(43, 38, 32, 0.22);
+}
+
+.facts-table span {
+  color: #6b6154;
+  flex-shrink: 0;
+}
+
+.facts-table strong {
+  text-align: right;
+}
+
+.moon-chips {
+  margin-top: 10px;
+}
+
+.moon-title {
+  display: block;
+  font-size: 11px;
+  color: var(--brown);
+  margin-bottom: 5px;
+  letter-spacing: 0.1em;
+}
+
+.moon-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.moon-chip {
+  padding: 3px 8px;
+  font-size: 11px;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+}
+
+.moon-chip:hover {
+  background: var(--gold);
+}
+
+.info-empty {
+  font-size: 12px;
+  line-height: 1.85;
+  color: #6b6154;
+  font-weight: 400;
+}
+
+/* ---------- 时间控制 ---------- */
+.time-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.time-actions.is-two {
+  grid-template-columns: 1fr 1fr;
+}
+
+.time-actions button {
+  padding: 6px 0;
+  font-size: 11px;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+}
+
+.time-actions button:hover {
+  background: #dccfae;
+}
+
+.time-actions button.is-on {
+  background: var(--gold);
+}
+
+.speed-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.speed-slider span {
+  flex-shrink: 0;
+}
+
+.speed-slider input[type="range"] {
+  flex: 1;
+  accent-color: #d4a843;
+}
+
+.speed-slider strong {
+  flex-shrink: 0;
+  min-width: 86px;
+  text-align: right;
+  font-size: 11px;
+  color: #8a5a12;
+}
+
+/* ---------- 图层 ---------- */
+.layer-list {
+  list-style: none;
+}
+
+.layer-list li + li {
+  margin-top: 5px;
+}
+
+.layer-list label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.layer-list input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #d4a843;
+}
+
+.layer-chip {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(20, 16, 10, 0.5);
+}
+
+/* ---------- 视角 ---------- */
+.view-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.view-actions button {
+  padding: 6px 0;
+  font-size: 11px;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+}
+
+.view-actions button:hover {
+  background: #dccfae;
+}
+
+.view-actions .view-wide {
+  grid-column: 1 / -1;
+}
+
+/* ---------- 其他 ---------- */
+.roster-names {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #2b2620;
+}
+
+.solar-note {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 2px dashed rgba(43, 38, 32, 0.28);
+  font-size: 11px;
+  line-height: 1.8;
+  color: #6b6154;
+  font-weight: 400;
+}
+
+.solar-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  background: var(--space-soft);
+  border: 1px solid rgba(212, 168, 67, 0.55);
+  color: var(--paper);
+  padding: 7px 22px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}

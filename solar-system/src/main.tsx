@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import ShanheMatch3 from "./ShanheMatch3";
-import type { PlayerInfo, RoundRecord, RoundResult } from "./ShanheMatch3";
+import SolarSystem from "./SolarSystem";
+import type { PlayerInfo } from "./SolarSystem";
 import "./styles.css";
 
-const gameCode = "shanhe_match3";
-const version = "0.1.1";
+const gameCode = "solar_system";
+const version = "1.0.0";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {
@@ -24,57 +24,8 @@ function notifyReady() {
   });
 }
 
-function newRoundId(): string {
-  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function notifyComplete(player: PlayerInfo, result: RoundResult) {
-  postToPlatform({
-    source: "eduplay-game",
-    type: "GAME_COMPLETE",
-    payload: {
-      roundId: newRoundId(),
-      studentId: player.studentId,
-      studentName: player.studentName,
-      className: player.className,
-      timeSeconds: result.timeSeconds,
-      score: result.score,
-      correctCount: result.correctCount,
-      totalCount: result.totalCount
-    }
-  });
-}
-
-function notifySessionEnd(records: RoundRecord[]) {
-  postToPlatform({
-    source: "eduplay-game",
-    type: "GAME_SESSION_COMPLETE",
-    payload: {
-      gameCode,
-      version,
-      results: records.map((record) => ({
-        studentId: record.player.studentId,
-        studentName: record.player.studentName,
-        className: record.player.className,
-        studentNo: record.player.studentNo ?? null,
-        score: record.result.score,
-        timeSeconds: record.result.timeSeconds,
-        correctCount: record.result.correctCount,
-        totalCount: record.result.totalCount,
-        mistakes: record.wrongAnswers
-      }))
-    }
-  });
-}
-
 interface InitPayload {
   roster?: unknown;
-  studentId?: unknown;
-  studentName?: unknown;
-  className?: unknown;
-  studentNo?: unknown;
 }
 
 function toPlayer(
@@ -125,10 +76,7 @@ function parseRoster(payload: InitPayload): PlayerInfo[] {
     }
     return players;
   }
-
-  // 兼容旧版平台：只下发单个学生。
-  const single = toPlayer(payload as Record<string, unknown>);
-  return single ? [single] : [];
+  return [];
 }
 
 function GameApp() {
@@ -156,22 +104,8 @@ function GameApp() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  if (roster.length === 0) {
-    return (
-      <div className="init-card">
-        <h1>山河三消</h1>
-        <p>正在等待平台下发学生名单…</p>
-      </div>
-    );
-  }
-
-  return (
-    <ShanheMatch3
-      roster={roster}
-      onComplete={notifyComplete}
-      onSessionEnd={notifySessionEnd}
-    />
-  );
+  // 太阳系是课堂演示型应用：不等待名单，打开即可教学。
+  return <SolarSystem roster={roster} />;
 }
 
 const container = document.getElementById("root");

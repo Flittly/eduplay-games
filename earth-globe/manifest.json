@@ -1,0 +1,13 @@
+{
+  "gameCode": "earth_globe",
+  "name": "寰宇地球仪",
+  "version": "1.2.0",
+  "minPlatformVersion": "0.1.0",
+  "maxPlatformVersion": "1.0.0",
+  "type": "iframe",
+  "sdkVersion": "1",
+  "entry": "web/index.html",
+  "cover": "web/cover.svg",
+  "backendPlugin": null,
+  "description": "三维交互地球仪：赤道、回归线、极圈、本初子午线以鲜明色彩标注并显示经纬度；真实昼夜光照与晨昏线；可演示太阳直射点、直射带，一键切换春分/夏至/秋分/冬至或用滑杆连续调节直射点纬度，适合八年级地球运动教学。"
+}

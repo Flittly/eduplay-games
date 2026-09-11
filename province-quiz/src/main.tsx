@@ -10,7 +10,7 @@ import type {
 import "./styles.css";
 
 const gameCode = "province_quiz";
-const version = "0.2.0";
+const version = "0.2.2";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {

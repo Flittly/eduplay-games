@@ -1,0 +1,337 @@
+:root {
+  --paper: #f2e8d5;
+  --paper-dim: #e6d8bd;
+  --ink: #1a1a1a;
+  --red: #cc0000;
+  --gold: #d4a843;
+  --brown: #8b4513;
+  --space: #070c16;
+  --space-soft: rgba(18, 32, 58, 0.78);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family:
+    "Arial Black",
+    "Franklin Gothic Heavy",
+    "Microsoft YaHei",
+    "PingFang SC",
+    sans-serif;
+  background: var(--space);
+  color: var(--paper);
+  overflow: hidden;
+  font-weight: 800;
+}
+
+button,
+input {
+  font: inherit;
+  border-radius: 0 !important;
+}
+
+/* ---------- 布局 ---------- */
+.globe-app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.globe-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.globe-canvas canvas {
+  display: block;
+}
+
+/* ---------- 标题 ---------- */
+.globe-title {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 3px solid #2b2620;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  padding: 10px 18px 12px;
+  max-width: 260px;
+}
+
+.globe-title h1 {
+  font-size: 22px;
+  letter-spacing: 0.08em;
+}
+
+.globe-title span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--brown);
+  letter-spacing: 0.2em;
+}
+
+/* ---------- 控制面板 ---------- */
+.globe-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  bottom: 60px;
+  width: 252px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 3px solid #2b2620;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  padding: 12px 14px;
+  overflow-y: auto;
+}
+
+.globe-panel section + section {
+  margin-top: 14px;
+  border-top: 2px dashed rgba(43, 38, 32, 0.35);
+  padding-top: 12px;
+}
+
+.globe-panel h2 {
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  color: var(--brown);
+  margin-bottom: 8px;
+}
+
+/* 图层列表 */
+.layer-list {
+  list-style: none;
+}
+
+.layer-list li + li {
+  margin-top: 5px;
+}
+
+.layer-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+
+.layer-list input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--brown);
+  cursor: pointer;
+  flex: none;
+}
+
+.layer-chip {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #2b2620;
+  flex: none;
+}
+
+.layer-label {
+  font-weight: 800;
+}
+
+/* 坐标读取 */
+.coord-card {
+  background: #fdf8ec;
+  border: 2px solid #2b2620;
+  padding: 10px;
+}
+
+.coord-row {
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  color: #2b2620;
+}
+
+.coord-row + .coord-row {
+  margin-top: 4px;
+}
+
+.coord-decimal {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(43, 38, 32, 0.65);
+  font-weight: 700;
+}
+
+.coord-clear {
+  margin-top: 8px;
+  width: 100%;
+  padding: 6px 0;
+  font-size: 12px;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+}
+
+.coord-clear:hover {
+  background: #dccfae;
+}
+
+.coord-empty {
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(43, 38, 32, 0.75);
+  font-weight: 700;
+}
+
+/* 视角按钮 */
+.view-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.view-actions button {
+  padding: 7px 0;
+  font-size: 12px;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+}
+
+.view-actions button:hover {
+  background: #dccfae;
+}
+
+.view-actions button.is-on {
+  background: var(--gold);
+}
+
+/* 四季切换 */
+.season-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.season-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0 6px;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+}
+
+.season-btn small {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #6b6154;
+}
+
+.season-btn:hover {
+  background: #dccfae;
+}
+
+.season-btn.is-active {
+  background: var(--gold);
+  border-color: #8a5a12;
+}
+
+.season-btn.is-active small {
+  color: #5c3d08;
+}
+
+/* 直射点纬度滑杆 */
+.decl-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 8px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #2b2620;
+}
+
+.decl-slider span {
+  flex-shrink: 0;
+}
+
+.decl-slider input[type="range"] {
+  flex: 1;
+  accent-color: #e0a83c;
+}
+
+.decl-slider strong {
+  flex-shrink: 0;
+  min-width: 62px;
+  text-align: right;
+  color: #8a5a12;
+}
+
+/* 季节说明 */
+.season-note {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.75;
+  color: #4a4033;
+  background: rgba(224, 168, 60, 0.16);
+  border-left: 3px solid var(--gold);
+}
+
+/* 观摩学生 */
+.roster-names {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #2b2620;
+}
+
+/* ---------- 底部提示 ---------- */
+.globe-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  background: var(--space-soft);
+  border: 1px solid rgba(212, 168, 67, 0.55);
+  color: var(--paper);
+  padding: 7px 22px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 760px) {
+  .globe-panel {
+    width: 210px;
+    top: auto;
+    bottom: 56px;
+    max-height: 52vh;
+  }
+
+  .globe-title {
+    padding: 8px 14px 10px;
+  }
+
+  .globe-title h1 {
+    font-size: 18px;
+  }
+}

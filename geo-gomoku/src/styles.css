@@ -933,3 +933,32 @@ input:focus {
     animation: none !important;
   }
 }
+
+/* 每局随机经纬度范围 */
+.range-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 3px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.range-reroll {
+  flex-shrink: 0;
+}
+
+.coord-range-hint {
+  margin: 0 0 12px;
+  padding: 6px 8px;
+  border: 2px dashed var(--ink);
+  background: var(--paper);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}

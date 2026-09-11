@@ -1,7 +1,7 @@
 {
   "gameCode": "geo_gomoku",
   "name": "经纬度五子棋",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
