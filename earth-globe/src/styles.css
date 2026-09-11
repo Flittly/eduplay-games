@@ -296,6 +296,77 @@ input {
   border-left: 3px solid var(--gold);
 }
 
+.spin-btn + .season-note {
+  margin-top: 10px;
+}
+
+/* 只读读数行（直射点纬度 / 日地距离） */
+.readout-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #2b2620;
+}
+
+.readout-row strong {
+  color: #8a5a12;
+  text-align: right;
+}
+
+/* 公转演示 */
+.spin-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 0;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+}
+
+.spin-btn:hover {
+  background: #dccfae;
+}
+
+.spin-btn.is-on {
+  background: var(--gold);
+  border-color: #8a5a12;
+}
+
+/* 教学提示 */
+.teach-note {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.75;
+  color: #33455f;
+  background: rgba(80, 120, 190, 0.12);
+  border-left: 3px solid #6f8fc9;
+}
+
+.teach-note + .teach-note {
+  margin-top: 8px;
+}
+
+.teach-note b {
+  color: #1d3f73;
+}
+
+.teach-note.is-warn {
+  background: rgba(204, 0, 0, 0.1);
+  border-left-color: var(--red);
+  color: #6b2020;
+}
+
+.teach-note.is-warn b {
+  color: #a3160b;
+}
+
 /* 观摩学生 */
 .roster-names {
   font-size: 12px;
