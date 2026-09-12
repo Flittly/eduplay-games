@@ -1,0 +1,145 @@
+{
+  "_README": {
+    "说明": "15 道题的人格测试题库。新增或修改题目只需改这个文件，无需改代码。",
+    "机制": "每个选项用 delta 给出对各人格维度的加减分（键名同 landforms.json 的 dimensions）。程序会把每题每个维度「可达到的最大绝对值」累加起来作为分母，把总分归一到 0-100；因此增删题目、调整分值都不需要手工维护权重。",
+    "维度键": ["thermal", "relief", "hardness", "dynamics", "moisture"],
+    "建议": "每个选项数值取 -2 ~ 2；一道题里的几个选项在同一维度上应尽量有正有负，才能拉开区分度。"
+  },
+  "questions": [
+    {
+      "id": "q1",
+      "text": "周五放学，同学临时喊你出去玩，你的第一反应是——",
+      "options": [
+        { "label": "走！顺便再多叫几个人，越热闹越好", "delta": { "thermal": 2, "dynamics": 1 } },
+        { "label": "先问清楚去哪儿、还有谁，再决定去不去", "delta": { "thermal": -1, "hardness": 1 } },
+        { "label": "算了，我更想按原来的计划做自己的事", "delta": { "thermal": -2, "dynamics": -1 } }
+      ]
+    },
+    {
+      "id": "q2",
+      "text": "和刚认识的人单独待在一个空间里，你多半会——",
+      "options": [
+        { "label": "主动开口，两句话就能聊起来", "delta": { "thermal": 2, "moisture": 1 } },
+        { "label": "礼貌回应，等对方先起话题", "delta": { "thermal": -1, "moisture": -1 } },
+        { "label": "低头看手机，希望快点结束", "delta": { "thermal": -2, "moisture": -2 } }
+      ]
+    },
+    {
+      "id": "q3",
+      "text": "有人当众否定了你的想法，你会——",
+      "options": [
+        { "label": "当场就说回去，语气还挺直接", "delta": { "thermal": 2, "hardness": 2 } },
+        { "label": "先听完，回头再找机会讲一次", "delta": { "hardness": -1, "dynamics": -1 } },
+        { "label": "表面接受，心里不认同但也不争了", "delta": { "thermal": -2, "hardness": -2 } }
+      ]
+    },
+    {
+      "id": "q4",
+      "text": "给定目标的时候，你更倾向于——",
+      "options": [
+        { "label": "定一个远得有点吓人的目标", "delta": { "relief": 2, "dynamics": 1 } },
+        { "label": "按部就班往前走，走到哪算哪", "delta": { "relief": -1, "dynamics": -1 } },
+        { "label": "不太定长期目标，走一步看一步", "delta": { "relief": -2, "dynamics": 1 } }
+      ]
+    },
+    {
+      "id": "q5",
+      "text": "遇到一个很难啃的问题，你通常——",
+      "options": [
+        { "label": "死磕，不搞明白不罢休", "delta": { "relief": 2, "hardness": 2 } },
+        { "label": "先放一放，过一阵再回头看", "delta": { "relief": -1, "hardness": -1 } },
+        { "label": "绕过去，找一条更省力的路", "delta": { "relief": -2, "hardness": -2 } }
+      ]
+    },
+    {
+      "id": "q6",
+      "text": "在一个小组里，你更容易成为——",
+      "options": [
+        { "label": "拿主意、带节奏的那个人", "delta": { "relief": 2, "dynamics": 1 } },
+        { "label": "不显眼，但事情都靠你落地的那个人", "delta": { "relief": -2, "moisture": 1 } },
+        { "label": "哪里缺人补哪里，配合度很高的那个人", "delta": { "relief": -1, "moisture": 2 } }
+      ]
+    },
+    {
+      "id": "q7",
+      "text": "原定的计划被临时打乱了，你会——",
+      "options": [
+        { "label": "既然变了就顺势改，走得比原来更野", "delta": { "hardness": 1, "dynamics": 2 } },
+        { "label": "先稳住，把还能控制的部分做好", "delta": { "hardness": -1, "dynamics": -1 } },
+        { "label": "心里很别扭，但还是照着原样做完", "delta": { "hardness": 2, "dynamics": -2 } }
+      ]
+    },
+    {
+      "id": "q8",
+      "text": "朋友半夜发消息来找你倾诉，你会——",
+      "options": [
+        { "label": "陪到对方说完，还会追问细节", "delta": { "hardness": -2, "moisture": 2 } },
+        { "label": "先帮对方理清问题，再给办法", "delta": { "hardness": 2, "moisture": -1 } },
+        { "label": "简单安慰几句，各自去睡吧", "delta": { "hardness": 1, "moisture": -2 } }
+      ]
+    },
+    {
+      "id": "q9",
+      "text": "被人误解的时候，你的第一反应是——",
+      "options": [
+        { "label": "马上解释，一定要说清楚", "delta": { "thermal": 2, "hardness": 1 } },
+        { "label": "看对方是谁，值不值得我解释", "delta": { "thermal": -1, "hardness": 1 } },
+        { "label": "算了，懂我的人不用解释", "delta": { "thermal": -2, "hardness": -1 } }
+      ]
+    },
+    {
+      "id": "q10",
+      "text": "你的情绪起伏大概是——",
+      "options": [
+        { "label": "来得快去得也快，大起大落", "delta": { "dynamics": 2, "moisture": 1 } },
+        { "label": "不太明显，但会持续很久", "delta": { "dynamics": -1, "moisture": 1 } },
+        { "label": "基本很平，很少被什么影响", "delta": { "dynamics": -2, "moisture": -2 } }
+      ]
+    },
+    {
+      "id": "q11",
+      "text": "如果有一周完全自由的时间，你会选——",
+      "options": [
+        { "label": "去一个从没去过的地方，路线随便", "delta": { "dynamics": 2, "relief": 1 } },
+        { "label": "找个安静舒适的地方待着，什么都不干", "delta": { "dynamics": -2, "relief": -1 } },
+        { "label": "把家里收拾一遍，顺手把拖很久的事做完", "delta": { "dynamics": -1, "relief": -2 } }
+      ]
+    },
+    {
+      "id": "q12",
+      "text": "做决定的时候，你更依赖——",
+      "options": [
+        { "label": "当下的直觉，感觉对了就上", "delta": { "dynamics": 2, "thermal": 2 } },
+        { "label": "列一遍利弊，慢慢比较", "delta": { "dynamics": -2, "thermal": -1 } },
+        { "label": "问问身边亲近的人怎么想", "delta": { "dynamics": -1, "moisture": 2 } }
+      ]
+    },
+    {
+      "id": "q13",
+      "text": "和人相处，你的边界感是——",
+      "options": [
+        { "label": "界限很清楚，你的归你、我的归我", "delta": { "moisture": -2, "hardness": 2 } },
+        { "label": "看关系，熟了之后就没什么边界", "delta": { "moisture": 2, "hardness": -1 } },
+        { "label": "不太会拒绝别人，常被占用时间", "delta": { "moisture": 2, "hardness": -2 } }
+      ]
+    },
+    {
+      "id": "q14",
+      "text": "更让你满足的是——",
+      "options": [
+        { "label": "做成一件别人做不到的事", "delta": { "moisture": -1, "relief": 2 } },
+        { "label": "和一群合得来的人一起把事做成", "delta": { "moisture": 2, "relief": 1 } },
+        { "label": "一个人安安静静地把喜欢的事做好", "delta": { "moisture": -2, "relief": -2 } }
+      ]
+    },
+    {
+      "id": "q15",
+      "text": "心情不好的时候，你更想——",
+      "options": [
+        { "label": "找人聊聊，把情绪说出来", "delta": { "moisture": 2, "thermal": 2 } },
+        { "label": "一个人待着，慢慢消化", "delta": { "moisture": -2, "thermal": -2 } },
+        { "label": "干点别的转移注意力", "delta": { "moisture": 1, "dynamics": 2 } }
+      ]
+    }
+  ]
+}

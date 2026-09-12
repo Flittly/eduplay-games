@@ -1,0 +1,1273 @@
+{
+  "_README": {
+    "说明": "地貌人格测试的数据文件。新增一个地貌只需在 landforms 数组里追加一个对象，并把照片放到 public/assets/landforms/ 下，photo 字段写相对路径即可，无需改动任何代码、也无需重新构建（运行时按需加载）。",
+    "必填字段": [
+      "id",
+      "name",
+      "en",
+      "category",
+      "type",
+      "country",
+      "region",
+      "lat",
+      "lon",
+      "photo",
+      "summary",
+      "intro",
+      "traits",
+      "cause",
+      "personality",
+      "profile"
+    ],
+    "category 取值": [
+      "domestic（中国地貌）",
+      "international（国外地貌）"
+    ],
+    "profile 取值": "五个维度各 0-100 的整数，键名必须是 thermal / relief / hardness / dynamics / moisture（见 dimensions）",
+    "lat_lon": "WGS84 十进制度，纬度北正南负、经度东正西负；微缩地图用它在对应投影下标红点"
+  },
+  "dimensions": [
+    {
+      "key": "thermal",
+      "name": "温度",
+      "lowLabel": "冷静内敛",
+      "highLabel": "炽热张扬",
+      "lowDesc": "你像常年低温的地方，热度收在里面，情绪不外放。",
+      "highDesc": "你像被烈日晒透的地方，热情直接，存在感很强。"
+    },
+    {
+      "key": "relief",
+      "name": "起伏",
+      "lowLabel": "平和低调",
+      "highLabel": "高远出众",
+      "lowDesc": "你像平原与盆地，不争高低，稳稳地待在自己那一层。",
+      "highDesc": "你像高原与高峰，心气很高，不肯把自己放平。"
+    },
+    {
+      "key": "hardness",
+      "name": "质地",
+      "lowLabel": "柔韧随和",
+      "highLabel": "刚强棱角",
+      "lowDesc": "你像松软的堆积物，能弯、能容，不轻易和人起冲突。",
+      "highDesc": "你像坚硬的岩体，立场清楚，棱角分明，不肯被磨圆。"
+    },
+    {
+      "key": "dynamics",
+      "name": "动态",
+      "lowLabel": "沉静恒定",
+      "highLabel": "激荡多变",
+      "lowDesc": "你像安静的湖面，变化很慢，但一直没停。",
+      "highDesc": "你像瀑布与涌潮，情绪和行动都来得猛烈。"
+    },
+    {
+      "key": "moisture",
+      "name": "水意",
+      "lowLabel": "独立自持",
+      "highLabel": "丰盈亲和",
+      "lowDesc": "你像干旱区，界线清楚，很少向外界索取。",
+      "highDesc": "你像湿润区，情感充沛，天生让人想靠近。"
+    }
+  ],
+  "landforms": [
+    {
+      "id": "qinghai_tibet",
+      "name": "青藏高原",
+      "en": "Qinghai-Tibet Plateau",
+      "category": "domestic",
+      "type": "高原",
+      "country": "中国",
+      "region": "青海 · 西藏",
+      "lat": 33.0,
+      "lon": 88.0,
+      "photo": "./assets/landforms/qinghai_tibet.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/images/20180208/f88050fbd20c43ae8e5633e20d84d94a.jpeg",
+      "summary": "世界屋脊，中国地势的第一级阶梯",
+      "intro": "青藏高原平均海拔 4000 米以上，是世界上最高、最年轻的高原，被称为「世界屋脊」「地球第三极」。它是印度板块与亚欧板块碰撞挤压抬升的产物，至今仍在长高。",
+      "traits": [
+        "平均海拔 4000 米以上，面积约 250 万平方千米",
+        "冰川、冻土广布，是长江、黄河、澜沧江的发源地",
+        "空气稀薄、日照强烈，昼夜温差极大",
+        "高原面内部起伏和缓，边缘却陡降到峡谷与盆地"
+      ],
+      "cause": "约 5000 万年前印度板块向北俯冲挤压亚欧板块，地壳大幅增厚隆起而成，如今仍以每年数毫米的速度抬升。",
+      "personality": "你像青藏高原：站得高、看得远，却不爱喧哗。你内心有一套很高的标准，对人对己都不将就；平时安静得像稀薄的空气，可一旦认定了方向，就有把整块大陆顶起来的力量。你不太合群，但你是别人愿意仰望的那种可靠。",
+      "profile": {
+        "thermal": 6,
+        "relief": 98,
+        "hardness": 72,
+        "dynamics": 45,
+        "moisture": 42
+      }
+    },
+    {
+      "id": "everest",
+      "name": "珠穆朗玛峰",
+      "en": "Mount Everest",
+      "category": "domestic",
+      "type": "山峰",
+      "country": "中国",
+      "region": "西藏 · 喜马拉雅山脉",
+      "lat": 27.988,
+      "lon": 86.925,
+      "photo": "./assets/landforms/everest.jpg",
+      "photoSource": "https://pic.rmb.bdstatic.com/bjh/down/ab33038803446058aa3e0d355eaa24fb.jpeg",
+      "summary": "地球最高点，海拔 8848.86 米",
+      "intro": "珠穆朗玛峰位于中国与尼泊尔边界，是喜马拉雅山脉的主峰，也是地球上海拔最高的地方。它的北坡在中国境内，山体呈巨大的金字塔形。",
+      "traits": [
+        "海拔 8848.86 米，是地球最高点",
+        "顶峰常年冰雪覆盖，风力常年在 8 级以上",
+        "山体呈巨型金字塔状，三面陡壁",
+        "从山脚到顶峰跨越雨林、草甸、冰雪多个垂直带"
+      ],
+      "cause": "印度板块持续挤压亚欧板块，喜马拉雅山脉被不断抬升；珠峰每年仍在升高约 4 毫米，同时被风化侵蚀削低。",
+      "personality": "你像珠穆朗玛峰：把「更高」当成唯一的坐标。你对自己要求极端，宁可在最难的地方待着，也不肯降低标准。别人觉得你冷酷，其实你只是把所有温度都用在了向上这一件事上。",
+      "profile": {
+        "thermal": 3,
+        "relief": 100,
+        "hardness": 96,
+        "dynamics": 55,
+        "moisture": 28
+      }
+    },
+    {
+      "id": "tianshan",
+      "name": "天山山脉",
+      "en": "Tian Shan",
+      "category": "domestic",
+      "type": "山地",
+      "country": "中国",
+      "region": "新疆",
+      "lat": 43.0,
+      "lon": 86.0,
+      "photo": "./assets/landforms/tianshan.jpg",
+      "photoSource": "https://img3.chinadaily.com.cn/images/202001/01/5e0cab7fa31099ab43d922b1.jpeg",
+      "summary": "把新疆分成南北两半的巨大山脉",
+      "intro": "天山横亘亚洲腹地，全长约 2500 千米，把新疆分成南疆和北疆。它深居干旱区，却因为海拔足够高，山顶常年积雪，成为沙漠包围中的「湿岛」。",
+      "traits": [
+        "全长约 2500 千米，最高峰托木尔峰 7443 米",
+        "山顶冰雪融水孕育了绿洲和伊犁河谷",
+        "南北坡景观差异极大——北坡湿润、南坡干旱",
+        "山地垂直自然带非常典型，是教科书的经典案例"
+      ],
+      "cause": "印度板块向北挤压，使古老的天山重新隆起，形成「再生造山带」，把干旱的塔里木盆地和准噶尔盆地隔开。",
+      "personality": "你像天山：外表冷硬，心里却藏着雪水。你在别人看来不好接近，但真正需要的时候，你总能给出最关键的那一份支撑。你习惯把自己放在两种力量的中间，做那个分界，也做那个连接。",
+      "profile": {
+        "thermal": 12,
+        "relief": 92,
+        "hardness": 78,
+        "dynamics": 48,
+        "moisture": 58
+      }
+    },
+    {
+      "id": "loess_plateau",
+      "name": "黄土高原",
+      "en": "Loess Plateau",
+      "category": "domestic",
+      "type": "黄土地貌",
+      "country": "中国",
+      "region": "陕西 · 山西 · 甘肃",
+      "lat": 36.6,
+      "lon": 109.5,
+      "photo": "./assets/landforms/loess_plateau.jpg",
+      "photoSource": "https://p8.itc.cn/q_70,a_auto,c_cut,x_0,y_0,w_2001,h_1334/images01/20210611/2c43725238bb47998515c49ef4c8eb11.jpeg",
+      "summary": "世界上最大的黄土堆积区，也是水土流失最严重的地方",
+      "intro": "黄土高原覆盖中国中部约 64 万平方千米，是世界上黄土分布最集中、最深厚的地方，黄土层最厚处超过 200 米，也是黄河泥沙的主要来源。",
+      "traits": [
+        "黄土层深厚疏松，垂直节理发育，可以挖窑洞居住",
+        "沟壑纵横、地表支离破碎，千沟万壑",
+        "暴雨集中，水土流失极为剧烈",
+        "黄河的泥沙九成来自这里，「一碗水半碗沙」"
+      ],
+      "cause": "西北内陆的风力搬来大量粉沙沉积成黄土；黄土疏松、暴雨集中、植被破坏，流水顺着节理切割出支离破碎的沟壑。",
+      "personality": "你像黄土高原：看起来随和好相处，其实内里早被刻满了沟壑。你经历的事比说出来的多得多，被误解也不解释。你柔软，可正是这份柔软让你被反复冲刷，也因此比谁都更懂「承受」这两个字。",
+      "profile": {
+        "thermal": 42,
+        "relief": 64,
+        "hardness": 34,
+        "dynamics": 72,
+        "moisture": 22
+      }
+    },
+    {
+      "id": "taklamakan",
+      "name": "塔克拉玛干沙漠",
+      "en": "Taklamakan Desert",
+      "category": "domestic",
+      "type": "沙漠",
+      "country": "中国",
+      "region": "新疆 · 塔里木盆地",
+      "lat": 39.0,
+      "lon": 83.0,
+      "photo": "./assets/landforms/taklamakan.jpg",
+      "photoSource": "https://b0.bdstatic.com/ugc/4lx5_8e0YCIpJw8v69JeNwb1c1aa52bf908c038dd765fabe7cd281.jpg@h_1280",
+      "summary": "中国最大的沙漠，世界第二大流动沙漠",
+      "intro": "塔克拉玛干位于新疆塔里木盆地中央，面积约 33 万平方千米。「塔克拉玛干」在维吾尔语中有「进得去出不来」的意思，可见其严酷。",
+      "traits": [
+        "沙丘最高可达 200 米以上，形态以新月形为主",
+        "约 85% 以上是流动沙丘，会随风整体移动",
+        "年降水量不足 50 毫米，沙漠腹地甚至不足 10 毫米",
+        "昼夜温差可达 40℃ 以上，「早穿皮袄午穿纱」"
+      ],
+      "cause": "深居内陆、四周高山阻挡水汽，极端干旱；地表松散沙质被强劲的西北风反复搬运堆积，形成巨大的沙丘群。",
+      "personality": "你像塔克拉玛干：极度独立，几乎不需要从别人那里取水。你可以长时间一个人待着，情绪起伏却不小——白天滚烫，夜里极冷。别人以为你荒芜，其实你只是把水分收得太深，轻易不肯给谁。",
+      "profile": {
+        "thermal": 92,
+        "relief": 30,
+        "hardness": 26,
+        "dynamics": 48,
+        "moisture": 3
+      }
+    },
+    {
+      "id": "mingsha_crescent",
+      "name": "敦煌鸣沙山月牙泉",
+      "en": "Mingsha Dunes & Crescent Lake",
+      "category": "domestic",
+      "type": "沙漠 · 湖泊",
+      "country": "中国",
+      "region": "甘肃 · 敦煌",
+      "lat": 40.09,
+      "lon": 94.67,
+      "photo": "./assets/landforms/mingsha_crescent.jpg",
+      "photoSource": "https://b0.bdstatic.com/dd998107250919005464285b97ba2ecb.jpg@h_1280",
+      "summary": "沙山环抱一弯清泉，千年不涸",
+      "intro": "鸣沙山在敦煌城南，月牙泉被沙山环抱，形如一弯新月。千百年来风沙不断，泉水却始终没有被埋没，被称为「沙漠第一泉」。",
+      "traits": [
+        "沙山在滑动时会因摩擦发出轰鸣，故名「鸣沙」",
+        "月牙泉水面不大，形如新月，深约 5 米",
+        "「沙不填泉、泉不涸竭」，共存上千年",
+        "位于丝绸之路要冲，是古代商旅的重要水源"
+      ],
+      "cause": "月牙泉处在沙丘之间的低洼处，地下潜流持续补给；特殊的地形与风向使沙粒沿山脊上扬，反而不会落进泉中。",
+      "personality": "你像月牙泉：被一大片「大家都这样」的沙包围着，却始终守着自己那一点不肯干涸的东西。你不吵不闹，但不随波逐流。真正走进你的人不多，可每一个来过的人都会记得这里。",
+      "profile": {
+        "thermal": 88,
+        "relief": 46,
+        "hardness": 30,
+        "dynamics": 44,
+        "moisture": 16
+      }
+    },
+    {
+      "id": "zhangye_danxia",
+      "name": "张掖七彩丹霞",
+      "en": "Zhangye Rainbow Danxia",
+      "category": "domestic",
+      "type": "丹霞地貌",
+      "country": "中国",
+      "region": "甘肃 · 张掖",
+      "lat": 38.93,
+      "lon": 100.13,
+      "photo": "./assets/landforms/zhangye_danxia.jpg",
+      "photoSource": "https://q4.itc.cn/images01/20240602/6e4ec192486d4fbfbb0b6d366b4b57c3.jpeg",
+      "summary": "被称作「大地的调色盘」",
+      "intro": "张掖七彩丹霞在甘肃张掖，是红色砂砾岩经长期风化剥离和流水侵蚀形成的彩色丘陵。岩层中不同的矿物，让它呈现出红、黄、橙、白、灰的清晰条纹。",
+      "traits": [
+        "岩层呈清晰的彩色条带，像被刷上去一样",
+        "丘陵起伏连绵，线条圆润，几乎没有植被覆盖",
+        "成景岩层形成于约 1.4 亿年前的白垩纪",
+        "彩色丘陵与丹霞崖壁、土林等多种形态组合在一起"
+      ],
+      "cause": "白垩纪红色砂砾岩沉积后，地壳抬升、岩层倾斜，不同矿物含量的层被风雨剥蚀，色带因此显露出来。",
+      "personality": "你像张掖丹霞：外表热闹缤纷，内里其实是一层层叠起来的时间。你不太掩饰自己的情绪，喜怒都写在脸上，别人一眼就能读懂你。但那些颜色不是你涂的，是你经历过的事一层层沉积下来的。",
+      "profile": {
+        "thermal": 60,
+        "relief": 58,
+        "hardness": 62,
+        "dynamics": 40,
+        "moisture": 12
+      }
+    },
+    {
+      "id": "guilin_karst",
+      "name": "桂林喀斯特",
+      "en": "Guilin Karst",
+      "category": "domestic",
+      "type": "喀斯特地貌",
+      "country": "中国",
+      "region": "广西 · 桂林",
+      "lat": 25.27,
+      "lon": 110.29,
+      "photo": "./assets/landforms/guilin_karst.jpg",
+      "photoSource": "https://i0.hdslb.com/bfs/archive/940e16e9ea384430ddbb1b313f29682d70aa37b6.jpg",
+      "summary": "峰林平原的典型，山水甲天下",
+      "intro": "桂林一带是典型的峰林平原：石灰岩被水溶蚀出孤立的石峰，漓江在峰林之间穿行，形成「江作青罗带，山如碧玉簪」的景观。",
+      "traits": [
+        "石峰孤立挺拔、密集分布，峰体多呈锥状",
+        "溶洞、地下河发育，洞内钟乳石密布",
+        "石灰岩可溶于水，遇含二氧化碳的水即被慢慢溶掉",
+        "常年湿润多雨，江水清碧，倒影如镜"
+      ],
+      "cause": "厚层石灰岩在高温多雨条件下被含二氧化碳的水长期溶蚀，山体被切割分离，最终留下一座座孤峰。",
+      "personality": "你像桂林山水：温柔但有骨架。你不擅长硬碰硬，却极有耐心——你懂得真正的改变靠的不是力量，而是时间。你身边总有人愿意停留，因为跟你在一起会觉得被理解。",
+      "profile": {
+        "thermal": 72,
+        "relief": 56,
+        "hardness": 58,
+        "dynamics": 30,
+        "moisture": 90
+      }
+    },
+    {
+      "id": "yunnan_stone_forest",
+      "name": "云南石林",
+      "en": "Yunnan Stone Forest",
+      "category": "domestic",
+      "type": "喀斯特地貌",
+      "country": "中国",
+      "region": "云南 · 昆明",
+      "lat": 24.81,
+      "lon": 103.32,
+      "photo": "./assets/landforms/yunnan_stone_forest.jpg",
+      "photoSource": "https://q0.itc.cn/images01/20240301/f3cf30a875614510bfed8fb637bbc915.jpeg",
+      "summary": "石峰像森林一样从地面长出来",
+      "intro": "云南石林在昆明石林彝族自治县，是石灰岩被溶蚀切割成的石柱群，石柱密集如林，被称为「天下第一奇观」，也是世界喀斯特石林发育最典型的地区。",
+      "traits": [
+        "石柱高 20~50 米，密集成林，一眼望不到边",
+        "石柱形态各异，像剑、像人、像兽，各不相同",
+        "石柱之间是深而窄的沟槽，穿行其中如走迷宫",
+        "是彝族撒尼人的故乡，《阿诗玛》的传说就在这里"
+      ],
+      "cause": "石灰岩被水沿垂直裂隙长期溶蚀，裂隙不断加宽加深，岩体被切成一根根独立的石柱，柱顶还残留着溶蚀的尖角。",
+      "personality": "你像石林：看着扎堆，其实每一根都是独立的。你有明确的边界和立场，不喜欢被磨圆。别人可能觉得你固执，可你只是不愿为了合群而改变自己的形状。",
+      "profile": {
+        "thermal": 62,
+        "relief": 60,
+        "hardness": 88,
+        "dynamics": 26,
+        "moisture": 55
+      }
+    },
+    {
+      "id": "zhangjiajie",
+      "name": "张家界石英砂岩峰林",
+      "en": "Zhangjiajie Sandstone Peaks",
+      "category": "domestic",
+      "type": "砂岩峰林",
+      "country": "中国",
+      "region": "湖南 · 张家界",
+      "lat": 29.32,
+      "lon": 110.43,
+      "photo": "./assets/landforms/zhangjiajie.jpg",
+      "photoSource": "https://pic.rmb.bdstatic.com/8cde99073d83a00b458da48acb701626.jpeg",
+      "summary": "三千奇峰拔地而起，世界罕见的砂岩峰林",
+      "intro": "张家界位于湖南西北，是石英砂岩被流水沿垂直节理切割、重力崩塌后形成的峰林，三千多座石峰直插云霄，也是电影《阿凡达》的取景地。",
+      "traits": [
+        "石峰高差常在 200 米以上，顶部平、壁面陡直",
+        "峰体几乎垂直，多数人迹难上，只能远观",
+        "云雾缭绕，四季景观变化极丰富",
+        "世界罕见的石英砂岩峰林地貌，已列入世界自然遗产"
+      ],
+      "cause": "厚层石英砂岩坚硬致密，被流水沿节理切割，加上重力崩塌，山体不断后退，最终残留成一根根孤立的方柱。",
+      "personality": "你像张家界：不愿被摆在同一水平线上。你习惯把自己拔高到别人上不去的位置，那里清净，但也孤独。你骨子里是硬的——被切割、被风化，你的形状反而越来越清楚。",
+      "profile": {
+        "thermal": 52,
+        "relief": 92,
+        "hardness": 86,
+        "dynamics": 34,
+        "moisture": 72
+      }
+    },
+    {
+      "id": "hukou_waterfall",
+      "name": "黄河壶口瀑布",
+      "en": "Hukou Waterfall",
+      "category": "domestic",
+      "type": "瀑布（河流地貌）",
+      "country": "中国",
+      "region": "山西 · 陕西（黄河）",
+      "lat": 36.15,
+      "lon": 110.45,
+      "photo": "./assets/landforms/hukou_waterfall.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/images/20171222/05913352daed42088a07e3c53e551963.jpeg",
+      "summary": "千里黄河一壶收",
+      "intro": "壶口瀑布在山西与陕西交界的黄河上，是黄河唯一的瀑布。河道从三百多米宽骤然收窄到二三十米，全部河水挤进一条深槽，形成「千里黄河一壶收」的奇观。",
+      "traits": [
+        "河面由 300 余米骤缩至 20~30 米，收窄十倍以上",
+        "落差约 20~30 米，水声如雷，水雾能升到几十米高",
+        "泥沙含量极大，是世界最浑浊的瀑布之一",
+        "因含沙量大，瀑布的水色常年是浑黄的"
+      ],
+      "cause": "黄河切穿吕梁山南端的坚硬岩层，下方软岩被水流掏空、上部岩层崩塌后退，形成陡坎，河水在此集中跌落。",
+      "personality": "你像壶口瀑布：平时能忍，一旦到了临界点，全部力量一次性砸下来。你从不慢慢表达情绪，要么沉默，要么万人皆知。你身上带着很多还没沉淀下来的东西，所以你活得比谁都用力。",
+      "profile": {
+        "thermal": 45,
+        "relief": 55,
+        "hardness": 66,
+        "dynamics": 100,
+        "moisture": 62
+      }
+    },
+    {
+      "id": "huangguoshu",
+      "name": "黄果树瀑布",
+      "en": "Huangguoshu Waterfall",
+      "category": "domestic",
+      "type": "瀑布（喀斯特）",
+      "country": "中国",
+      "region": "贵州 · 安顺",
+      "lat": 25.99,
+      "lon": 105.67,
+      "photo": "./assets/landforms/huangguoshu.jpg",
+      "photoSource": "https://p1.ssl.qhimgs1.com/t040e8e790cd6b94e0b.jpg",
+      "summary": "亚洲最大的瀑布，可以从里面看",
+      "intro": "黄果树瀑布在贵州安顺，宽 101 米、高 77.8 米，是亚洲最大的瀑布。瀑布后方有一个贯穿的水帘洞，人可以「从里面」看瀑布落下的样子。",
+      "traits": [
+        "宽 101 米、高 77.8 米，水量大而稳定",
+        "水帘洞横穿瀑后，有 6 个洞窗、5 个洞厅",
+        "水雾常年不散，附近植被极茂盛",
+        "是典型的喀斯特瀑布群，周边还有十余处瀑布"
+      ],
+      "cause": "白水河流经喀斯特地区，河床被溶蚀和塌陷形成落差，河水跌落成瀑；瀑布不断后退，陡崖位置也随之变化。",
+      "personality": "你像黄果树：声势很大，却不怕被人看穿。你愿意把人请进自己的水帘洞，让人从里往外看你的世界。你情绪来得快、去得也快，但你对身边的人是真的毫无保留。",
+      "profile": {
+        "thermal": 66,
+        "relief": 62,
+        "hardness": 55,
+        "dynamics": 96,
+        "moisture": 94
+      }
+    },
+    {
+      "id": "huanglong",
+      "name": "黄龙钙华池",
+      "en": "Huanglong Travertine Pools",
+      "category": "domestic",
+      "type": "钙华地貌",
+      "country": "中国",
+      "region": "四川 · 阿坝",
+      "lat": 32.75,
+      "lon": 103.82,
+      "photo": "./assets/landforms/huanglong.jpg",
+      "photoSource": "http://img.mp.itc.cn/upload/20160920/00f409da92fa4f38a008e175d16966eb_th.jpg",
+      "summary": "三千多个彩池沿山谷层层叠叠",
+      "intro": "黄龙在四川松潘，是世界规模最大的露天钙华景观。富含碳酸钙的泉水顺坡流下，边流边沉淀，筑起一道道天然堤坝，蓄出一层层彩色水池。",
+      "traits": [
+        "钙华池层层相连，共有三千余个",
+        "池水因深浅与钙华厚度不同，呈蓝、绿、金等渐变",
+        "海拔 3000 米以上，气温低，泉水常年冰冷",
+        "钙华每年只能生长几毫米，形成这片景观用了上万年"
+      ],
+      "cause": "雪宝顶的融水溶解了大量碳酸钙，流到地面后压力降低、温度升高，二氧化碳逸出，碳酸钙沉淀成钙华，慢慢筑起池堤。",
+      "personality": "你像黄龙钙华池：慢。你所有的东西都是一点点长出来的，几毫米几毫米地积累，别人看不见进度，你却从不着急。你不追求爆发，你追求的是几年后再看，你已经完全是另一个样子。",
+      "profile": {
+        "thermal": 22,
+        "relief": 74,
+        "hardness": 40,
+        "dynamics": 42,
+        "moisture": 92
+      }
+    },
+    {
+      "id": "jiuzhaigou",
+      "name": "九寨沟",
+      "en": "Jiuzhaigou Valley",
+      "category": "domestic",
+      "type": "高山湖泊群",
+      "country": "中国",
+      "region": "四川 · 阿坝",
+      "lat": 33.26,
+      "lon": 103.92,
+      "photo": "./assets/landforms/jiuzhaigou.jpg",
+      "photoSource": "http://www.hinews.cn/pic/003/020/776/00302077676_af16579a.png",
+      "summary": "一百多个海子，被称为童话世界",
+      "intro": "九寨沟在四川阿坝，是岷山山脉中一条 Y 形山谷，分布着一百多个大小湖泊（当地叫「海子」）。湖水因富含碳酸钙、深浅不同，呈现蓝、绿、青等各种颜色。",
+      "traits": [
+        "108 个海子沿沟分布，层层跌水连成一片",
+        "湖水清澈见底，沉在湖底的枯木多年不腐",
+        "五花海、珍珠滩、诺日朗瀑布等景观点密集",
+        "钙华沉积与彩林、雪峰组合成完整的垂直景观"
+      ],
+      "cause": "冰川和地震留下的碎屑堵塞河谷形成堰塞湖；水中钙华持续沉积，让湖水保持清澈与鲜艳。",
+      "personality": "你像九寨沟：情感丰富得溢出来。你对美的感受力很强，容易被细节打动，也容易因为一件小事整个人亮起来或暗下去。你看起来柔和，其实水底下沉着很多年都没烂掉的东西。",
+      "profile": {
+        "thermal": 30,
+        "relief": 78,
+        "hardness": 48,
+        "dynamics": 52,
+        "moisture": 100
+      }
+    },
+    {
+      "id": "yarlung_tsangpo",
+      "name": "雅鲁藏布大峡谷",
+      "en": "Yarlung Tsangpo Grand Canyon",
+      "category": "domestic",
+      "type": "峡谷",
+      "country": "中国",
+      "region": "西藏 · 林芝",
+      "lat": 29.63,
+      "lon": 95.0,
+      "photo": "./assets/landforms/yarlung_tsangpo.jpg",
+      "photoSource": "http://n.sinaimg.cn/sinacn/w2048h1371/20180219/39ad-fyrswmu2041895.jpg",
+      "summary": "地球上最深、最长的峡谷",
+      "intro": "雅鲁藏布大峡谷在西藏东南，平均深度超过 5000 米，最深处 6009 米，全长 504.6 千米，是地球上最深、最长的峡谷，至今仍在下切。",
+      "traits": [
+        "最深 6009 米，平均深 2268 米，长度 504.6 千米",
+        "河道绕着南迦巴瓦峰拐出著名的「大拐弯」",
+        "从谷底到山顶跨越九个垂直自然带",
+        "水能资源极为丰富，是世界上最深的峡谷"
+      ],
+      "cause": "雅鲁藏布江沿着板块碰撞的缝合带下切，同时喜马拉雅山脉快速抬升，河流下切速度跟不上抬升速度，于是切出极深的峡谷。",
+      "personality": "你像雅鲁藏布大峡谷：外表看不出来，你心里其实很深。别人跟你相处很久也不敢说了解你，因为你从不让任何人走到最底下那一层。你转弯也很突然——一旦决定改道，就是绕过一整座雪山。",
+      "profile": {
+        "thermal": 40,
+        "relief": 96,
+        "hardness": 84,
+        "dynamics": 82,
+        "moisture": 78
+      }
+    },
+    {
+      "id": "changbai_tianchi",
+      "name": "长白山天池",
+      "en": "Changbai Heavenly Lake",
+      "category": "domestic",
+      "type": "火山口湖",
+      "country": "中国",
+      "region": "吉林（中朝界湖）",
+      "lat": 42.0,
+      "lon": 128.06,
+      "photo": "./assets/landforms/changbai_tianchi.jpg",
+      "photoSource": "https://i0.hdslb.com/bfs/archive/3bbfa7b932042980314b7ade2bcfaefc1174a1ac.jpg",
+      "summary": "中国最深的火山口湖",
+      "intro": "长白山天池在长白山主峰火山锥顶部，是中国最深的湖泊，也是中国与朝鲜的界湖。它由火山口积水而成，湖面海拔约 2189 米，像一颗蓝宝石嵌在山顶。",
+      "traits": [
+        "湖面海拔约 2189 米，最深处 373 米，中国最深",
+        "水面约 9.8 平方千米，四周环绕着 16 座山峰",
+        "常年云雾笼罩，一年里能看到全貌的时候并不多",
+        "周围温泉群密布，地下岩浆活动仍在继续"
+      ],
+      "cause": "约 1200 年前的一次大喷发把火山口掏空，火山口积水成湖；地下仍有岩浆活动，所以周边温泉密布。",
+      "personality": "你像天池：把真实的自己收得非常高、非常深。你不轻易让人看见全部，靠近你需要运气——很多人来过，但没赶上云散的那天。你冷静，却不冷漠，你只是习惯把最柔软的部分放在最难到达的地方。",
+      "profile": {
+        "thermal": 8,
+        "relief": 84,
+        "hardness": 66,
+        "dynamics": 58,
+        "moisture": 82
+      }
+    },
+    {
+      "id": "hulunbuir",
+      "name": "呼伦贝尔草原",
+      "en": "Hulunbuir Grassland",
+      "category": "domestic",
+      "type": "草原",
+      "country": "中国",
+      "region": "内蒙古",
+      "lat": 49.2,
+      "lon": 119.7,
+      "photo": "./assets/landforms/hulunbuir.jpg",
+      "photoSource": "http://up.deskcity.org/pic_source/ce/8e/c8/ce8ec81b233e6f7e7be3cff3c3d604a5.jpg",
+      "summary": "世界著名的天然牧场",
+      "intro": "呼伦贝尔草原在内蒙古东北部，是中国最大的草原之一，被称为「绿色净土」。这里地势平缓，河流湖泊众多，草场一直连到天边。",
+      "traits": [
+        "地势平坦开阔，一望无际，几乎没有起伏",
+        "年降水量 250~400 毫米，属温带草原",
+        "有 3000 多条河流、500 多个湖泊",
+        "夏季牧草能长到半米高，是优质天然牧场"
+      ],
+      "cause": "深居内陆、距海较远，湿润气流难以到达，森林因此让位给草本植物；平缓的地形和较厚的黑钙土让草长得极好。",
+      "personality": "你像呼伦贝尔草原：心胸开阔，不太记仇。你不争高低，也不在意走在前还是在后，反正路很宽。你身上有一种让人放松的场域，别人在你面前会不自觉地把肩膀放下来。",
+      "profile": {
+        "thermal": 24,
+        "relief": 20,
+        "hardness": 28,
+        "dynamics": 22,
+        "moisture": 56
+      }
+    },
+    {
+      "id": "qiantang_tide",
+      "name": "钱塘江大潮",
+      "en": "Qiantang River Bore",
+      "category": "domestic",
+      "type": "潮汐（河口地貌）",
+      "country": "中国",
+      "region": "浙江 · 杭州",
+      "lat": 30.33,
+      "lon": 120.72,
+      "photo": "./assets/landforms/qiantang_tide.jpg",
+      "photoSource": "https://videoimg.ws.126.net/cover/20220815/HUZjrGSWl_cover.jpg",
+      "summary": "世界上最大的涌潮，农历八月十八最盛",
+      "intro": "钱塘江口呈喇叭形，海口宽、上游窄，潮水涌进时被不断挤压，形成一道高耸的潮头，潮差可达 8~9 米，是世界著名的涌潮。",
+      "traits": [
+        "潮头最高可达 3 米以上，推进速度每秒 5~10 米",
+        "海口宽约 100 千米，到澉浦缩窄到 20 千米",
+        "每年农历八月十八前后潮势最大，是最佳观潮期",
+        "会出现「回头潮」「交叉潮」「一线潮」等多种形态"
+      ],
+      "cause": "河口呈典型的喇叭状，加上江底有一道隆起的沙坎，潮水涌入时能量不断集中并被迫抬升，于是形成涌潮。",
+      "personality": "你像钱塘江大潮：平时看不出什么，但你的到来是有时刻的。你不喜欢零散地释放情绪，你要的是一次完整的涌动。你的反应有时会把人吓一跳，但那只是因为你把之前的平静都攒了下来。",
+      "profile": {
+        "thermal": 52,
+        "relief": 18,
+        "hardness": 44,
+        "dynamics": 98,
+        "moisture": 96
+      }
+    },
+    {
+      "id": "sanya_coral",
+      "name": "三亚珊瑚礁海岸",
+      "en": "Sanya Coral Reef Coast",
+      "category": "domestic",
+      "type": "珊瑚礁海岸",
+      "country": "中国",
+      "region": "海南 · 三亚",
+      "lat": 18.2,
+      "lon": 109.6,
+      "photo": "./assets/landforms/sanya_coral.jpg",
+      "photoSource": "http://p3.itc.cn/images01/20200831/059dbec62aa54407b39a57cf86c03baa.jpeg",
+      "summary": "中国珊瑚礁发育最好的热带海岸",
+      "intro": "三亚沿海是中国珊瑚礁分布最集中的海域。珊瑚在浅海里生长、死亡、堆积，形成礁坪和礁盘，海水因此格外清澈碧蓝。",
+      "traits": [
+        "珊瑚礁只生长在水温 20℃ 以上的清澈浅海",
+        "礁体由珊瑚骨骼堆积而成，每年只长几毫米到几厘米",
+        "生物多样性极高，被称为海洋中的「热带雨林」",
+        "对水温和水质极敏感，是海洋环境的指示器"
+      ],
+      "cause": "三亚地处热带，海水温暖、清澈、含沙量低，珊瑚虫在此大量繁殖，碳酸钙骨骼逐年堆积，最终形成礁体。",
+      "personality": "你像珊瑚礁：温暖、明亮，天生吸引人靠近。你的社交面很广，走到哪里都不缺人陪。但你比谁都清楚自己需要什么条件才能活下去——一旦环境变冷变浑，你会是那个最先受损的人。",
+      "profile": {
+        "thermal": 94,
+        "relief": 22,
+        "hardness": 52,
+        "dynamics": 50,
+        "moisture": 98
+      }
+    },
+    {
+      "id": "wudalianchi",
+      "name": "五大连池火山群",
+      "en": "Wudalianchi Volcanoes",
+      "category": "domestic",
+      "type": "火山地貌",
+      "country": "中国",
+      "region": "黑龙江 · 黑河",
+      "lat": 48.72,
+      "lon": 126.1,
+      "photo": "./assets/landforms/wudalianchi.jpg",
+      "photoSource": "https://p0.ssl.qhimgs1.com/t043c29671ab64e55c0.jpg",
+      "summary": "中国最年轻的火山群，新期火山仅三百年",
+      "intro": "五大连池在黑龙江北部，由 14 座火山和 5 个串珠状堰塞湖组成。最近一次喷发在 1720 年前后，熔岩流至今还保持着当年流动的形态。",
+      "traits": [
+        "14 座火山锥、800 多平方千米熔岩台地",
+        "熔岩流形成「石塘」「石龙」等奇特形态",
+        "五池首尾相连，由熔岩堵塞河道积水而成",
+        "有冷矿泉群，泉水常年低温、富含矿物质"
+      ],
+      "cause": "这里地处东北裂谷系的薄弱地带，地下岩浆沿断裂上涌喷出；火山喷发的熔岩堵住白龙河，积水成五个相连的湖泊。",
+      "personality": "你像五大连池：看着已经静止了，其实底下的热源一直没熄。你不喜欢谈论过去爆发过什么，只是安静地把当时的形状留在那里。你不常失控，但你的沉默是滚烫的。",
+      "profile": {
+        "thermal": 18,
+        "relief": 62,
+        "hardness": 92,
+        "dynamics": 88,
+        "moisture": 50
+      }
+    },
+    {
+      "id": "sahara",
+      "name": "撒哈拉沙漠",
+      "en": "Sahara Desert",
+      "category": "international",
+      "type": "沙漠",
+      "country": "阿尔及利亚 · 利比亚等",
+      "region": "非洲北部",
+      "lat": 23.0,
+      "lon": 13.0,
+      "photo": "./assets/landforms/sahara.jpg",
+      "photoSource": "https://p2.ssl.qhimgs1.com/t04fe0a24bb8e7e9c3c.jpg",
+      "summary": "世界最大的热带沙漠，横贯北非",
+      "intro": "撒哈拉沙漠横跨北非十几个国家，面积约 906 万平方千米，接近中国的面积，是世界上最大的热带沙漠，也是地球上最干旱的地区之一。",
+      "traits": [
+        "面积约 906 万平方千米，横跨 11 个国家",
+        "年降水量常不足 20 毫米，有些地方多年不雨",
+        "昼夜温差可达 50℃，白天酷热、夜里寒冷",
+        "有世界最高的沙丘，也有砾漠、岩漠和高原"
+      ],
+      "cause": "副热带高压常年控制、下沉气流强盛，加上气流方向由大陆吹向海洋，水汽难以进入，因此形成极端干旱的热带沙漠。",
+      "personality": "你像撒哈拉：热得直接，干得彻底。你不绕圈子，也不喜欢模糊的关系。你能在极端环境里活得很好，因为你对「依赖」这件事要求极低——你需要的本来就不多。",
+      "profile": {
+        "thermal": 100,
+        "relief": 42,
+        "hardness": 34,
+        "dynamics": 42,
+        "moisture": 2
+      }
+    },
+    {
+      "id": "amazon",
+      "name": "亚马孙热带雨林",
+      "en": "Amazon Rainforest",
+      "category": "international",
+      "type": "热带雨林",
+      "country": "巴西 · 秘鲁等",
+      "region": "南美洲",
+      "lat": -3.0,
+      "lon": -60.0,
+      "photo": "./assets/landforms/amazon.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/images/20191222/acfc420c11084816b62899346854e651.jpeg",
+      "summary": "地球之肺，世界最大的热带雨林",
+      "intro": "亚马孙热带雨林覆盖南美洲北部约 550 万平方千米，是世界上面积最大、物种最丰富的热带雨林。亚马孙河从雨林中央穿过，流量居世界第一。",
+      "traits": [
+        "面积约 550 万平方千米，被称为「地球之肺」",
+        "动植物种类占全球已知物种的十分之一以上",
+        "全年高温多雨，年降水量 2000 毫米以上",
+        "土壤其实很贫瘠，养分几乎都储存在植物体内循环"
+      ],
+      "cause": "常年受赤道低气压控制，上升气流旺盛、降雨不断，加上地形低平，因此形成全球最典型的热带雨林。",
+      "personality": "你像亚马孙雨林：丰盛、包容、几乎不会拒绝任何人。你的热情不剧烈却持续不断，认识你的人都觉得在你这里很容易活。唯一的问题是——你给出去的能量，很少有人想到要还。",
+      "profile": {
+        "thermal": 96,
+        "relief": 26,
+        "hardness": 28,
+        "dynamics": 58,
+        "moisture": 100
+      }
+    },
+    {
+      "id": "grand_canyon",
+      "name": "科罗拉多大峡谷",
+      "en": "Grand Canyon",
+      "category": "international",
+      "type": "峡谷",
+      "country": "美国",
+      "region": "北美洲 · 亚利桑那",
+      "lat": 36.1,
+      "lon": -112.1,
+      "photo": "./assets/landforms/grand_canyon.jpg",
+      "photoSource": "https://p5.itc.cn/images01/20200725/1333ca6ca44e4d6e9038ccf2613ef167.jpeg",
+      "summary": "一部最完整的地球史书",
+      "intro": "科罗拉多大峡谷在美国亚利桑那州，全长 446 千米、最深 1857 米，由科罗拉多河切割而成。两侧崖壁上暴露着近 20 亿年的岩层，像一本翻开的地质书。",
+      "traits": [
+        "长 446 千米，最深处 1857 米",
+        "崖壁上清晰暴露着近 20 亿年的岩层",
+        "岩层呈水平带状，一层一层分明可数",
+        "顶部与谷底的气候相差将近一个季节"
+      ],
+      "cause": "科罗拉多河在干旱区不断下切，同时地壳整体缓慢抬升，河流越切越深，最终形成巨大的峡谷。",
+      "personality": "你像科罗拉多大峡谷：把过去完完整整地层叠在心里。你不删减、不掩饰，所有的经历都留在那里，一层一层摊开给人看。你算不上温和，但很难有人比你更坦荡。",
+      "profile": {
+        "thermal": 62,
+        "relief": 84,
+        "hardness": 90,
+        "dynamics": 56,
+        "moisture": 10
+      }
+    },
+    {
+      "id": "great_barrier_reef",
+      "name": "大堡礁",
+      "en": "Great Barrier Reef",
+      "category": "international",
+      "type": "珊瑚礁",
+      "country": "澳大利亚",
+      "region": "大洋洲",
+      "lat": -18.29,
+      "lon": 147.7,
+      "photo": "./assets/landforms/great_barrier_reef.jpg",
+      "photoSource": "https://p7.itc.cn/q_70/images01/20230522/74bce01cd1e846e5ac4d51d14e5b69be.jpeg",
+      "summary": "世界上最大的珊瑚礁群，从太空能看见",
+      "intro": "大堡礁沿澳大利亚东北海岸绵延约 2300 千米，由约 2900 个独立礁体和 900 个岛屿组成，是世界上最大的珊瑚礁群，也是唯一能从太空用肉眼看到的生物结构。",
+      "traits": [
+        "绵延约 2300 千米，面积约 34.4 万平方千米",
+        "由数十亿珊瑚虫的骨骼逐年堆积而成",
+        "栖息着 1500 多种鱼类和 400 多种珊瑚",
+        "对水温极敏感，海水变暖会导致大面积白化"
+      ],
+      "cause": "澳大利亚东北海域水温常年 20℃ 以上、水质清澈且水深适中，珊瑚虫在此持续繁殖堆积，最终形成巨大的礁体。",
+      "personality": "你像大堡礁：温和地铺开来，几乎不设边界。你能容纳很多种人，是别人愿意久待的地方。但你也格外敏感——外界温度只升一点点，你就先撑不住。",
+      "profile": {
+        "thermal": 90,
+        "relief": 14,
+        "hardness": 54,
+        "dynamics": 62,
+        "moisture": 100
+      }
+    },
+    {
+      "id": "uyuni",
+      "name": "乌尤尼盐沼",
+      "en": "Salar de Uyuni",
+      "category": "international",
+      "type": "盐沼",
+      "country": "玻利维亚",
+      "region": "南美洲",
+      "lat": -20.13,
+      "lon": -67.49,
+      "photo": "./assets/landforms/uyuni.jpg",
+      "photoSource": "https://pica.zhimg.com/v2-0496ec15fe69e2989852e212db68df23_r.jpg?source=1940ef5c",
+      "summary": "天空之镜，世界最大的盐沼",
+      "intro": "乌尤尼盐沼在玻利维亚高原，面积约 1.05 万平方千米，是世界上最大的盐沼。雨季时薄薄一层水覆盖盐面，就成了一面能倒映天空的「天空之镜」。",
+      "traits": [
+        "面积约 10582 平方千米，平坦得几乎没有起伏",
+        "盐层极厚，蕴藏世界约 70% 的锂资源",
+        "雨季积水几厘米即形成近乎完美的镜面",
+        "旱季盐壳龟裂成规则的多边形图案"
+      ],
+      "cause": "远古巨型湖泊在封闭高原上逐渐蒸发干涸，湖水中的盐分结晶堆积，形成极厚极平的盐层。",
+      "personality": "你像乌尤尼盐沼：平静，甚至有点空。你不急着表达自己，而是习惯把别人照进来——很多人通过你看到了他们想要的自己。你对拥有多少兴趣不大，反正你还有很多没被用上的储量。",
+      "profile": {
+        "thermal": 46,
+        "relief": 32,
+        "hardness": 48,
+        "dynamics": 24,
+        "moisture": 34
+      }
+    },
+    {
+      "id": "vatnajokull",
+      "name": "瓦特纳冰原",
+      "en": "Vatnajökull",
+      "category": "international",
+      "type": "冰川",
+      "country": "冰岛",
+      "region": "北欧",
+      "lat": 64.4,
+      "lon": -16.8,
+      "photo": "./assets/landforms/vatnajokull.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/images/20190404/75471a7b70bf49ac8b936462910be189.jpeg",
+      "summary": "欧洲最大冰原，冰底下藏着活火山",
+      "intro": "瓦特纳冰原覆盖冰岛东南部约 8100 平方千米，是欧洲最大的冰原，冰层最厚处超过 900 米。它下面压着几座活火山，冰与火在这里共存。",
+      "traits": [
+        "面积约 8100 平方千米，冰层最厚 900 米以上",
+        "冰下火山喷发会造成冰川洪水，瞬间冲毁道路",
+        "冰川舌末端崩裂出冰山，漂进冰河湖",
+        "冰洞幽蓝通透，是地质与摄影的奇观"
+      ],
+      "cause": "冰岛位于大西洋中脊上，气候寒冷又受北大西洋暖流影响降雪充沛，积雪逐年压实成冰，堆积成巨厚的冰原。",
+      "personality": "你像瓦特纳冰原：一层厚厚的冷，压着底下的火。你表面极安静，甚至让人有点不敢靠近，可没有人知道你底下正在翻涌什么。你习惯了以坚硬示人——直到某一天毫无预兆地泄出来。",
+      "profile": {
+        "thermal": 2,
+        "relief": 72,
+        "hardness": 74,
+        "dynamics": 86,
+        "moisture": 62
+      }
+    },
+    {
+      "id": "dead_sea",
+      "name": "死海",
+      "en": "Dead Sea",
+      "category": "international",
+      "type": "内陆咸水湖",
+      "country": "约旦 · 以色列",
+      "region": "西亚",
+      "lat": 31.5,
+      "lon": 35.5,
+      "photo": "./assets/landforms/dead_sea.jpg",
+      "photoSource": "https://pic.rmb.bdstatic.com/bjh/events/142c9db78ed341b8450937ce55a545b47769.jpeg@h_1280",
+      "summary": "地球陆地表面的最低点，人不会沉下去",
+      "intro": "死海位于约旦裂谷，湖面低于海平面约 430 米，是地球陆地表面最低的地方。湖水含盐量约 30%，密度极大，人可以自然漂浮在水面上看书。",
+      "traits": [
+        "湖面海拔约 -430 米，是陆地表面最低点",
+        "含盐量约 30%，是普通海水的 8 倍以上",
+        "没有鱼类能在这里生存，故称「死海」",
+        "湖面每年仍在下降，面积持续缩小"
+      ],
+      "cause": "死海处在东非—约旦大裂谷的断陷盆地中，没有出口，约旦河带来的水只进不出，只能靠蒸发，盐分因此不断浓缩。",
+      "personality": "你像死海：安静、极端、完全不迎合。你不在意别人能不能待在你身边，也不打算变得好相处。你的密度大到没有任何东西能沉进去——这保住了你，也让你一直很孤独。",
+      "profile": {
+        "thermal": 96,
+        "relief": 18,
+        "hardness": 38,
+        "dynamics": 14,
+        "moisture": 26
+      }
+    },
+    {
+      "id": "nile",
+      "name": "尼罗河与三角洲",
+      "en": "River Nile & Delta",
+      "category": "international",
+      "type": "河流 · 三角洲",
+      "country": "埃及",
+      "region": "非洲北部",
+      "lat": 30.9,
+      "lon": 31.0,
+      "photo": "./assets/landforms/nile.jpg",
+      "photoSource": "https://i2.hdslb.com/bfs/archive/9d40da7eb98ef8613538f77fa123c0d3e9904bec.jpg",
+      "summary": "孕育古埃及文明的绿色长廊",
+      "intro": "尼罗河全长约 6670 千米，是世界上最长的河流之一。它在开罗以北散开成扇形，形成广阔的三角洲，是沙漠中罕见的大片绿洲和农田。",
+      "traits": [
+        "全长约 6670 千米，自南向北注入地中海",
+        "三角洲面积约 2.4 万平方千米，地势极平",
+        "每年泛滥带来肥沃淤泥，孕育了古埃及文明",
+        "两岸绿洲与沙漠界线分明，景观对比强烈"
+      ],
+      "cause": "尼罗河上游流经热带草原，雨季带来大量水和泥沙；进入下游后地形平缓、流速降低，泥沙在入海口沉积成扇形三角洲。",
+      "personality": "你像尼罗河：外表低调地贴着地面走，但你是别人的一切。你不声张，只是持续不断地把养分送到你经过的每一个地方。你的好属于那种——等到没有了才会被发现的好。",
+      "profile": {
+        "thermal": 88,
+        "relief": 12,
+        "hardness": 32,
+        "dynamics": 60,
+        "moisture": 88
+      }
+    },
+    {
+      "id": "sognefjord",
+      "name": "挪威峡湾",
+      "en": "Norwegian Fjords",
+      "category": "international",
+      "type": "峡湾",
+      "country": "挪威",
+      "region": "北欧",
+      "lat": 61.1,
+      "lon": 6.6,
+      "photo": "./assets/landforms/sognefjord.jpg",
+      "photoSource": "https://i0.hdslb.com/bfs/archive/e510bf24cdd05bf0fe0a595d1810868bff945556.jpg",
+      "summary": "冰川切出来的深水长廊",
+      "intro": "挪威峡湾由冰川侵蚀形成，两侧崖壁近乎垂直，海水深入内陆上百千米。松恩峡湾长 204 千米、最深 1308 米，是世界上最深的峡湾之一。",
+      "traits": [
+        "松恩峡湾长 204 千米，最深处达 1308 米",
+        "崖壁近乎垂直，两岸落差常超过 1000 米",
+        "海水深入内陆，表层淡水与深层海水分层",
+        "虽处高纬，因暖流影响冬季不冻"
+      ],
+      "cause": "冰期时冰川在谷地中反复下切，刨出 U 形深谷；冰川退去后海水灌入，形成狭长而极深的峡湾。",
+      "personality": "你像挪威峡湾：冷，但深得惊人。你不轻易开放，走近才发现你比外表深得多。你不主动，也不拒绝——你只是在那儿，用一种近乎沉默的方式，把最深的自己留给真正肯久留的人。",
+      "profile": {
+        "thermal": 10,
+        "relief": 88,
+        "hardness": 90,
+        "dynamics": 48,
+        "moisture": 94
+      }
+    },
+    {
+      "id": "mount_fuji",
+      "name": "富士山",
+      "en": "Mount Fuji",
+      "category": "international",
+      "type": "火山",
+      "country": "日本",
+      "region": "东亚",
+      "lat": 35.36,
+      "lon": 138.73,
+      "photo": "./assets/landforms/mount_fuji.jpg",
+      "photoSource": "https://n1image.hjfile.cn/shetuan/2018-04-26-1524742676-496-3766.jpg",
+      "summary": "近乎完美对称的火山锥",
+      "intro": "富士山位于日本本州中部，海拔 3776 米，是日本最高峰，也是一座活火山。它圆锥形的山体几乎完美对称，山顶终年积雪。",
+      "traits": [
+        "海拔 3776 米，底面直径约 40 千米，体量巨大",
+        "山体对称、线条干净，常被当作圆锥的样本",
+        "上一次喷发在 1707 年，仍属活火山",
+        "孤峰独立，周围没有其他山峰遮挡视线"
+      ],
+      "cause": "太平洋板块与菲律宾海板块俯冲到日本岛弧之下，岩浆上涌多次喷发，熔岩层层叠加，堆成锥形山体。",
+      "personality": "你像富士山：干净、克制、对称得很好看。你不喜欢把复杂摆在别人面前，也讨厌失控。你站得高，但你不吵。你的问题在于——你太在意自己看起来是否完美，以至于很少让人看见你内部还在活动的那部分。",
+      "profile": {
+        "thermal": 34,
+        "relief": 94,
+        "hardness": 70,
+        "dynamics": 48,
+        "moisture": 56
+      }
+    },
+    {
+      "id": "matterhorn",
+      "name": "马特洪峰",
+      "en": "Matterhorn",
+      "category": "international",
+      "type": "山地（阿尔卑斯）",
+      "country": "瑞士 · 意大利",
+      "region": "欧洲",
+      "lat": 45.98,
+      "lon": 7.66,
+      "photo": "./assets/landforms/matterhorn.jpg",
+      "photoSource": "http://p1.qhimgs4.com/t0112c978e88f6a138a.jpg",
+      "summary": "阿尔卑斯最著名的金字塔形山峰",
+      "intro": "马特洪峰在阿尔卑斯山脉，海拔 4478 米，位于瑞士与意大利边界。它四壁陡峭、四面各成一座近乎完美的三角锥，是登山史上的圣地。",
+      "traits": [
+        "海拔 4478 米，四个坡面几乎对称",
+        "四道山脊呈十字交叉，整体像一座金字塔",
+        "攀登难度极高，1865 年首登时有 4 人坠亡",
+        "山体由古老坚硬的花岗岩构成，抗蚀能力强"
+      ],
+      "cause": "非洲板块与欧亚板块碰撞抬升出阿尔卑斯山；马特洪峰原本被厚岩层包裹，经冰川和冰冻风化剥去外层，才露出坚硬的岩芯。",
+      "personality": "你像马特洪峰：棱角分明，目的明确。你不喜欢含糊，也不擅长妥协——你的每一面都很清楚，让人很容易看出你是怎样的人。你活着是往上走的，但你的坚持有时会伤到同行的人。",
+      "profile": {
+        "thermal": 14,
+        "relief": 100,
+        "hardness": 94,
+        "dynamics": 36,
+        "moisture": 56
+      }
+    },
+    {
+      "id": "giants_causeway",
+      "name": "巨人堤道",
+      "en": "Giant's Causeway",
+      "category": "international",
+      "type": "火山岩地貌",
+      "country": "英国（北爱尔兰）",
+      "region": "欧洲",
+      "lat": 55.24,
+      "lon": -6.51,
+      "photo": "./assets/landforms/giants_causeway.jpg",
+      "photoSource": "https://p5.ssl.qhimgs1.com/t04b0bc867371b51765.jpg",
+      "summary": "四万根六边形石柱铺到海里",
+      "intro": "巨人堤道在北爱尔兰海岸，由约四万根多边形玄武岩柱紧密拼合而成，像一条被铺好的石路一直伸进海里，其中绝大多数是规则的六边形。",
+      "traits": [
+        "约 4 万根玄武岩石柱，大多数是六边形",
+        "柱高 1~12 米不等，柱体紧密相扣、缝隙极小",
+        "形态规整得几乎不像天然形成",
+        "海岸边还能看到被海水磨圆的石柱顶面"
+      ],
+      "cause": "约 6000 万年前熔岩缓慢冷却，玄武岩体积收缩，均匀收缩就产生规则的六边形裂隙——这是收缩形成的自然图案。",
+      "personality": "你像巨人堤道：规整、有原则、边界清楚。你喜欢把一切安排得紧紧相扣，容不下含糊和随意。别人觉得你太较真，可正是这份「一寸不让」，让你和身边的人能牢靠地咬合在一起。",
+      "profile": {
+        "thermal": 30,
+        "relief": 30,
+        "hardness": 100,
+        "dynamics": 28,
+        "moisture": 68
+      }
+    },
+    {
+      "id": "cappadocia",
+      "name": "卡帕多西亚仙人烟囱",
+      "en": "Cappadocia Fairy Chimneys",
+      "category": "international",
+      "type": "火山凝灰岩地貌",
+      "country": "土耳其",
+      "region": "西亚",
+      "lat": 38.64,
+      "lon": 34.83,
+      "photo": "./assets/landforms/cappadocia.jpg",
+      "photoSource": "https://q9.itc.cn/images01/20250321/f28887d77adf4b7fbc4d6c3ae7fe0543.jpeg",
+      "summary": "戴帽子的石柱森林，地下还藏着城市",
+      "intro": "卡帕多西亚在土耳其中部，火山灰堆积成的凝灰岩被长期侵蚀，留下无数上部顶着坚硬岩石的锥形石柱，当地称为「仙人烟囱」。",
+      "traits": [
+        "石柱上下两层软硬不同，硬岩像帽子保护下方软岩",
+        "柱体高可达 40 米，形态像烟囱也像蘑菇",
+        "岩体软到可以直接挖出洞穴居住",
+        "地下有能容纳数千人的地下城，深达数十米"
+      ],
+      "cause": "火山喷发堆积的凝灰岩松软易蚀，上覆的玄武岩坚硬耐磨；差异侵蚀让软岩被掏空、硬岩残留成帽，形成石柱。",
+      "personality": "你像卡帕多西亚：看起来有点古怪，但很有想法。你不介意和别人不一样，甚至享受这种不同。你外面软、心里硬——真正支撑你的东西别人看不到，可没有它你早就塌了。",
+      "profile": {
+        "thermal": 74,
+        "relief": 52,
+        "hardness": 58,
+        "dynamics": 52,
+        "moisture": 14
+      }
+    },
+    {
+      "id": "east_african_rift",
+      "name": "东非大裂谷",
+      "en": "East African Rift",
+      "category": "international",
+      "type": "裂谷（构造地貌）",
+      "country": "肯尼亚 · 坦桑尼亚等",
+      "region": "非洲东部",
+      "lat": -3.0,
+      "lon": 36.0,
+      "photo": "./assets/landforms/east_african_rift.jpg",
+      "photoSource": "https://qcloud.dpfile.com/pc/ElfqgW5KDwPV0d6pVP8UuxK___qTP3JLAPj7_uVCaPxemhqfilNPGFmeqTp2ys2x.jpg",
+      "summary": "地球表面最大的伤痕，大陆正在这里裂开",
+      "intro": "东非大裂谷南北延伸约 6000 千米，宽 30~100 千米，深数百米至两千米，是地球上最大的大陆裂谷，也是大陆正在分离的地方。",
+      "traits": [
+        "长约 6000 千米，被称为「地球的伤疤」",
+        "两侧断崖陡立，谷底分布着湖泊群和火山",
+        "非洲最高峰乞力马扎罗就在裂谷附近",
+        "裂谷仍以每年几毫米的速度持续张裂"
+      ],
+      "cause": "地幔物质上涌顶起地壳，张力使地壳沿断裂带张裂下陷，形成巨大的地堑；火山和湖泊沿着这条断裂带成串分布。",
+      "personality": "你像东非大裂谷：你的裂痕就是你的形状。你经历过很多次撕裂，但没有塌掉，反而在裂缝里养出了湖和火山。你不装作完整，也不遮住伤口——你知道真正强大的不是无缝，是裂开之后还站在那儿。",
+      "profile": {
+        "thermal": 90,
+        "relief": 68,
+        "hardness": 52,
+        "dynamics": 88,
+        "moisture": 30
+      }
+    },
+    {
+      "id": "uluru",
+      "name": "乌鲁鲁（艾尔斯岩）",
+      "en": "Uluru / Ayers Rock",
+      "category": "international",
+      "type": "蚀余岩体",
+      "country": "澳大利亚",
+      "region": "大洋洲",
+      "lat": -25.34,
+      "lon": 131.04,
+      "photo": "./assets/landforms/uluru.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/images/20181120/7c997aba2b1e48f28875b078b1ad2c7c.jpeg",
+      "summary": "沙漠中央的一块红色巨石，会随光线变色",
+      "intro": "乌鲁鲁在澳大利亚中部，是一块长 3.6 千米、高 348 米的巨大砂岩，整块岩石孤立地立在平坦沙漠中，是当地原住民心中的圣地。",
+      "traits": [
+        "长 3.6 千米、高 348 米，周长 9.4 千米",
+        "含铁量高，日出日落时由暗红变成火焰般的橙红",
+        "岩体几乎均质，表面有风化沟槽和常年水潭",
+        "周围是极端干旱的沙漠，更显其突兀雄伟"
+      ],
+      "cause": "数亿年前的沉积岩在地壳运动中倾斜抬升，周围较软的岩层被风化和侵蚀剥蚀掉，只剩这块坚硬的砂岩残留原地。",
+      "personality": "你像乌鲁鲁：一个人，但你从不觉得需要变成别的样子。你在任何环境里都能保持自己，日升日落只会让你换个颜色，不会改变你的成分。你话不多，可在你身边的人都感觉得到那种压倒性的存在感。",
+      "profile": {
+        "thermal": 98,
+        "relief": 46,
+        "hardness": 92,
+        "dynamics": 22,
+        "moisture": 2
+      }
+    },
+    {
+      "id": "grand_prismatic",
+      "name": "黄石大棱镜温泉",
+      "en": "Grand Prismatic Spring",
+      "category": "international",
+      "type": "温泉（地热地貌）",
+      "country": "美国",
+      "region": "北美洲 · 怀俄明",
+      "lat": 44.52,
+      "lon": -110.84,
+      "photo": "./assets/landforms/grand_prismatic.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/images/20190906/653d196528a1481094f2f4ebd6358807.jpeg",
+      "summary": "地球上色彩最艳的温泉",
+      "intro": "大棱镜温泉在美国黄石国家公园，直径约 112 米，是美国最大的温泉，也是世界第三大温泉。池水中心湛蓝，边缘因嗜热微生物而呈橙红色。",
+      "traits": [
+        "直径约 112 米，深约 37 米，规模巨大",
+        "中心水温可达 87℃，热气蒸腾",
+        "边缘的彩色来自不同温度带的微生物群落",
+        "周围地表是硅华沉积，颜色随季节变化"
+      ],
+      "cause": "黄石火山地下的岩浆加热地下水，热水沿裂隙涌出地表；水沿池边流动时温度逐渐降低，不同嗜热细菌在对应温度带生长出不同颜色。",
+      "personality": "你像大棱镜温泉：情绪浓烈、层次分明、藏不住。你的喜怒有明确的温度带，从中心到边缘，别人一步步走过来会看到完全不同的你。你活得滚烫，很难被忽略。",
+      "profile": {
+        "thermal": 88,
+        "relief": 62,
+        "hardness": 46,
+        "dynamics": 96,
+        "moisture": 72
+      }
+    },
+    {
+      "id": "atacama",
+      "name": "阿塔卡马沙漠",
+      "en": "Atacama Desert",
+      "category": "international",
+      "type": "沙漠",
+      "country": "智利",
+      "region": "南美洲",
+      "lat": -23.5,
+      "lon": -69.0,
+      "photo": "./assets/landforms/atacama.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/images/20190918/4da885ca5962479db6cdd95f019fa222.jpeg",
+      "summary": "地球上最干燥的地方，被称为世界「干极」",
+      "intro": "阿塔卡马沙漠在智利北部，夹在太平洋海岸与安第斯山之间，被称为世界「干极」。有些气象站的记录里，几十年都没有一场有效降水。",
+      "traits": [
+        "年降水量常不足 1 毫米，个别地区数百年未下雨",
+        "受秘鲁寒流影响，沿海多雾却极少降雨",
+        "地表出现盐壳、砾漠和风蚀地貌",
+        "空气极清透，是世界顶级的天文观测地"
+      ],
+      "cause": "安第斯山脉阻挡了来自亚马孙的湿润气流，加上副热带高压下沉和秘鲁寒流降温，海上难以形成降水，因此极端干旱。",
+      "personality": "你像阿塔卡马：沉静、干燥，几乎不需要从外界获得什么。你不太依赖感情，也极少开口要什么。别人会说这里什么都没有——但你很清楚，正因为没有云，你才看得最远。",
+      "profile": {
+        "thermal": 76,
+        "relief": 58,
+        "hardness": 62,
+        "dynamics": 28,
+        "moisture": 1
+      }
+    },
+    {
+      "id": "milford_sound",
+      "name": "米尔福德峡湾",
+      "en": "Milford Sound",
+      "category": "international",
+      "type": "峡湾",
+      "country": "新西兰",
+      "region": "大洋洲",
+      "lat": -44.67,
+      "lon": 167.93,
+      "photo": "./assets/landforms/milford_sound.jpg",
+      "photoSource": "https://p0.ssl.qhimgs1.com/t04703af3d25b15994a.jpg",
+      "summary": "一年下两百多天雨的峡湾",
+      "intro": "米尔福德峡湾在新西兰南岛，是峡湾国家公园中最著名的一条。两岸是落差 1200 米的垂直崖壁，多到数不清的瀑布从崖顶落下，是世界上最湿润的峡湾之一。",
+      "traits": [
+        "崖壁落差可达 1200 米，几乎垂直入海",
+        "年降水天数 200 天以上，年降水量超过 6000 毫米",
+        "雨后崖壁上会同时挂满数百条临时瀑布",
+        "峡湾从海面一直深入内陆 15 千米"
+      ],
+      "cause": "冰川在冰期刨蚀出 U 形深谷，冰川退却后海水灌入；南岛西风带带来极丰沛的降水，让峡湾常年云雾缭绕、瀑布不断。",
+      "personality": "你像米尔福德峡湾：看起来冷静克制，情绪却从不停歇。你不常大笑，但你的内在一直下着雨。你不需要别人理解这种湿润，你只知道——没有这场雨，那些悬崖早就干了。",
+      "profile": {
+        "thermal": 22,
+        "relief": 82,
+        "hardness": 88,
+        "dynamics": 46,
+        "moisture": 98
+      }
+    },
+    {
+      "id": "lake_baikal",
+      "name": "贝加尔湖",
+      "en": "Lake Baikal",
+      "category": "international",
+      "type": "构造湖",
+      "country": "俄罗斯",
+      "region": "亚洲北部（西伯利亚）",
+      "lat": 53.5,
+      "lon": 108.0,
+      "photo": "./assets/landforms/lake_baikal.jpg",
+      "photoSource": "http://n.sinaimg.cn/sinacn10112/133/w2000h1333/20190318/5066-hukwxnv1097150.jpg",
+      "summary": "世界上最深、最古老的湖泊",
+      "intro": "贝加尔湖在俄罗斯西伯利亚南部，最深处 1642 米，是世界上最深的湖泊。湖龄约 2500 万年，水量占全球未冻淡水的五分之一。",
+      "traits": [
+        "最深 1642 米，是世界上最深的湖泊",
+        "湖龄约 2500 万年，是世界最古老的湖泊",
+        "水量约 23.6 万亿立方米，占全球未冻淡水的 20%",
+        "冬季湖面结成透明蓝冰，湖中还有淡水海豹"
+      ],
+      "cause": "贝加尔湖位于大陆内部的裂谷带，地壳断裂下陷形成深槽，长期积水成湖；湖盆至今仍在缓慢加深。",
+      "personality": "你像贝加尔湖：安静、极其深。你不喜欢热闹，也不轻易让人靠近，但一旦有人真的走进来，会发现你容纳得比谁都多。你把很多东西存着——存的年份很长，多到别人想象不到。",
+      "profile": {
+        "thermal": 6,
+        "relief": 44,
+        "hardness": 64,
+        "dynamics": 34,
+        "moisture": 96
+      }
+    },
+    {
+      "id": "kilimanjaro",
+      "name": "乞力马扎罗山",
+      "en": "Mount Kilimanjaro",
+      "category": "international",
+      "type": "火山（高山）",
+      "country": "坦桑尼亚",
+      "region": "非洲东部",
+      "lat": -3.07,
+      "lon": 37.35,
+      "photo": "./assets/landforms/kilimanjaro.jpg",
+      "photoSource": "https://uploadfile.bizhizu.cn/up/71/5d/80/715d80b23b0d4468554478a48481ca17.jpg.source.jpg",
+      "summary": "赤道上的雪山，非洲最高峰",
+      "intro": "乞力马扎罗山在坦桑尼亚东北部，海拔 5895 米，是非洲最高峰。它位于赤道附近，山脚是热带草原，山顶却终年积雪，被称为「赤道雪冠」。",
+      "traits": [
+        "海拔 5895 米，是非洲最高峰",
+        "地处赤道附近，山脚到山顶跨越五个气候带",
+        "是一座休眠火山，山顶保留着巨大的火山口",
+        "顶上冰川正在快速退缩，面积逐年减小"
+      ],
+      "cause": "地壳断裂带上岩浆上涌喷发堆成高大的火山锥；海拔升高使气温按每百米约 0.6℃ 递减，所以赤道上的山顶也能积雪。",
+      "personality": "你像乞力马扎罗：起点在热带，目标在雪线。你身上同时存在两种极端——你可以很热闹，也可以非常冷。别人常常看不懂你，因为很少有人能一路从山脚陪你爬到山顶，看完你的全部气候带。",
+      "profile": {
+        "thermal": 58,
+        "relief": 98,
+        "hardness": 72,
+        "dynamics": 38,
+        "moisture": 44
+      }
+    }
+  ]
+}

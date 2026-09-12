@@ -7,6 +7,10 @@ EduPlay 平台的可插拔游戏模块仓库。
 - 行政区拼图 `province-puzzle`
 - 省级行政区识别 `province-quiz`
 - 经纬度五子棋 `geo-gomoku`
+- 山河三消（省区要素匹配）`shanhe-match3`
+- 寰宇地球仪（日心公转模型）`earth-globe`
+- 寰宇太阳系 `solar-system`
+- 地貌人格测试 `landform-quiz`
 
 每个游戏是一个独立插件包，平台底座通过插件包的 `manifest.json` 和前端入口进行加载。
 
