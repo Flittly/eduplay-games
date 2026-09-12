@@ -11,6 +11,10 @@
     python scripts/fetch_photos.py --force         # 全部重取
     python scripts/fetch_photos.py --only=id1,id2  # 只重取指定地貌
     python scripts/fetch_photos.py --sheet         # 顺便生成拼版缩略图 montage.jpg（人工复核用）
+    python scripts/fetch_photos.py --avoid=a,b     # 复核发现某图不对时，拉黑该图源片段后重取
+
+复核纪律：`--sheet` 生成的拼版必须逐格目视确认；发现错图/水印图/视频截图时，
+用 `--avoid=<url 片段>` 或收紧 `QUERY_OVERRIDE` 重取，不要只看"下载成功"就算完成。
 
 为什么用 360 / 百度，而不是必应（踩坑记录）：
   * 必应图片结果页在反复抓取后会返回反爬干扰页 / 无关明星图，命中率骤降，已弃用。
@@ -94,6 +98,48 @@ QUERY_OVERRIDE = {
     "lake_baikal": "贝加尔湖 蓝冰 冬季",
     "kilimanjaro": "乞力马扎罗山",
     "sahara": "撒哈拉沙漠 沙丘",
+    # ---- v1.1.0 新增：国内 20 ----
+    "huangshan": "黄山 迎客松 云海 山峰 风景",
+    "huashan": "华山 北峰 峭壁 山 风景",
+    "taishan": "泰山 南天门 十八盘 石阶",
+    "wuyi_mountains": "武夷山 九曲溪 丹霞 风光",
+    "danxiashan": "丹霞山 长老峰 赤壁丹崖",
+    "sanqingshan": "三清山 峰林 云海 花岗岩 景观",
+    "wanfenglin": "兴义 万峰林 喀斯特 峰林 田园",
+    "detian_waterfall": "德天瀑布 中越 跨国瀑布",
+    "hutiaoxia": "虎跳峡 金沙江 峡谷",
+    "sanjiang_bingliu": "三江并流 怒江 澜沧江 金沙江",
+    "qinghai_lake": "青海湖 湖面 风光 航拍",
+    "namtso": "纳木错 圣湖 雪山 西藏",
+    "chaka_salt": "茶卡盐湖 倒影 蓝天 天空之镜",
+    "badain_jaran": "巴丹吉林沙漠 沙山 湖泊",
+    "kekexili": "可可西里 藏羚羊 无人区",
+    "dunhuang_yardang": "敦煌雅丹 魔鬼城 风蚀地貌",
+    "ejina": "额济纳 胡杨林 金秋",
+    "sayram_lake": "赛里木湖 风景 航拍 雪山",
+    "muztagh_ata": "慕士塔格峰 帕米尔 雪山 冰川",
+    "bayinbuluke": "巴音布鲁克草原 九曲十八弯 天鹅",
+    # ---- v1.1.0 新增：国外 20 ----
+    "niagara_falls": "尼亚加拉瀑布 马蹄瀑布",
+    "victoria_falls": "维多利亚瀑布 赞比西河 航拍",
+    "iguazu_falls": "伊瓜苏瀑布 魔鬼喉",
+    "geysir": "冰岛 间歇泉 斯特罗柯 喷发",
+    "yosemite": "优胜美地 山谷 花岗岩 瀑布 风景",
+    "monument_valley": "纪念碑谷 美国 砂岩孤峰",
+    "antelope_canyon": "羚羊峡谷 光柱 狭缝峡谷",
+    "denali": "德纳里峰 阿拉斯加 雪山",
+    "kilauea": "基拉韦厄火山 夏威夷 熔岩",
+    "mont_blanc": "勃朗峰 阿尔卑斯 雪山",
+    "dolomites": "多洛米蒂 山峰 白云岩 山脊 风光",
+    "pamukkale": "棉花堡 土耳其 钙华 温泉",
+    "plitvice": "普利特维采湖 克罗地亚 瀑布",
+    "wadi_rum": "瓦迪拉姆 约旦 沙漠 月谷",
+    "halong_bay": "下龙湾 越南 海上石林",
+    "annapurna": "安纳普尔纳 雪山 尼泊尔",
+    "torres_del_paine": "百内 三塔 花岗岩 山峰 巴塔哥尼亚",
+    "namib": "纳米布沙漠 索苏斯维利 沙丘",
+    "blue_mountains": "蓝山 三姐妹峰 澳大利亚",
+    "chocolate_hills": "巧克力山 菲律宾 保和岛",
 }
 
 # 标题必须命中其中之一（任一命中即算相关），用于剔除广告图、表情包、无关内容
@@ -138,6 +184,48 @@ KEYWORDS = {
     "milford_sound": ["米尔福德", "峡湾"],
     "lake_baikal": ["贝加尔湖", "贝加尔"],
     "kilimanjaro": ["乞力马扎罗"],
+    # ---- v1.1.0 新增：国内 20 ----
+    "huangshan": ["黄山", "迎客松", "云海"],
+    "huashan": ["华山", "西峰", "长空栈道", "五岳"],
+    "taishan": ["泰山", "南天门", "十八盘", "玉皇顶"],
+    "wuyi_mountains": ["武夷山", "九曲溪", "丹霞"],
+    "danxiashan": ["丹霞山", "长老峰", "丹霞"],
+    "sanqingshan": ["三清山", "巨蟒", "花岗岩"],
+    "wanfenglin": ["万峰林", "兴义", "峰林"],
+    "detian_waterfall": ["德天", "跨国瀑布"],
+    "hutiaoxia": ["虎跳峡", "金沙江"],
+    "sanjiang_bingliu": ["三江并流", "怒江", "澜沧江", "金沙江"],
+    "qinghai_lake": ["青海湖"],
+    "namtso": ["纳木错", "天湖", "圣湖"],
+    "chaka_salt": ["茶卡", "天空之镜"],
+    "badain_jaran": ["巴丹吉林", "沙山"],
+    "kekexili": ["可可西里", "藏羚羊", "无人区"],
+    "dunhuang_yardang": ["雅丹", "魔鬼城"],
+    "ejina": ["额济纳", "胡杨"],
+    "sayram_lake": ["赛里木湖", "赛里木"],
+    "muztagh_ata": ["慕士塔格", "冰山之父", "帕米尔"],
+    "bayinbuluke": ["巴音布鲁克", "天鹅", "九曲"],
+    # ---- v1.1.0 新增：国外 20 ----
+    "niagara_falls": ["尼亚加拉"],
+    "victoria_falls": ["维多利亚瀑布", "莫西奥图尼亚", "赞比西"],
+    "iguazu_falls": ["伊瓜苏", "魔鬼喉"],
+    "geysir": ["间歇泉", "盖歇尔", "斯特罗柯"],
+    "yosemite": ["优胜美地", "约塞米蒂", "酋长岩"],
+    "monument_valley": ["纪念碑谷"],
+    "antelope_canyon": ["羚羊谷", "羚羊峡谷", "光柱"],
+    "denali": ["德纳里", "麦金利", "阿拉斯加"],
+    "kilauea": ["基拉韦厄", "夏威夷", "熔岩"],
+    "mont_blanc": ["勃朗峰", "阿尔卑斯"],
+    "dolomites": ["多洛米蒂", "白云岩"],
+    "pamukkale": ["棉花堡", "钙华"],
+    "plitvice": ["普利特维采", "十六湖"],
+    "wadi_rum": ["瓦迪拉姆", "月谷"],
+    "halong_bay": ["下龙湾"],
+    "annapurna": ["安纳普尔纳", "安娜普尔纳"],
+    "torres_del_paine": ["百内", "巴塔哥尼亚", "塔峰"],
+    "namib": ["纳米布", "索苏斯维利"],
+    "blue_mountains": ["蓝山", "三姐妹峰"],
+    "chocolate_hills": ["巧克力山", "保和岛"],
 }
 
 BAD_HOST_HINTS = (
@@ -148,18 +236,36 @@ BAD_HOST_HINTS = (
 AIGC_HOST_HINTS = ("aigc", "bcebos.com/miaobi", "ai-image", "aicg")
 AIGC_TITLE_HINTS = ("ai生成", "ai绘画", "ai作图", "ai绘制", "ai创作", "人工智能生成")
 
-# 标题里带这些词的往往是"比大小/拼图/排行"类凑数图，与地貌实景无关
-TITLE_REJECT_HINTS = ("寿光", "静山", "对比图", "排行榜", "排名", "哪个更", "vs")
+# 标题里带这些词的往往是"比大小/拼图/排行"类凑数图，与地貌实景无关；
+# 后半段是商业图库品牌——它们常把水印压在图上，而图源的 CDN 域名未必含品牌名
+# （例如 360 的 qhimgs1 缓存了图虫的带水印图），所以必须靠标题再拦一道。
+TITLE_REJECT_HINTS = (
+    "寿光", "静山", "对比图", "排行榜", "排名", "哪个更", "vs",
+    "图虫", "视觉中国", "摄图", "千图", "包图", "昵图", "全景视觉", "全景网",
+    "veer", "gettyimages", "东方ic", "123rf", "depositphotos", "站酷", "汇图",
+)
 
 # 带水印的图库图特征（商业图库，压着"视觉中国"之类水印，不适合当教材实景照）
 WM_HOST_HINTS = (
     "copyright.bdstatic.com", "vcg", "veer", "gettyimages", "699pic.com",
     "photophoto.cn", "tuchong.com", "shutterstock", "dreamstime", "58pic.com",
     "zhituad.com", "qiantucdn", "ooopic",
+    # 视频站帧图：多是带播放控件/水印的截图，不适合当教材实景照
+    "hdslb.com",
+    # 图虫系"微利图库"的 CDN 缓存（今日头条 pstatp、站酷海洛）：图上有"图虫·创意 ID:xxx"水印
+    "icweiliimg", "hellorfimg",
 )
 WM_URL_HINTS = ("@wm_", "watermark")
 
 USED_SOURCES = set()
+
+# 人工复核后要拉黑的图源（`--avoid=子串` 传入，可重复），命中 obj/hover/title 即跳过
+AVOID = []
+
+# 本次运行要拉黑的 CDN 域名片段（`--avoid-host=子串` 传入，可重复）
+# 典型用途：某次复核发现 360 自家 CDN 缓存了一批带水印的图库图，
+# 就在重取时把它们整体排除，逼脚本去选百度返回的原始站点图。
+EXTRA_BAD_HOSTS = []
 
 
 def http_get(url, referer=None, timeout=25):
@@ -277,18 +383,26 @@ def search_images_baidu(query, pages=2):
 
 
 def search_images(query):
-    """先 360，候选太少再补百度。返回合并后的候选列表。"""
+    """同时问 360 与百度，合并去重后交给排序。
+    百度返回的 replaceUrl[0].ObjURL 往往是图片在原始站点的地址，
+    能避开 360 CDN 上缓存的一批"图虫·创意"带水印图，所以两个源都取。"""
     out = []
     try:
         out += search_images_360(query, pages=2)
     except Exception:  # noqa: BLE001
         pass
-    if len(out) < 6:
-        try:
-            out += search_images_baidu(query, pages=2)
-        except Exception:  # noqa: BLE001
-            pass
-    return out
+    try:
+        out += search_images_baidu(query, pages=2)
+    except Exception:  # noqa: BLE001
+        pass
+    seen, uniq = set(), []
+    for r in out:
+        k = (r.get("obj") or r.get("hover") or "").split("?")[0]
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        uniq.append(r)
+    return uniq
 
 
 def looks_like_image(data):
@@ -329,6 +443,8 @@ def _is_bad_url(u, aigc):
         return True
     if any(h in low for h in WM_HOST_HINTS) or any(h in low for h in WM_URL_HINTS):
         return True
+    if any(h in low for h in EXTRA_BAD_HOSTS):
+        return True
     if aigc or any(h in low for h in AIGC_HOST_HINTS):
         return True
     return False
@@ -346,6 +462,10 @@ def rank_candidates(results, kws):
             continue
         if r["host"] and any(h in r["host"] for h in WM_HOST_HINTS):
             continue
+        # 原图（ObjURL）来自带水印的商业图库时，缩略图只是同一张图的 CDN 缓存，
+        # 水印一样在——所以必须整条舍弃，不能退而求其次去下它的缩略图。
+        if r["obj"] and any(h in r["obj"].lower() for h in WM_HOST_HINTS):
+            continue
         if _is_bad_url(r["obj"], r["aigc"]) and _is_bad_url(r["hover"], r["aigc"]):
             continue
         w, h = r["w"], r["h"]
@@ -357,7 +477,14 @@ def rank_candidates(results, kws):
     relaxed = not matched
     pool = matched or pool
     pool.sort(key=lambda p: (p[1], p[2], p[3]), reverse=True)
-    return [p[4] for p in pool], relaxed
+    out = []
+    for p in pool:
+        r = p[4]
+        blob = r.get("obj", "") + "\n" + r.get("hover", "") + "\n" + r.get("title", "")
+        if AVOID and any(a and a in blob for a in AVOID):
+            continue
+        out.append(r)
+    return out, relaxed
 
 
 def _clean_tmp(dest):
@@ -448,6 +575,14 @@ def main():
     for a in args:
         if a.startswith("--only="):
             only = set(a.split("=", 1)[1].split(","))
+        elif a.startswith("--avoid="):
+            AVOID.extend(x for x in a.split("=", 1)[1].split(",") if x)
+        elif a.startswith("--avoid-host="):
+            EXTRA_BAD_HOSTS.extend(x for x in a.split("=", 1)[1].split(",") if x)
+    if AVOID:
+        print("拉黑图源片段 %d 条" % len(AVOID))
+    if EXTRA_BAD_HOSTS:
+        print("拉黑 CDN 域名 %d 条" % len(EXTRA_BAD_HOSTS))
 
     data = json.load(io.open(DATA, encoding="utf-8"))
     items = data["landforms"]

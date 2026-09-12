@@ -670,6 +670,606 @@
       }
     },
     {
+      "id": "huangshan",
+      "name": "黄山",
+      "en": "Huangshan",
+      "category": "domestic",
+      "type": "花岗岩峰林",
+      "country": "中国",
+      "region": "安徽 · 黄山市",
+      "lat": 30.13,
+      "lon": 118.17,
+      "photo": "./assets/landforms/huangshan.jpg",
+      "photoSource": "https://gd1.alicdn.com/imgextra/i1/676398799/O1CN013fZfim2ErzouJqxio_!!676398799.jpg",
+      "summary": "奇松、怪石、云海、温泉「四绝」",
+      "intro": "黄山位于安徽省南部，是一座花岗岩断块山，因奇松、怪石、云海、温泉「四绝」闻名，1990 年列入世界文化与自然双遗产。主峰莲花峰海拔 1864 米。",
+      "traits": [
+        "花岗岩垂直节理发育，被侵蚀出形态各异的峰林与怪石",
+        "奇松扎根岩缝，迎客松是标志性景观",
+        "一年中有 200 多天可以见到云海",
+        "最高峰莲花峰海拔 1864 米，垂直气候带明显"
+      ],
+      "cause": "约 1.4 亿年前花岗岩浆侵入地壳、冷却成岩，后经地壳抬升与长期的风化、流水侵蚀切割，岩体沿垂直节理不断崩塌后退，形成今日的峰林与怪石。",
+      "personality": "你像黄山：外表嶙峋硬朗，内里却藏着松与云。你有自己不肯被磨平的棱角，也懂得在石缝里扎根生长；别人觉得你难接近，走近了才发现你云雾深处别有洞天。",
+      "profile": {
+        "thermal": 38,
+        "relief": 86,
+        "hardness": 90,
+        "dynamics": 58,
+        "moisture": 62
+      }
+    },
+    {
+      "id": "huashan",
+      "name": "华山",
+      "en": "Mount Hua",
+      "category": "domestic",
+      "type": "花岗岩断块山",
+      "country": "中国",
+      "region": "陕西 · 渭南",
+      "lat": 34.48,
+      "lon": 110.08,
+      "photo": "./assets/landforms/huashan.jpg",
+      "photoSource": "https://p5.ssl.qhimgs1.com/t042069c9a241e0cedf.jpg",
+      "summary": "五岳之险，四面如削",
+      "intro": "华山位于陕西渭南，是秦岭北麓的花岗岩断块山，以「险」著称，自古有「奇险天下第一山」之说。主峰南峰海拔 2154.9 米，是五岳中的最高峰。",
+      "traits": [
+        "整块花岗岩体抬升而成，四面如刀削斧劈",
+        "长空栈道、鹞子翻身等险道闻名于世",
+        "东、西、南三峰环立，远望形如莲花",
+        "垂直节理密集，山体几乎没有缓坡"
+      ],
+      "cause": "华山岩体是一亿多年前侵入的花岗岩。新生代以来渭河地堑下沉、华山断块强烈抬升，岩体沿密集的垂直节理被风化剥离，最终露出陡峭的悬崖绝壁。",
+      "personality": "你像华山：不给人留退路，也不给自己留退路。你认准的原则像刀劈的崖壁一样干脆，对就是对、错就是错；你不好相处，但谁都知道你站得住、倒不了。",
+      "profile": {
+        "thermal": 34,
+        "relief": 95,
+        "hardness": 97,
+        "dynamics": 52,
+        "moisture": 20
+      }
+    },
+    {
+      "id": "taishan",
+      "name": "泰山",
+      "en": "Mount Tai",
+      "category": "domestic",
+      "type": "变质岩山岳",
+      "country": "中国",
+      "region": "山东 · 泰安",
+      "lat": 36.25,
+      "lon": 117.1,
+      "photo": "./assets/landforms/taishan.jpg",
+      "photoSource": "http://img.mp.itc.cn/upload/20170504/45e9786315ec4006a3b73007600d50a6_th.jpeg",
+      "summary": "五岳之首，稳如磐石",
+      "intro": "泰山位于山东中部，是五岳之首，主峰玉皇顶海拔 1545 米。它不算最高的山，却因历代帝王在此封禅、石刻遍布而被称为「五岳独尊」，是中华文化里「稳」的象征。",
+      "traits": [
+        "由古老的变质岩与花岗岩组成，山体厚重平缓",
+        "相对高差 1300 余米，从中原平原上拔地而起",
+        "自秦始皇起历代帝王在此封禅祭天",
+        "十八盘石阶 1600 余级，直上南天门"
+      ],
+      "cause": "泰山坐落在华北地台古老基底之上，历经长期缓慢抬升，岩性坚硬、抗蚀能力强；周围平原不断沉降，于是这座「并不算高」的山，相对高度反而特别突出。",
+      "personality": "你像泰山：不追求最高，却最让人安心。你话不多、脾气稳，关键时刻所有人都往你身后退一步；你不耀眼，但你是那个能扛事、能被托付的人。",
+      "profile": {
+        "thermal": 40,
+        "relief": 62,
+        "hardness": 93,
+        "dynamics": 24,
+        "moisture": 45
+      }
+    },
+    {
+      "id": "wuyi_mountains",
+      "name": "武夷山",
+      "en": "Wuyi Mountains",
+      "category": "domestic",
+      "type": "丹霞地貌",
+      "country": "中国",
+      "region": "福建 · 江西交界",
+      "lat": 27.72,
+      "lon": 117.68,
+      "photo": "./assets/landforms/wuyi_mountains.jpg",
+      "photoSource": "http://dimg03.c-ctrip.com/images/fd/tg/g1/M06/7D/45/CghzfVWw2xiAX6YHAA_tVEjwyMU997.jpg",
+      "summary": "九曲溪畔的碧水丹山",
+      "intro": "武夷山位于福建与江西交界，是典型的丹霞地貌，也是世界文化与自然双遗产。红色的砂砾岩峰岩夹着清澈的九曲溪，「碧水丹山」四个字说尽了这里的模样。",
+      "traits": [
+        "红色砂砾岩层被流水切割，形成赤壁丹崖",
+        "九曲溪蜿蜒穿行于三十六峰之间",
+        "保存着世界同纬度最完整的中亚热带森林",
+        "是朱子理学的发源地，也是世界乌龙茶与红茶祖地"
+      ],
+      "cause": "白垩纪时这里沉积了厚层红色砂砾岩，随后地壳抬升，在湿热气候下被流水沿垂直节理长期切割侵蚀，形成「顶平、身陡、麓缓」的丹霞峰岩。",
+      "personality": "你像武夷山：外表热烈，内里温润。你有分明的立场和漂亮的坚持，却也留着一条弯弯的溪，容得下茶、容得下人来人往。刚与柔在你身上不是矛盾，是风景。",
+      "profile": {
+        "thermal": 66,
+        "relief": 74,
+        "hardness": 60,
+        "dynamics": 55,
+        "moisture": 78
+      }
+    },
+    {
+      "id": "danxiashan",
+      "name": "丹霞山",
+      "en": "Mount Danxia",
+      "category": "domestic",
+      "type": "丹霞地貌",
+      "country": "中国",
+      "region": "广东 · 韶关",
+      "lat": 25.03,
+      "lon": 113.73,
+      "photo": "./assets/landforms/danxiashan.jpg",
+      "photoSource": "https://www.sg.gov.cn/img/0/144/144479/2478104.jpg",
+      "summary": "「丹霞地貌」的命名地",
+      "intro": "丹霞山位于广东韶关，是丹霞地貌的命名地，世界自然遗产。红色砂砾岩被侵蚀成阳元石、长老峰等数百座赤色峰岩，颜色红得像被火烧过一样。",
+      "traits": [
+        "由红色砂砾岩构成的峰、崖、石、洞群",
+        "「顶平、身陡、麓缓」是丹霞的标准形态",
+        "阳元石、阴元石等造型岩体闻名中外",
+        "亚热带季风气候，四季常绿、植被茂密"
+      ],
+      "cause": "约一亿年前，这里是一个大型内陆盆地，堆积了厚层红色砂砾岩。盆地抬升后岩层被垂直节理切开，流水与风化掏空软的部分、留下硬的部分，于是有了这一片赤色峰岩。",
+      "personality": "你像丹霞山：张扬、热烈，藏不住的情绪都写在脸上。你天生带点戏剧感，站在人群里一眼就能被看见；可你的热烈是沉积出来的，一层压着一层，经得住时间。",
+      "profile": {
+        "thermal": 84,
+        "relief": 70,
+        "hardness": 66,
+        "dynamics": 62,
+        "moisture": 58
+      }
+    },
+    {
+      "id": "sanqingshan",
+      "name": "三清山",
+      "en": "Mount Sanqingshan",
+      "category": "domestic",
+      "type": "花岗岩峰林",
+      "country": "中国",
+      "region": "江西 · 上饶",
+      "lat": 28.91,
+      "lon": 118.06,
+      "photo": "./assets/landforms/sanqingshan.jpg",
+      "photoSource": "https://p0.ssl.qhimgs1.com/t04f0d68223422da41a.jpg",
+      "summary": "云雾中的花岗岩峰林博物馆",
+      "intro": "三清山位于江西上饶，世界自然遗产，以密集的花岗岩峰林与造型石闻名，被称为「西太平洋边缘最美丽的花岗岩」。巨蟒出山、司春女神等石峰在云雾里像活的一样。",
+      "traits": [
+        "花岗岩峰林密集，造型石千姿百态",
+        "巨蟒出山石柱高约 128 米，一柱擎天",
+        "常年云雾缭绕，云海与峰林层层叠叠",
+        "垂直植被带完整，古松扎根于岩缝之中"
+      ],
+      "cause": "燕山期的花岗岩侵入后缓慢冷却，形成规则的垂直与水平节理；此后地壳多次抬升，流水与冻融风化反复作用，把岩体雕成一根根直立的石柱。",
+      "personality": "你像三清山：清冷、挺拔，不太主动融进人群。你有自己的一套审美和秩序，也懒得解释；但云雾一散，你那一柱擎天的样子，会让所有人闭嘴。",
+      "profile": {
+        "thermal": 24,
+        "relief": 90,
+        "hardness": 92,
+        "dynamics": 38,
+        "moisture": 60
+      }
+    },
+    {
+      "id": "wanfenglin",
+      "name": "万峰林",
+      "en": "Wanfenglin",
+      "category": "domestic",
+      "type": "喀斯特峰林",
+      "country": "中国",
+      "region": "贵州 · 兴义",
+      "lat": 24.99,
+      "lon": 104.9,
+      "photo": "./assets/landforms/wanfenglin.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/images/20180304/073b8b95ef774dfd9e94ec4b39aa37bc.jpeg",
+      "summary": "两万座锥状峰丛铺成的田园",
+      "intro": "万峰林位于贵州兴义，属中国南方喀斯特，由两万余座锥状石灰岩峰丛组成。峰下有田、田间有村，徐霞客称它「天下山峰何其多，唯有此处峰成林」。",
+      "traits": [
+        "锥状峰丛两万余座，峰林与坝子相间分布",
+        "峰体高度相近，成片望去如林",
+        "纳灰村等布依族村寨散布其间",
+        "是典型的喀斯特峰林—峰丛地貌"
+      ],
+      "cause": "厚层石灰岩在高温多雨的环境下被含二氧化碳的水长期溶蚀，可溶的部分被水带走，难溶的部分残留下来，成为一座座锥形山峰。",
+      "personality": "你像万峰林：不孤高，却成群。你习惯了和身边的人挨着站，温和、稳定、不争高低；别人看你是「一片」，走近了才知道每一座峰都长得不一样。",
+      "profile": {
+        "thermal": 72,
+        "relief": 60,
+        "hardness": 44,
+        "dynamics": 36,
+        "moisture": 80
+      }
+    },
+    {
+      "id": "detian_waterfall",
+      "name": "德天瀑布",
+      "en": "Detian Falls",
+      "category": "domestic",
+      "type": "瀑布（喀斯特）",
+      "country": "中国",
+      "region": "广西 · 崇左",
+      "lat": 22.85,
+      "lon": 106.75,
+      "photo": "./assets/landforms/detian_waterfall.jpg",
+      "photoSource": "https://p4.itc.cn/images01/20230524/2f7275b618ab4c85b15cc40bc1ce790e.jpeg",
+      "summary": "横跨中越的亚洲第一大跨国瀑布",
+      "intro": "德天瀑布位于广西大新县中越边境的归春河上，宽约 120 米、落差 70 余米，与越南的板约瀑布相连，是亚洲最大的跨国瀑布，四季水量都很充沛。",
+      "traits": [
+        "宽约 120 米、落差 70 余米，分三级跌落",
+        "横跨中国与越南两国国界",
+        "喀斯特地貌区，瀑布四周是峰丛与田园",
+        "雨季水量暴涨，可与板约瀑布连成一片"
+      ],
+      "cause": "归春河流经喀斯特峰丛区时，遇到岩层的差异侵蚀与断层崖，河水从坚硬的岩层跌落到下方被溶蚀的河床上，于是形成多级落差。",
+      "personality": "你像德天瀑布：场面大，心也大。你天生有把不同的人、不同的事连成一片的本事，站在你旁边的人不会觉得孤单；你的流量充沛，给出去的热情从来不心疼。",
+      "profile": {
+        "thermal": 74,
+        "relief": 58,
+        "hardness": 40,
+        "dynamics": 90,
+        "moisture": 92
+      }
+    },
+    {
+      "id": "hutiaoxia",
+      "name": "虎跳峡",
+      "en": "Tiger Leaping Gorge",
+      "category": "domestic",
+      "type": "峡谷",
+      "country": "中国",
+      "region": "云南 · 迪庆",
+      "lat": 27.19,
+      "lon": 100.1,
+      "photo": "./assets/landforms/hutiaoxia.jpg",
+      "photoSource": "https://5b0988e595225.cdn.sohucs.com/images/20181127/60d0c3b75ca9447e8faed39fd17b05fe.jpeg",
+      "summary": "金沙江在玉龙与哈巴之间最窄的怒吼",
+      "intro": "虎跳峡位于云南香格里拉，金沙江在这里被玉龙雪山与哈巴雪山夹峙，峡谷最深约 3900 米，江面最窄处仅约 30 米，是世界上最深的峡谷之一。",
+      "traits": [
+        "峡谷最深约 3900 米，江面最窄仅约 30 米",
+        "两岸玉龙、哈巴雪山与江面落差超过 3000 米",
+        "江心虎跳石激起数米高的浪，声震峡谷",
+        "金沙江在此由南流急转为东北流"
+      ],
+      "cause": "青藏高原抬升使金沙江的下切能力剧增，江水沿着断裂带持续下切，两岸山体却因构造抬升而升高，两者像在赛跑，最终切出了这条又深又窄的峡谷。",
+      "personality": "你像虎跳峡：话不多，但一旦被逼到窄处，声音能震动整条峡谷。你深藏不露，平时看不出情绪，可你的深度和爆发力，认识你十年的人也未必量得清。",
+      "profile": {
+        "thermal": 30,
+        "relief": 96,
+        "hardness": 88,
+        "dynamics": 92,
+        "moisture": 66
+      }
+    },
+    {
+      "id": "sanjiang_bingliu",
+      "name": "三江并流",
+      "en": "Three Parallel Rivers",
+      "category": "domestic",
+      "type": "峡谷群",
+      "country": "中国",
+      "region": "云南 · 滇西北",
+      "lat": 27.5,
+      "lon": 99.0,
+      "photo": "./assets/landforms/sanjiang_bingliu.jpg",
+      "photoSource": "https://5b0988e595225.cdn.sohucs.com/images/20171101/dbd699ea2a69483e8605af42fae84a49.jpeg",
+      "summary": "三条大江并肩南流 170 余千米",
+      "intro": "三江并流位于云南西北部的横断山区，金沙江、澜沧江、怒江在不到 100 千米的宽度内并行南流 170 余千米，最近处相距不足 70 千米，是世界自然遗产。",
+      "traits": [
+        "金沙江、澜沧江、怒江三江并行南流",
+        "并流区最窄处三江相距不足 70 千米",
+        "澜沧江与金沙江最短间距仅约 19 千米",
+        "垂直气候带跨越亚热带到高山寒带"
+      ],
+      "cause": "印度板块挤压使青藏高原东缘的地壳被侧向挤出，形成一组南北走向的紧密褶皱与断裂；河流沿着这些构造线发育并强烈下切，于是三江各自成谷、并排南流。",
+      "personality": "你像三江并流：热闹与孤独在你身上并存。你身边永远有好几条线同时进行，各走各的、互不打扰；你看起来热闹非凡，其实每一条都流向自己的海。",
+      "profile": {
+        "thermal": 32,
+        "relief": 92,
+        "hardness": 70,
+        "dynamics": 84,
+        "moisture": 74
+      }
+    },
+    {
+      "id": "qinghai_lake",
+      "name": "青海湖",
+      "en": "Qinghai Lake",
+      "category": "domestic",
+      "type": "内陆咸水湖",
+      "country": "中国",
+      "region": "青海 · 海北",
+      "lat": 36.9,
+      "lon": 100.2,
+      "photo": "./assets/landforms/qinghai_lake.jpg",
+      "photoSource": "https://p2.ssl.qhimgs1.com/t04bb3482706f775018.jpg",
+      "summary": "中国最大的湖泊与最大的咸水湖",
+      "intro": "青海湖位于青藏高原东北部，面积约 4600 平方千米，是中国最大的湖泊、最大的内陆咸水湖，藏语称「措温布」，意为「青色的海」。",
+      "traits": [
+        "面积约 4600 平方千米，中国第一大湖",
+        "湖水含盐量约 1.2%，属咸水湖",
+        "湖中鸟岛是候鸟繁殖地，每年数万只候鸟来此",
+        "湖面海拔约 3196 米，四周为高山环抱"
+      ],
+      "cause": "青海湖原本是外流湖，与黄河水系相通；后来构造运动使周围山地抬升、湖盆封闭，河流改向，湖水失去出口，只能靠蒸发排泄，于是越积越咸。",
+      "personality": "你像青海湖：安静得像一片海，却被锁在内陆。你有很多话、很多水，只是没有出口；你独自养着一整片天空和成群的鸟，不需要谁懂，也从不干涸。",
+      "profile": {
+        "thermal": 16,
+        "relief": 55,
+        "hardness": 52,
+        "dynamics": 30,
+        "moisture": 76
+      }
+    },
+    {
+      "id": "namtso",
+      "name": "纳木错",
+      "en": "Namtso",
+      "category": "domestic",
+      "type": "高原湖泊",
+      "country": "中国",
+      "region": "西藏 · 拉萨 · 那曲",
+      "lat": 30.7,
+      "lon": 90.6,
+      "photo": "./assets/landforms/namtso.jpg",
+      "photoSource": "http://dimg04.c-ctrip.com/images/300q0e00000072rnu8B11.jpg",
+      "summary": "世界海拔最高的大型湖泊之一",
+      "intro": "纳木错位于西藏中部，湖面海拔约 4718 米，面积约 1920 平方千米，是西藏最大的湖泊、中国第三大咸水湖，也是藏传佛教的圣湖，湖名意为「天湖」。",
+      "traits": [
+        "湖面海拔约 4718 米，世界海拔最高的大型湖泊之一",
+        "面积约 1920 平方千米，湖水呈深蓝色",
+        "南岸念青唐古拉山主峰海拔 7111 米",
+        "冬季封冻，冰层厚度可达一米以上"
+      ],
+      "cause": "念青唐古拉山隆起与断裂下陷共同形成了封闭的湖盆，高山冰雪融水不断汇入；因湖水没有出口，只能蒸发，盐分逐渐积累，成为高原咸水湖。",
+      "personality": "你像纳木错：离天很近，离人很远。你的世界里氧气稀薄、安静得能听见风，可你的蓝是那种一眼就让人安静下来的蓝。你不喧哗，但你是别人心里的圣地。",
+      "profile": {
+        "thermal": 8,
+        "relief": 66,
+        "hardness": 58,
+        "dynamics": 26,
+        "moisture": 70
+      }
+    },
+    {
+      "id": "chaka_salt",
+      "name": "茶卡盐湖",
+      "en": "Chaka Salt Lake",
+      "category": "domestic",
+      "type": "盐湖",
+      "country": "中国",
+      "region": "青海 · 海西",
+      "lat": 36.7,
+      "lon": 99.09,
+      "photo": "./assets/landforms/chaka_salt.jpg",
+      "photoSource": "https://b0.bdstatic.com/ugc/MNt4ESU538mkni1LuyZErw6a73f2b1caf3b548c0f311698532db0a.jpg@h_1280",
+      "summary": "中国的「天空之镜」",
+      "intro": "茶卡盐湖位于青海柴达木盆地东缘，湖面海拔约 3059 米，是一处固液并存的盐湖。浅浅的盐卤水覆在白色盐晶上，倒映天空，因此被称为「天空之镜」。",
+      "traits": [
+        "湖面覆盖薄层卤水，形成镜面反射",
+        "盐层厚、储量大，盛产大青盐",
+        "湖面海拔约 3059 米，四周为戈壁与山地",
+        "采盐历史可追溯到汉代"
+      ],
+      "cause": "柴达木盆地原本是一个古湖，气候变干后湖水大量蒸发、盐分不断浓缩结晶；如今补给水量与蒸发量接近平衡，盐层稳定地留存下来。",
+      "personality": "你像茶卡盐湖：干净到能把别人照出来。你不抢戏、不设防，你只是一面镜子，谁站到你面前都会变成更好看的样子；可你自己的底色是极简的、纯白的。",
+      "profile": {
+        "thermal": 52,
+        "relief": 30,
+        "hardness": 46,
+        "dynamics": 20,
+        "moisture": 64
+      }
+    },
+    {
+      "id": "badain_jaran",
+      "name": "巴丹吉林沙漠",
+      "en": "Badain Jaran Desert",
+      "category": "domestic",
+      "type": "沙漠",
+      "country": "中国",
+      "region": "内蒙古 · 阿拉善",
+      "lat": 39.8,
+      "lon": 102.0,
+      "photo": "./assets/landforms/badain_jaran.jpg",
+      "photoSource": "https://p0.itc.cn/q_70/images03/20220314/cdfd5c12e6764dff850be720f8882896.jpeg",
+      "summary": "世界上沙山最高、湖眼最多的沙漠",
+      "intro": "巴丹吉林沙漠位于内蒙古阿拉善，面积约 4.9 万平方千米，拥有世界上最高的固定沙山——必鲁图峰，相对高度超过 400 米；沙漠腹地还散布着 140 多个常年不涸的湖泊。",
+      "traits": [
+        "必鲁图沙峰相对高度超过 400 米，世界最高固定沙山之一",
+        "沙漠中有 140 多个湖泊，沙山与湖眼相间",
+        "沙山之间常有泉水涌出，形成「沙中湖」奇观",
+        "是「巴丹吉林沙漠」世界自然遗产的核心区"
+      ],
+      "cause": "强烈的风力把古代河湖沉积的沙粒反复搬运、堆积，塑成高大的沙山；沙山之间的低地地下水出露，便成了常年不涸的湖泊。",
+      "personality": "你像巴丹吉林：别人以为你很荒，其实你藏着一百多个湖。你习惯把自己裹成沙山，让人以为你只有干燥和距离；只有真正走到腹地的人，才看得见你那些不涸的温柔。",
+      "profile": {
+        "thermal": 90,
+        "relief": 80,
+        "hardness": 62,
+        "dynamics": 44,
+        "moisture": 24
+      }
+    },
+    {
+      "id": "kekexili",
+      "name": "可可西里",
+      "en": "Hoh Xil",
+      "category": "domestic",
+      "type": "高原荒野",
+      "country": "中国",
+      "region": "青海 · 玉树",
+      "lat": 35.5,
+      "lon": 92.5,
+      "photo": "./assets/landforms/kekexili.jpg",
+      "photoSource": "https://p2.ssl.qhimgs1.com/t042ebc25eb88918a02.jpg",
+      "summary": "无人区里的藏羚羊故乡",
+      "intro": "可可西里位于青藏高原腹地，平均海拔 4600 米以上，是中国最大的无人区、世界自然遗产。这里湖泊密布、气候严酷，却养着藏羚羊、藏野驴等高原精灵。",
+      "traits": [
+        "平均海拔 4600 米以上，空气含氧量不足海平面一半",
+        "大小湖泊 7000 多个，是长江源头所在",
+        "藏羚羊每年迁徙产仔的必经之地",
+        "年均气温低于零下 4℃，终年大风、无夏"
+      ],
+      "cause": "随青藏高原整体隆升，这片区域被抬升到「人类几乎无法生存」的高度；冰川与冻土塑造出湖泊与宽谷，野生动植物在极端环境里演化出了独特的生存方式。",
+      "personality": "你像可可西里：选择了一片没人愿意来的地方，独自待着。你不解释自己的冷，也不炫耀自己的辽阔；你把生命里最倔强的部分留在那里，让懂的人远远看一眼就心疼。",
+      "profile": {
+        "thermal": 4,
+        "relief": 78,
+        "hardness": 86,
+        "dynamics": 40,
+        "moisture": 34
+      }
+    },
+    {
+      "id": "dunhuang_yardang",
+      "name": "敦煌雅丹",
+      "en": "Dunhuang Yardang",
+      "category": "domestic",
+      "type": "雅丹地貌",
+      "country": "中国",
+      "region": "甘肃 · 敦煌",
+      "lat": 40.5,
+      "lon": 93.3,
+      "photo": "./assets/landforms/dunhuang_yardang.jpg",
+      "photoSource": "https://img1.qunarzz.com/travel/d9/1802/44/acdc486b6f934db5.jpg",
+      "summary": "风蚀出来的「魔鬼城」",
+      "intro": "敦煌雅丹国家地质公园位于甘肃敦煌西部，是典型的雅丹地貌。长期盛行的西北风把湖相沉积的泥岩、砂岩雕成一座座土丘，形如城堡、舰船；夜风穿过时呜呜作响，故称「魔鬼城」。",
+      "traits": [
+        "风蚀土丘成排分布，长轴一致指向主导风向",
+        "土丘形态似城堡、舰船、人面，千姿百态",
+        "区内有 40 多个大小不一的雅丹群",
+        "地处罗布泊东缘，极度干旱，年降水稀少"
+      ],
+      "cause": "这里原是古湖盆，沉积了水平的泥岩与砂岩层；湖泊干涸后岩层出露，被长期定向的强风沿裂隙不断吹蚀、磨蚀，软层被掏空，硬层残留成丘。",
+      "personality": "你像敦煌雅丹：被风磨了很多年，但没被磨没。你的形状是岁月吹出来的，棱角还在、底座还稳；你发出的声音有点像哭，其实那只是风从你身上经过。",
+      "profile": {
+        "thermal": 88,
+        "relief": 42,
+        "hardness": 74,
+        "dynamics": 56,
+        "moisture": 6
+      }
+    },
+    {
+      "id": "ejina",
+      "name": "额济纳胡杨林",
+      "en": "Ejina Poplar Forest",
+      "category": "domestic",
+      "type": "绿洲",
+      "country": "中国",
+      "region": "内蒙古 · 阿拉善",
+      "lat": 41.95,
+      "lon": 101.05,
+      "photo": "./assets/landforms/ejina.jpg",
+      "photoSource": "http://pic1.win4000.com/wallpaper/c/58492dcd42493.jpg",
+      "summary": "沙漠边缘三千年不死的胡杨",
+      "intro": "额济纳胡杨林位于内蒙古阿拉善的弱水（额济纳河）下游，是世界仅存的三大胡杨林区之一。胡杨耐旱耐盐，有「生而千年不死、死而千年不倒、倒而千年不朽」之说。",
+      "traits": [
+        "沿河呈带状分布，是巴丹吉林沙漠的天然屏障",
+        "秋季叶片金黄，是著名的秋景",
+        "胡杨能在含盐量较高的土壤中正常生长",
+        "区内有黑城遗址与居延海等景观"
+      ],
+      "cause": "弱水从祁连山带来冰雪融水，在荒漠中形成一条狭长的绿洲带；胡杨因根系深、耐盐碱，成为这条水线上的优势树种，并反过来固定了流沙。",
+      "personality": "你像额济纳的胡杨：在别人待不住的地方，活得漂亮。你耐得住旱、扛得住盐，一年里最美的那个秋天也只有短短十几天；你把倔强活成了风景。",
+      "profile": {
+        "thermal": 78,
+        "relief": 44,
+        "hardness": 88,
+        "dynamics": 50,
+        "moisture": 46
+      }
+    },
+    {
+      "id": "sayram_lake",
+      "name": "赛里木湖",
+      "en": "Sayram Lake",
+      "category": "domestic",
+      "type": "高山湖泊",
+      "country": "中国",
+      "region": "新疆 · 博尔塔拉",
+      "lat": 44.6,
+      "lon": 81.2,
+      "photo": "./assets/landforms/sayram_lake.jpg",
+      "photoSource": "https://i2.hdslb.com/bfs/archive/f52e6a2141a446f0f86d8857f0160e537b2c8771.jpg",
+      "summary": "大西洋最后一滴眼泪",
+      "intro": "赛里木湖位于新疆天山西段的高山盆地中，湖面海拔约 2071 米，是新疆海拔最高、面积最大的高山湖泊。因地处西风带末端，被称作「大西洋最后一滴眼泪」。",
+      "traits": [
+        "湖面海拔约 2071 米，面积约 460 平方千米",
+        "湖水清澈，透明度可达十余米",
+        "四周雪山环绕，湖畔是亚高山草甸",
+        "湖水微咸，冬季结冰期长达数月"
+      ],
+      "cause": "天山山地在构造运动中形成断陷盆地，高山冰雪融水与降水不断汇入洼地；因海拔高、气温低、蒸发弱，水越积越多，最终形成了这个高山湖泊。",
+      "personality": "你像赛里木湖：干净、清冷，像谁留下的一滴眼泪。你站在高处，不参与山下的热闹；你透明到能看见自己，也清澈到让人不敢往里丢石头。",
+      "profile": {
+        "thermal": 20,
+        "relief": 70,
+        "hardness": 54,
+        "dynamics": 28,
+        "moisture": 84
+      }
+    },
+    {
+      "id": "muztagh_ata",
+      "name": "慕士塔格峰",
+      "en": "Muztagh Ata",
+      "category": "domestic",
+      "type": "冰川",
+      "country": "中国",
+      "region": "新疆 · 喀什",
+      "lat": 38.28,
+      "lon": 75.03,
+      "photo": "./assets/landforms/muztagh_ata.jpg",
+      "photoSource": "https://pic.rmb.bdstatic.com/bjh/down/ef17e57bd2f82c8a9fdc2832e0e9ad35.jpeg",
+      "summary": "冰山之父，帕米尔高原的雪冠",
+      "intro": "慕士塔格峰位于新疆帕米尔高原，海拔 7509 米，山顶浑圆、终年积雪，被当地牧民称为「冰山之父」。它的冰川末端一直延伸到海拔 4000 多米的草原边缘。",
+      "traits": [
+        "海拔 7509 米，山体浑圆，终年积雪",
+        "发育有 16 条冰川，冰舌可下伸至 4300 米",
+        "山下是喀拉库勒湖，形成「冰山映湖」的景观",
+        "是帕米尔高原东缘的标志性山峰"
+      ],
+      "cause": "印度板块与亚欧板块碰撞使帕米尔强烈隆升，海拔超过雪线之后，积雪逐年积累、压实成冰，并在重力作用下沿山谷缓慢流动，形成覆盖式冰川。",
+      "personality": "你像慕士塔格：看着圆润好接近，其实没人真正上去过。你把锋利都收进冰里，只留一个温柔的轮廓给远处的人看；你是别人眼里的父亲，稳、厚、沉默。",
+      "profile": {
+        "thermal": 6,
+        "relief": 88,
+        "hardness": 82,
+        "dynamics": 34,
+        "moisture": 68
+      }
+    },
+    {
+      "id": "bayinbuluke",
+      "name": "巴音布鲁克草原",
+      "en": "Bayanbulak Grassland",
+      "category": "domestic",
+      "type": "湿地草原",
+      "country": "中国",
+      "region": "新疆 · 巴音郭楞",
+      "lat": 42.9,
+      "lon": 84.15,
+      "photo": "./assets/landforms/bayinbuluke.jpg",
+      "photoSource": "https://pic.rmb.bdstatic.com/bjh/events/c5455ebb7f317a4214c09e9838968913.jpeg@h_1280",
+      "summary": "天鹅栖息的九曲十八弯",
+      "intro": "巴音布鲁克草原位于新疆天山深处的尤尔都斯盆地，海拔约 2500 米，是中国第二大草原，也是天鹅的繁殖地。开都河在草原上蜿蜒出著名的「九曲十八弯」。",
+      "traits": [
+        "海拔约 2500 米，是中国第二大草原",
+        "开都河在此形成「九曲十八弯」的曲流景观",
+        "设有全国第一个天鹅自然保护区",
+        "四周雪山环绕，湿地沼泽广布"
+      ],
+      "cause": "天山山间盆地地势平坦、排水不畅，冰雪融水汇集成大片沼泽湿地；河流比降极小，侧蚀作用让河道不断弯曲、改道，最终形成蛇曲。",
+      "personality": "你像巴音布鲁克：心宽、路弯、脾气好。你走得很慢，却在原地绕出了很美的东西；你不急着奔向远方，你更愿意留一块湿地，让路过的人歇一歇。",
+      "profile": {
+        "thermal": 28,
+        "relief": 40,
+        "hardness": 38,
+        "dynamics": 46,
+        "moisture": 94
+      }
+    },
+    {
       "id": "sahara",
       "name": "撒哈拉沙漠",
       "en": "Sahara Desert",
@@ -1267,6 +1867,606 @@
         "hardness": 72,
         "dynamics": 38,
         "moisture": 44
+      }
+    },
+    {
+      "id": "niagara_falls",
+      "name": "尼亚加拉瀑布",
+      "en": "Niagara Falls",
+      "category": "international",
+      "type": "瀑布",
+      "country": "加拿大 · 美国",
+      "region": "安大略湖—伊利湖之间",
+      "lat": 43.08,
+      "lon": -79.07,
+      "photo": "./assets/landforms/niagara_falls.jpg",
+      "photoSource": "https://image.xcar.com.cn/attachments/a/day_20150520/2015052008_74843edb26cc9e755203QzCkFRMytMeT.jpg",
+      "summary": "北美水量最大的瀑布",
+      "intro": "尼亚加拉瀑布位于加拿大与美国交界的尼亚加拉河上，由马蹄瀑布、美国瀑布等组成，落差约 51 米，水量居北美之首，每秒倾泻的水量惊人。",
+      "traits": [
+        "马蹄瀑布宽约 790 米，落差约 51 米",
+        "水量居北美之首，每秒流量达数千立方米",
+        "夜间有灯光照射，冬季部分河段结冰成「冰桥」",
+        "河水最终汇入安大略湖，属五大湖水系"
+      ],
+      "cause": "威斯康星冰期结束时，尼亚加拉河切穿了坚硬的硅质白云岩层，下伏较软的页岩被水流掏空，上方岩层随之崩塌后退，于是形成了瀑布，并在数千年间不断向上游退却。",
+      "personality": "你像尼亚加拉瀑布：力气大得藏不住。你不喜欢含蓄，你的情绪就是几十万吨的水，砸下去就是砸下去；你吵，但热闹得让人愿意在你边上看很久。",
+      "profile": {
+        "thermal": 60,
+        "relief": 48,
+        "hardness": 52,
+        "dynamics": 98,
+        "moisture": 90
+      }
+    },
+    {
+      "id": "victoria_falls",
+      "name": "维多利亚瀑布",
+      "en": "Victoria Falls",
+      "category": "international",
+      "type": "瀑布",
+      "country": "赞比亚 · 津巴布韦",
+      "region": "赞比西河中游",
+      "lat": -17.92,
+      "lon": 25.86,
+      "photo": "./assets/landforms/victoria_falls.jpg",
+      "photoSource": "https://pic.rmb.bdstatic.com/bjh/240615/aa64cb27b3764171f092679dddb012be4849.jpeg",
+      "summary": "赞比西河上的「雷霆之雾」",
+      "intro": "维多利亚瀑布（莫西奥图尼亚瀑布）位于非洲赞比西河中游、赞比亚与津巴布韦交界处，宽约 1708 米、落差约 108 米，是世界最大的瀑布之一，当地人叫它「雷霆之雾」。",
+      "traits": [
+        "宽约 1708 米、落差约 108 米，世界最大瀑布之一",
+        "水雾升腾可达 400 米高，几十千米外都能看见",
+        "瀑布下方是著名的之字形巴托卡峡谷",
+        "旱季可以站在岩壁边缘俯瞰整个瀑布"
+      ],
+      "cause": "赞比西河原本流淌在平坦的玄武岩面上，河水沿着构造裂隙不断下切，切出连续多级的之字形峡谷；如今的瀑布，就是当前这个切蚀点的位置。",
+      "personality": "你像维多利亚瀑布：气势盖过一切。你不只是响，你是那种能让几千米外的人都抬头看的响；你的雾比你的水升得更高——你的影响力，总比你本人走得更远。",
+      "profile": {
+        "thermal": 76,
+        "relief": 56,
+        "hardness": 60,
+        "dynamics": 96,
+        "moisture": 88
+      }
+    },
+    {
+      "id": "iguazu_falls",
+      "name": "伊瓜苏瀑布",
+      "en": "Iguazu Falls",
+      "category": "international",
+      "type": "瀑布",
+      "country": "阿根廷 · 巴西",
+      "region": "伊瓜苏河下游",
+      "lat": -25.69,
+      "lon": -54.44,
+      "photo": "./assets/landforms/iguazu_falls.jpg",
+      "photoSource": "https://5b0988e595225.cdn.sohucs.com/images/20180707/79e02ea4dfb74b619c6b5442f976dd1d.jpeg",
+      "summary": "由 275 股水流组成的瀑布群",
+      "intro": "伊瓜苏瀑布位于阿根廷与巴西交界的伊瓜苏河上，由 275 股大小瀑布组成，总宽约 2700 米，落差 60–82 米，其中「魔鬼喉」最为震撼，是世界自然遗产。",
+      "traits": [
+        "由 275 股瀑布组成，总宽约 2700 米",
+        "核心「魔鬼喉」落差约 82 米，呈巨大的 U 形",
+        "四周是亚热带雨林，彩虹几乎天天可见",
+        "由阿根廷与巴西共同列入世界自然遗产"
+      ],
+      "cause": "伊瓜苏河在汇入巴拉那河之前，遇到了一层坚硬玄武岩台地的边缘；河水沿着多组节理跌落，又被岩岛分隔成许多股，于是形成了世界少有的「瀑布群」。",
+      "personality": "你像伊瓜苏：一个人有好几股性子。你从来不是一条水流，你有 275 面，而每一面都是真的；别人分不清哪一个才是你，其实每一个都是你。",
+      "profile": {
+        "thermal": 72,
+        "relief": 54,
+        "hardness": 46,
+        "dynamics": 90,
+        "moisture": 96
+      }
+    },
+    {
+      "id": "geysir",
+      "name": "冰岛间歇泉",
+      "en": "Geysir",
+      "category": "international",
+      "type": "地热间歇泉",
+      "country": "冰岛",
+      "region": "盖歇尔地热区",
+      "lat": 64.31,
+      "lon": -20.3,
+      "photo": "./assets/landforms/geysir.jpg",
+      "photoSource": "https://5b0988e595225.cdn.sohucs.com/images/20200331/e341c6a8be054469a9d8e5761f193ec4.jpeg",
+      "summary": "「间歇泉」一词的命名地",
+      "intro": "盖歇尔间歇泉位于冰岛西南部的地热区，英语中的间歇泉（geyser）一词就源于它的名字。附近的斯特罗柯间歇泉每隔数分钟喷发一次，水柱可达 20–30 米高。",
+      "traits": [
+        "「geyser（间歇泉）」一词来源于此地",
+        "斯特罗柯间歇泉每 5–10 分钟喷发一次，水柱高 20–30 米",
+        "周边地表遍布彩色硅华与沸腾的泥泉",
+        "地处大西洋中脊之上，火山与地热活动频繁"
+      ],
+      "cause": "地表水沿裂隙下渗，被高温火山岩加热到超过 100℃ 却因水柱压力仍保持液态；当水终于沸腾、压力骤然释放，热水与蒸汽便猛烈喷出，之后重新蓄水，循环往复。",
+      "personality": "你像冰岛的间歇泉：平时安静，攒够了就喷一次。你不是随时都在输出的人，你的爆发有周期；别人看不懂你沉默时在干什么，其实你在蓄压。",
+      "profile": {
+        "thermal": 96,
+        "relief": 50,
+        "hardness": 42,
+        "dynamics": 86,
+        "moisture": 62
+      }
+    },
+    {
+      "id": "yosemite",
+      "name": "优胜美地",
+      "en": "Yosemite Valley",
+      "category": "international",
+      "type": "花岗岩峡谷",
+      "country": "美国",
+      "region": "加利福尼亚 · 内华达山脉",
+      "lat": 37.75,
+      "lon": -119.6,
+      "photo": "./assets/landforms/yosemite.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/images/20190707/29f6b9321e124407a0b4d9893a2f88a8.jpeg",
+      "summary": "冰川雕出的花岗岩巨谷",
+      "intro": "优胜美地谷位于美国加利福尼亚州内华达山脉，长约 13 千米，两侧是近千米高的花岗岩绝壁。谷内有酋长岩、半圆顶与新娘面纱瀑布，是最早一批世界自然遗产地。",
+      "traits": [
+        "酋长岩是一块高约 900 米的花岗岩独石，世界攀岩圣地",
+        "半圆顶是整片谷地的地标",
+        "谷地由冰川反复刨蚀扩大而成，呈 U 形",
+        "谷底海拔约 1200 米，红杉与瀑布遍布"
+      ],
+      "cause": "花岗岩岩体先被河流沿断裂下切成 V 形谷；随后在多次冰期里，冰川把谷底刨宽磨平，改造成 U 形谷。冰川退去后，谷壁与谷底的高差就显得格外夸张。",
+      "personality": "你像优胜美地：底子厚，气场大。你的 V 变成 U，是被巨大的力量磨过的；你看起来从容宽阔，其实是扛过挤压的。你站在那里，就是别人愿意仰望的尺度。",
+      "profile": {
+        "thermal": 44,
+        "relief": 94,
+        "hardness": 94,
+        "dynamics": 42,
+        "moisture": 58
+      }
+    },
+    {
+      "id": "monument_valley",
+      "name": "纪念碑谷",
+      "en": "Monument Valley",
+      "category": "international",
+      "type": "砂岩孤峰",
+      "country": "美国",
+      "region": "亚利桑那 · 犹他交界",
+      "lat": 36.99,
+      "lon": -110.1,
+      "photo": "./assets/landforms/monument_valley.jpg",
+      "photoSource": "https://p3.ssl.qhimgs1.com/t014970590ca6a2dbc3.jpg",
+      "summary": "荒漠里立着的红色巨型石碑",
+      "intro": "纪念碑谷位于美国亚利桑那与犹他州交界，是纳瓦霍人的圣地，也是西部片的经典取景地。红色砂岩被侵蚀成东手套、西手套、三姐妹等数百米高的孤峰。",
+      "traits": [
+        "红色砂岩孤峰高达 300 米以上",
+        "由台地、孤峰、尖塔组成「桌面」与「碑柱」的组合",
+        "是纳瓦霍族保留地，具有重要的文化意义",
+        "典型沙漠气候，昼夜温差极大"
+      ],
+      "cause": "厚层红色砂岩覆盖在较软的页岩之上，岩层先被节理切成方块；流水与风沿节理掏空软层，硬砂岩块体不断崩塌后退，最后只留下最坚硬的部分成为孤峰。",
+      "personality": "你像纪念碑谷：一个人站成一座碑。你不靠山、不成群，就那么孤零零地立在平原上，路过的人都得仰头；你不介意荒凉，你要的只是被清清楚楚地看见。",
+      "profile": {
+        "thermal": 86,
+        "relief": 84,
+        "hardness": 84,
+        "dynamics": 22,
+        "moisture": 10
+      }
+    },
+    {
+      "id": "antelope_canyon",
+      "name": "羚羊峡谷",
+      "en": "Antelope Canyon",
+      "category": "international",
+      "type": "狭缝峡谷",
+      "country": "美国",
+      "region": "亚利桑那 · 纳瓦霍保留地",
+      "lat": 36.86,
+      "lon": -111.37,
+      "photo": "./assets/landforms/antelope_canyon.jpg",
+      "photoSource": "https://p7.itc.cn/images01/20200802/1c05aa9048724a108c01aa10b46c2245.jpeg",
+      "summary": "光柱穿过的红色狭缝",
+      "intro": "羚羊峡谷位于美国亚利桑那州的纳瓦霍保留地，是世界上最著名的狭缝峡谷。最窄处仅容一人侧身通过，岩壁被洪水磨得光滑如波浪，阳光从顶部缝隙射入时形成光柱。",
+      "traits": [
+        "上羚羊峡谷最窄处仅约 1 米宽",
+        "砂岩岩壁被磨出波浪状的流线",
+        "正午阳光从顶部射入，形成著名的「光柱」",
+        "暴雨时谷内会突发洪水，风险极高"
+      ],
+      "cause": "沙漠暴雨形成的地表径流从高原上倾泻而下，裹着砂粒在砂岩的裂缝中反复冲刷、旋磨了数万年，把一条窄缝磨成了光滑的走廊。",
+      "personality": "你像羚羊峡谷：窄、深，且只能侧身通过。你不向所有人开放，你必须被特定的时间、特定的光找到，才显出最好的样子；你藏得深，但一旦有光进来，你就是全场。",
+      "profile": {
+        "thermal": 82,
+        "relief": 72,
+        "hardness": 56,
+        "dynamics": 68,
+        "moisture": 18
+      }
+    },
+    {
+      "id": "denali",
+      "name": "德纳里峰",
+      "en": "Denali",
+      "category": "international",
+      "type": "极地雪山",
+      "country": "美国 · 阿拉斯加",
+      "region": "阿拉斯加山脉",
+      "lat": 63.07,
+      "lon": -151.01,
+      "photo": "./assets/landforms/denali.jpg",
+      "photoSource": "https://p5.ssl.qhimgs1.com/t01eea8bbccfef6811f.jpg",
+      "summary": "北美最高峰，从平原拔起 5500 米",
+      "intro": "德纳里峰（旧称麦金利山）位于美国阿拉斯加，海拔 6190 米，是北美洲最高峰。它的特别之处在于山脚几乎就是平原，相对高差超过 5500 米，是世界相对高度最大的山体之一。",
+      "traits": [
+        "海拔 6190 米，北美最高峰",
+        "相对高差超过 5500 米，居世界前列",
+        "地处高纬，雪线很低，冰川规模巨大",
+        "气候极端，气温常低于零下 40℃"
+      ],
+      "cause": "太平洋板块与北美板块碰撞，在阿拉斯加挤压出褶皱山系；德纳里峰是一块巨大的花岗岩侵入体，被构造抬升后，又在高纬严寒中被冰川与冻融作用不断削凿。",
+      "personality": "你像德纳里：起点很低，目标很高。你身上有一种「从零直接拔到顶」的狠劲，别人靠背景，你靠相对高差；你冷静到结冰，可那种高度本身就是一种宣言。",
+      "profile": {
+        "thermal": 10,
+        "relief": 100,
+        "hardness": 88,
+        "dynamics": 30,
+        "moisture": 52
+      }
+    },
+    {
+      "id": "kilauea",
+      "name": "基拉韦厄火山",
+      "en": "Kilauea",
+      "category": "international",
+      "type": "活火山",
+      "country": "美国 · 夏威夷",
+      "region": "夏威夷岛",
+      "lat": 19.42,
+      "lon": -155.29,
+      "photo": "./assets/landforms/kilauea.jpg",
+      "photoSource": "https://pic.rmb.bdstatic.com/5ba097d6fec44cc2087eda850ecabbfb.jpeg",
+      "summary": "世界上最活跃的火山",
+      "intro": "基拉韦厄火山位于美国夏威夷岛，海拔约 1247 米，是世界上最活跃的火山之一，长期持续喷发。它是夏威夷火山国家公园的核心，熔岩流入海时会激起白色的蒸汽。",
+      "traits": [
+        "世界最活跃的火山之一，几乎持续喷发",
+        "发育有熔岩湖与熔岩管，可近距离观察",
+        "熔岩入海后会形成新的黑沙滩与海岸",
+        "是夏威夷原住民传说中火山女神佩蕾的居所"
+      ],
+      "cause": "夏威夷位于太平洋板块中部的热点之上，地幔柱不断上涌的岩浆穿过板块喷出，形成盾状火山；随着板块移动，火山一座座排开，成了今天的岛链。",
+      "personality": "你像基拉韦厄：一直在活着，而且藏不住。你的热情不是爆发式的，是持续流动的——别人烧完就熄，你能一边流一边重建地面；你毁掉的地方，过几年会开出新的黑沙滩。",
+      "profile": {
+        "thermal": 100,
+        "relief": 46,
+        "hardness": 36,
+        "dynamics": 82,
+        "moisture": 56
+      }
+    },
+    {
+      "id": "mont_blanc",
+      "name": "勃朗峰",
+      "en": "Mont Blanc",
+      "category": "international",
+      "type": "山地（阿尔卑斯）",
+      "country": "法国 · 意大利",
+      "region": "阿尔卑斯山脉",
+      "lat": 45.83,
+      "lon": 6.86,
+      "photo": "./assets/landforms/mont_blanc.jpg",
+      "photoSource": "http://img.mp.itc.cn/upload/20160831/d7cfeeebc2d0425d99fea005c77f67b0_th.jpeg",
+      "summary": "西欧最高峰，现代登山运动的起点",
+      "intro": "勃朗峰位于法国与意大利交界的阿尔卑斯山脉，海拔 4808.7 米，是西欧最高峰。1786 年人类首次登顶它，通常被视为现代登山运动的开端。",
+      "traits": [
+        "海拔 4808.7 米，西欧最高峰",
+        "山顶终年积雪，冰层厚度超过 20 米",
+        "四周是巨大的冰川，如著名的白谷冰川",
+        "位于法意边界，山体横跨两国"
+      ],
+      "cause": "非洲板块向北挤压欧亚板块，把原本是海底的岩层抬升、褶皱、推高成阿尔卑斯山系；勃朗峰就是其中一具以花岗岩为核的巨大背斜。",
+      "personality": "你像勃朗峰：不是最高的，但你是很多人第一次想攀的那座。你干净、正派、界限清楚，站在两国之间也不偏袒谁；你成为标准，只因为你够高、又够好接近。",
+      "profile": {
+        "thermal": 14,
+        "relief": 92,
+        "hardness": 80,
+        "dynamics": 26,
+        "moisture": 72
+      }
+    },
+    {
+      "id": "dolomites",
+      "name": "多洛米蒂",
+      "en": "The Dolomites",
+      "category": "international",
+      "type": "白云岩山地",
+      "country": "意大利",
+      "region": "南蒂罗尔",
+      "lat": 46.41,
+      "lon": 11.85,
+      "photo": "./assets/landforms/dolomites.jpg",
+      "photoSource": "http://5b0988e595225.cdn.sohucs.com/q_70,c_zoom,w_640/images/20180704/c5123806a8db4e1093b68aee24ea5804.jpeg",
+      "summary": "粉红色的锯齿状白云岩群峰",
+      "intro": "多洛米蒂位于意大利东北部，是世界自然遗产，由白云岩（碳酸盐岩）构成的锯齿状群峰组成。日落时岩壁会被染成玫瑰色，当地称这一现象为「恩罗萨迪拉」。",
+      "traits": [
+        "由白云岩构成，峰塔陡峭、棱角分明",
+        "日落时岩壁泛玫瑰色，俗称「阿尔卑斯之光」",
+        "海拔多在 3000 米上下，最高峰马尔莫拉达 3343 米",
+        "第一次世界大战时曾是山地战场，留有坑道遗迹"
+      ],
+      "cause": "两亿多年前这里是一片浅海，珊瑚与钙质生物的遗骸堆积成厚层碳酸盐岩；后经造山运动抬升成高原，再被流水与冰川沿垂直裂隙切割成塔状群峰。",
+      "personality": "你像多洛米蒂：棱角分明，还会变色。你不是一块沉默的石头，你是那种到了傍晚会自己发光的人；你硬，可你的硬是有温度的，甚至有点浪漫。",
+      "profile": {
+        "thermal": 46,
+        "relief": 88,
+        "hardness": 90,
+        "dynamics": 38,
+        "moisture": 50
+      }
+    },
+    {
+      "id": "pamukkale",
+      "name": "棉花堡",
+      "en": "Pamukkale",
+      "category": "international",
+      "type": "钙华阶地",
+      "country": "土耳其",
+      "region": "代尼兹利",
+      "lat": 37.92,
+      "lon": 29.12,
+      "photo": "./assets/landforms/pamukkale.jpg",
+      "photoSource": "https://5b0988e595225.cdn.sohucs.com/images/20180724/92266f8b6d29483ebdbd6c2de040f4cc.jpeg",
+      "summary": "雪白如棉的温泉钙华阶地",
+      "intro": "棉花堡位于土耳其代尼兹利，是富含碳酸钙的温泉水沿山坡层层沉淀而形成的白色钙华阶地，远看像一座雪白的棉城，与上方的希拉波利斯古城同列世界遗产。",
+      "traits": [
+        "白色钙华层层叠叠，形如棉花筑成的城堡",
+        "温泉水温约 35℃，富含碳酸钙",
+        "钙华池层层跌落，最高处可俯瞰整个平原",
+        "与古罗马温泉城市希拉波利斯共存"
+      ],
+      "cause": "地下温热的泉水溶解了大量碳酸钙，流出地表后温度下降、压力减小，二氧化碳逸出，碳酸钙便在坡面上逐层结晶沉积，慢慢堆成了阶地。",
+      "personality": "你像棉花堡：看着软，其实是慢慢结出来的硬。你的温柔不是天生的，是一层一层沉淀的；你不争不抢，只是每天掉下一点点白色，几十年后就成了一座城堡。",
+      "profile": {
+        "thermal": 68,
+        "relief": 52,
+        "hardness": 54,
+        "dynamics": 48,
+        "moisture": 82
+      }
+    },
+    {
+      "id": "plitvice",
+      "name": "普利特维采湖群",
+      "en": "Plitvice Lakes",
+      "category": "international",
+      "type": "钙华湖瀑",
+      "country": "克罗地亚",
+      "region": "利卡-塞尼",
+      "lat": 44.87,
+      "lon": 15.61,
+      "photo": "./assets/landforms/plitvice.jpg",
+      "photoSource": "https://pic.rmb.bdstatic.com/bjh/events/09dc469ccbbb30261d127d342e325420.jpeg@h_1280",
+      "summary": "由钙华坝连成的十六湖",
+      "intro": "普利特维采湖国家公园位于克罗地亚，由 16 个阶梯状湖泊组成。湖与湖之间靠天然的钙华坝隔开，水从坝上跌落成数十条瀑布，湖色随矿物质与光线变化，是世界自然遗产。",
+      "traits": [
+        "16 个阶梯状湖泊由钙华坝相连",
+        "湖色从碧绿到灰蓝不断变化",
+        "有数十条大小瀑布，最高约 78 米",
+        "森林覆盖率高，栖息着棕熊与狼"
+      ],
+      "cause": "喀斯特水系中富含碳酸氢钙，水流过坝体时二氧化碳逸出，碳酸钙沉积形成天然堤坝；坝体不断长高，湖泊也被一级级抬升，最终形成阶梯状的湖群。",
+      "personality": "你像普利特维采：不急不缓，级级都有风景。你不追求一次跌到底，你更喜欢把落差分成十几段慢慢流；你的颜色会变，但每一级都是清澈的。",
+      "profile": {
+        "thermal": 48,
+        "relief": 56,
+        "hardness": 58,
+        "dynamics": 64,
+        "moisture": 98
+      }
+    },
+    {
+      "id": "wadi_rum",
+      "name": "瓦迪拉姆",
+      "en": "Wadi Rum",
+      "category": "international",
+      "type": "沙漠峡谷",
+      "country": "约旦",
+      "region": "亚喀巴省",
+      "lat": 29.58,
+      "lon": 35.42,
+      "photo": "./assets/landforms/wadi_rum.jpg",
+      "photoSource": "https://k.sinaimg.cn/n/sinakd20100/36/w1894h1342/20220205/de2b-c042ebbda32f17b6a01bc851e9cbb820.jpg/w700d1q75cms.jpg",
+      "summary": "「月谷」，刻在岩壁上的沙漠",
+      "intro": "瓦迪拉姆位于约旦南部，是砂岩与花岗岩构成的沙漠峡谷群，岩壁高耸、沙地开阔，因地貌酷似月球表面而被称为「月谷」，是世界文化与自然双遗产。",
+      "traits": [
+        "高大的砂岩岩壁与红色沙地交错分布",
+        "岩壁上有史前岩画与古代铭文",
+        "被称为「月谷」，是多部太空题材电影的取景地",
+        "沙漠中分布着劳伦斯泉等少数水源点"
+      ],
+      "cause": "古生代的砂岩在构造抬升后暴露地表，长期的风沙磨蚀与偶发洪水冲刷沿裂隙展开，把高原切分成一块块孤立岩体与宽阔谷地。",
+      "personality": "你像瓦迪拉姆：像另一个星球。你和周围人的气质不在一个坐标系里，别人第一眼会觉得你怪；可你那些刻在岩壁上的痕迹都是自己留下的，谁也仿不走。",
+      "profile": {
+        "thermal": 92,
+        "relief": 76,
+        "hardness": 78,
+        "dynamics": 32,
+        "moisture": 8
+      }
+    },
+    {
+      "id": "halong_bay",
+      "name": "下龙湾",
+      "en": "Ha Long Bay",
+      "category": "international",
+      "type": "海上喀斯特",
+      "country": "越南",
+      "region": "广宁省",
+      "lat": 20.91,
+      "lon": 107.18,
+      "photo": "./assets/landforms/halong_bay.jpg",
+      "photoSource": "https://5b0988e595225.cdn.sohucs.com/images/20181212/8dc50a993b48411b9aae7de677b50017.jpeg",
+      "summary": "海面上立着的近两千座石灰岩峰",
+      "intro": "下龙湾位于越南北部湾，海面上耸立着 1600 多座石灰岩岛屿与礁柱，形态如石林浮在水上，是世界自然遗产，越南语意为「龙下之湾」。",
+      "traits": [
+        "1600 多座喀斯特岛屿与礁柱立于海面",
+        "岛体内部有溶洞，如木头洞、惊喜洞",
+        "岛屿基部被海水侵蚀出凹槽与浪蚀洞",
+        "海面温暖，常年可以通航"
+      ],
+      "cause": "这里的石灰岩原本是陆地上的喀斯特峰林；末次冰期结束后海平面上升，把低地淹没，只剩下一座座峰顶露在海面上。",
+      "personality": "你像下龙湾：把山峰藏在水下。你露出来的只是一角，剩下的体积全在别人看不到的地方；你不需要解释自己有多深，海面上的高度就够说明问题了。",
+      "profile": {
+        "thermal": 70,
+        "relief": 80,
+        "hardness": 68,
+        "dynamics": 34,
+        "moisture": 90
+      }
+    },
+    {
+      "id": "annapurna",
+      "name": "安纳普尔纳峰群",
+      "en": "Annapurna Massif",
+      "category": "international",
+      "type": "雪山群",
+      "country": "尼泊尔",
+      "region": "喜马拉雅山脉",
+      "lat": 28.6,
+      "lon": 83.82,
+      "photo": "./assets/landforms/annapurna.jpg",
+      "photoSource": "https://p0.ssl.qhimgs1.com/t040097702cec38a254.jpg",
+      "summary": "世界第十高峰与最深的河谷",
+      "intro": "安纳普尔纳峰群位于尼泊尔中北部，主峰海拔 8091 米，是世界第十高峰。山脚下的卡利甘达基河谷夹在安纳普尔纳与道拉吉里之间，是世界最深的河谷之一。",
+      "traits": [
+        "主峰海拔 8091 米，世界第十高峰",
+        "山脚下卡利甘达基河谷相对深度超过 5500 米",
+        "垂直植被带从亚热带到永久冰雪完整分布",
+        "1950 年首次登顶，是首座被登顶的 8000 米级雪山"
+      ],
+      "cause": "印度板块持续俯冲，把古特提斯海的沉积岩推挤抬升成喜马拉雅山系；随后冰川与河流在抬升最快的部位强烈下切，切出了极深的河谷。",
+      "personality": "你像安纳普尔纳：高，也深。你不只有让人仰望的高度，你还有自己在内心挖出来的深谷；你把最完整的层次都留给了自己——从热带一路走到冰雪，你什么都经历过。",
+      "profile": {
+        "thermal": 12,
+        "relief": 98,
+        "hardness": 86,
+        "dynamics": 36,
+        "moisture": 70
+      }
+    },
+    {
+      "id": "torres_del_paine",
+      "name": "百内国家公园",
+      "en": "Torres del Paine",
+      "category": "international",
+      "type": "花岗岩尖峰",
+      "country": "智利",
+      "region": "巴塔哥尼亚",
+      "lat": -50.94,
+      "lon": -73.41,
+      "photo": "./assets/landforms/torres_del_paine.jpg",
+      "photoSource": "http://p0.so.qhimg.com/t042f845d4e8bec345b.jpg",
+      "summary": "巴塔哥尼亚的三座花岗岩塔",
+      "intro": "百内国家公园位于智利南部的巴塔哥尼亚，核心是「百内塔」——三座高达 2000 余米的花岗岩尖峰，直立在冰川湖之上。这里的风一年四季都在咆哮。",
+      "traits": [
+        "百内塔为三座花岗岩尖峰，最高约 2500 米",
+        "峰下是冰川湖与规模巨大的冰川",
+        "地处西风带，风速常超过每小时 100 千米",
+        "保存着完整的巴塔哥尼亚草原与冰川生态系统"
+      ],
+      "cause": "约 1200 万年前，一片花岗岩侵入体被抬升，覆盖其上的沉积岩被侵蚀剥走；残余的花岗岩岩体又被冰川沿节理三面削切，最终露出三根尖塔。",
+      "personality": "你像百内塔：被风削出来的锋利。你在最恶劣的环境里长成最有个性的形状，风越吹你越清楚；你不怕孤立，你只怕自己不够尖。",
+      "profile": {
+        "thermal": 22,
+        "relief": 96,
+        "hardness": 92,
+        "dynamics": 60,
+        "moisture": 66
+      }
+    },
+    {
+      "id": "namib",
+      "name": "纳米布沙漠",
+      "en": "Namib Desert",
+      "category": "international",
+      "type": "海岸沙漠",
+      "country": "纳米比亚",
+      "region": "纳米布-诺克路福",
+      "lat": 24.75,
+      "lon": 15.3,
+      "photo": "./assets/landforms/namib.jpg",
+      "photoSource": "https://p3.ssl.qhimgs1.com/t01587707c02c862be9.jpg",
+      "summary": "地球上最古老的沙漠与最高的沙丘",
+      "intro": "纳米布沙漠沿纳米比亚大西洋海岸延伸 2000 余千米，被认为是地球上最古老的沙漠，已有 5500 万年。索苏斯维利的沙丘高达 300 多米，沙色从红到粉层层变化。",
+      "traits": [
+        "世界最古老的沙漠，已有 5500 万年",
+        "索苏斯维利沙丘高达 300 余米",
+        "沙漠直接与大西洋相接，形成独特的海岸沙海",
+        "沿岸雾带养育了剑羚、沙漠甲虫等特有物种"
+      ],
+      "cause": "本格拉寒流使沿岸空气稳定、难以成云致雨，寒流带来的雾反而成了主要水源；沙粒由河流与海流带来，被持续的西南风塑成高大的沙丘。",
+      "personality": "你像纳米布：古老、干燥，却一直有雾。你不怎么下雨，你的水都是雾带来的——别人看不出你是怎么活下来的，可你已经这样活了五千万年，还越活颜色越好看。",
+      "profile": {
+        "thermal": 80,
+        "relief": 74,
+        "hardness": 76,
+        "dynamics": 28,
+        "moisture": 12
+      }
+    },
+    {
+      "id": "blue_mountains",
+      "name": "蓝山",
+      "en": "Blue Mountains",
+      "category": "international",
+      "type": "砂岩峡谷",
+      "country": "澳大利亚",
+      "region": "新南威尔士 · 悉尼以西",
+      "lat": -33.71,
+      "lon": 150.3,
+      "photo": "./assets/landforms/blue_mountains.jpg",
+      "photoSource": "https://p2.ssl.qhimgs1.com/t0176a4706875e65c78.jpg",
+      "summary": "桉树林蒸出的蓝色雾霭",
+      "intro": "蓝山位于澳大利亚新南威尔士州悉尼以西，是一列砂岩高原被深切出的峡谷群，因漫山桉树挥发物在阳光中散射出蓝色雾霭而得名，是世界自然遗产。",
+      "traits": [
+        "三姐妹峰是标志性的砂岩尖塔",
+        "峡谷深达数百米，谷底是茂密的桉树林",
+        "空气中桉树挥发物散射蓝光，故名「蓝山」",
+        "是世界自然遗产「大蓝山地区」的一部分"
+      ],
+      "cause": "这里原本是一片三亿年前的砂岩高原；地壳缓慢抬升后，河流沿裂隙持续下切，把高原切成深谷与孤立的岩塔。",
+      "personality": "你像蓝山：不说话，但一直在散发自己的颜色。你的存在感是弥散的，不是锋利的；你让人和人之间多了一层滤镜，看你久了，世界也跟着变蓝了一点。",
+      "profile": {
+        "thermal": 42,
+        "relief": 78,
+        "hardness": 72,
+        "dynamics": 40,
+        "moisture": 74
+      }
+    },
+    {
+      "id": "chocolate_hills",
+      "name": "巧克力山",
+      "en": "Chocolate Hills",
+      "category": "international",
+      "type": "石灰岩丘陵",
+      "country": "菲律宾",
+      "region": "保和岛",
+      "lat": 9.92,
+      "lon": 124.17,
+      "photo": "./assets/landforms/chocolate_hills.jpg",
+      "photoSource": "https://pic.rmb.bdstatic.com/bjh/events/f807116d86be92ff862c3d6d6ec3fb93.jpeg@h_1280",
+      "summary": "一千多座圆锥形小山",
+      "intro": "巧克力山位于菲律宾保和岛中部，由 1200 多座近乎完美的圆锥形石灰岩小丘组成，形态高度一致。旱季草木枯黄时，小山变成一片褐色，像排开的巧克力。",
+      "traits": [
+        "1200 多座圆锥形小丘，形状高度一致",
+        "丘高多在 40–120 米之间",
+        "旱季转为褐色，雨季又变回翠绿",
+        "当地流传着关于巨人眼泪的传说"
+      ],
+      "cause": "这些丘陵由珊瑚礁抬升形成的石灰岩构成；关于成因，主流观点认为是石灰岩被雨水长期溶蚀，又被植被与土壤覆盖保护，在长期作用下形成了统一的锥形。",
+      "personality": "你像巧克力山：一群长得一样的小山。你不追求突出，你和身边的人整整齐齐地待着，季节变了就一起变色；你不惊艳，可是从高处看，那种统一本身就是奇观。",
+      "profile": {
+        "thermal": 78,
+        "relief": 44,
+        "hardness": 50,
+        "dynamics": 24,
+        "moisture": 72
       }
     }
   ]

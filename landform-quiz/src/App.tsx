@@ -20,7 +20,7 @@ type PoolKey = "domestic" | "international" | "all";
 const POOLS: { key: PoolKey; title: string; desc: string }[] = [
   { key: "domestic", title: "中国地貌", desc: "从青藏高原到南海之滨，在华夏山河里找和你最像的那一处" },
   { key: "international", title: "世界地貌", desc: "撒哈拉、亚马孙、大堡礁……在世界各地找你的同类" },
-  { key: "all", title: "全部地貌", desc: "国内 20 处 + 国外 20 处放在一起比，结果可能更惊喜" }
+  { key: "all", title: "全部地貌", desc: "国内 40 处 + 国外 40 处放在一起比，结果可能更惊喜" }
 ];
 
 function poolLandforms(all: Landform[], pool: PoolKey): Landform[] {

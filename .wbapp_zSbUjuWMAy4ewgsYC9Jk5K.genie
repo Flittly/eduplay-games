@@ -1,0 +1,5 @@
+appId: wbapp_zSbUjuWMAy4ewgsYC9Jk5K
+name: 地貌人格测试
+localDir: E:\Self\workspace\landform-quiz-web\site
+appType: web
+entryHtml: index.html

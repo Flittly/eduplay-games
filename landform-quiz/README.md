@@ -10,7 +10,7 @@
 landform-quiz/
 ├── public/                         ← 原样拷贝进 web/，运行时可改，不必重新构建
 │   ├── data/
-│   │   ├── landforms.json          地貌数据（40 条，可随意增删）
+│   │   ├── landforms.json          地貌数据（80 条，可随意增删）
 │   │   └── questions.json          题目数据（15 题）
 │   ├── assets/
 │   │   ├── landforms/<id>.jpg      每个地貌的真实照片，按 id 命名
@@ -19,10 +19,26 @@ landform-quiz/
 │   │       └── world.json          世界微缩地图（陆地掩膜 + 国家标准中国边界）
 │   └── cover.svg                   商城封面
 ├── scripts/
+│   ├── add_landforms.py            批量并入新地貌（幂等，可反复执行）
 │   ├── fetch_photos.py             批量采集真实照片（360 图片为主源、百度图片为备源）
 │   └── prepare_maps.py             生成合规微缩地图数据（带抽稀与投影）
 └── src/                            React 源码
 ```
+
+## 〇、UI 设计语言
+
+本游戏与仓库内其它小游戏（`shanhe-match3` / `earth-globe` / `solar-system` /
+`province-quiz` / `geo-gomoku`）共用同一套视觉语言，改样式时请沿用：
+
+* **粗黑描边**：`3px solid var(--ink)`（次级元素 2px）
+* **硬投影**：`4px 4px 0 var(--ink)`，按下时位移 `translate(2px,2px)` 并把投影收掉
+* **零圆角**：按钮、卡片、标签一律直角（`button, input { border-radius: 0 !important }`）
+* **字体**：`"Arial Black", "Franklin Gothic Heavy", "Microsoft YaHei", "PingFang SC"`，
+  标题 `900`、正文 `700`、按钮 `900` + `letter-spacing: 0.04em`
+* 变量集中在 `src/styles.css` 的 `:root`（`--border` / `--shadow` / `--shadow-soft` / `--press`）
+
+本游戏只把配色保留为纸墨色系（`--paper` 米黄 / `--ochre` 赭石 / `--cinnabar` 朱砂），
+布局与结构不做特殊处理。
 
 ## 一、数据结构
 
@@ -93,6 +109,16 @@ landform-quiz/
 2. 在 `landforms.json` 的 `landforms` 数组里追加一条，`id` 与照片文件名一致，
    `photo` 写 `./assets/landforms/<id>.jpg`，`profile` 给五个 0–100 的整数。
 3. 刷新页面即可，新地貌自动进入匹配池与图鉴。
+
+批量加的时候（比如 v1.1.0 从 40 条扩到 80 条）改 `scripts/add_landforms.py` 里的
+`NEW_CN` / `NEW_INTL` 列表，然后：
+
+```bash
+python scripts/add_landforms.py --check    # 只校验：字段齐全、id 唯一、坐标合法、profile 不重复
+python scripts/add_landforms.py            # 幂等合并进 landforms.json（已存在的 id 会被覆盖）
+```
+
+合并后数组顺序固定为「国内在前、国外在后」，与结果页/图鉴的筛选顺序一致。
 
 也可以直接跑脚本自动抓图：
 
