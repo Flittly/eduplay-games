@@ -13,6 +13,8 @@ export interface PlayerInfo {
 export interface LayerState {
   texture: boolean;
   white: boolean;
+  /** 夜面底图：城市夜间灯光（NASA 夜间灯光影像），只贴在背光的一侧 */
+  nightLights: boolean;
   grid: boolean;
   equator: boolean;
   tropics: boolean;
@@ -505,6 +507,10 @@ export interface VisibilityState {
   timezone: boolean;
   white: boolean;
   hasTex: boolean;
+  /** 夜间灯光底图开关是否生效（夜面是否在叠加城市灯光） */
+  nightLights: boolean;
+  /** 夜面灯光贴图是否已加载成功 */
+  hasNight: boolean;
   /** 五带文字标注（北寒带…南寒带）是否显示 */
   climateLabels: boolean;
 }
@@ -580,6 +586,8 @@ interface Engine {
   orbitGroup: THREE.Group;
   earthLabel: THREE.Sprite;
   earthTexture: THREE.Texture | null;
+  /** 夜面灯光贴图（城市灯光），加载成功后由 applySurface 挂到着色器上 */
+  nightTexture: THREE.Texture | null;
   autoRotateWanted: boolean;
   setOrbitNu: (nuDeg: number) => void;
   /** 直接设置自转角（度），供自转旋钮使用 */
@@ -631,6 +639,26 @@ interface Engine {
    */
   attachPoleView: (pole: "north" | "south", host: HTMLDivElement) => void;
   detachPoleViews: () => void;
+  /**
+   * 开发自检：太阳光线束的形态（半径、材质、透明度、是否加法混合）
+   * 与每根光柱两端/中点的屏幕取样坐标（用于像素采样验证"光柱真的可见"）。
+   */
+  readRays: () => {
+    count: number;
+    visible: boolean;
+    beamRadius: number;
+    coreRadius: number;
+    beamOpacity: number;
+    beamAdditive: boolean;
+    beamMaterialType: string;
+    coreMaterialType: string;
+    samples: {
+      core: boolean;
+      mid: { x: number; y: number };
+      earthEnd: { x: number; y: number };
+      sunEnd: { x: number; y: number };
+    }[];
+  };
   /** 开发自检：极地子图的画布矩形（页面坐标）与最近一帧画出的三角形数 */
   readPoleViews: () => {
     pole: "north" | "south";
@@ -705,8 +733,12 @@ function buildEngine(container: HTMLDivElement): Engine {
   const earthMaterial = new THREE.ShaderMaterial({
     uniforms: {
       dayMap: { value: null },
+      /** 夜面底图：城市夜间灯光影像（与白天贴图同一等距圆柱投影，可直接共用 UV） */
+      nightMap: { value: null },
       uHasTex: { value: 0 },
+      uHasNight: { value: 0 },
       uWhite: { value: 0 },
+      uNight: { value: 1 },
       uDayColor: { value: new THREE.Color(0x2a4d7f) },
       uSunDir: { value: new THREE.Vector3(1, 0, 0) }
     },
@@ -721,12 +753,16 @@ function buildEngine(container: HTMLDivElement): Engine {
     `,
     fragmentShader: `
       uniform sampler2D dayMap;
+      uniform sampler2D nightMap;
       uniform float uHasTex;
+      uniform float uHasNight;
       uniform float uWhite;
+      uniform float uNight;
       uniform vec3 uDayColor;
       uniform vec3 uSunDir;
       varying vec2 vUv;
       varying vec3 vNormalW;
+
       void main() {
         float d = dot(normalize(vNormalW), normalize(uSunDir));
         float dayAmt = smoothstep(-0.10, 0.10, d);
@@ -738,6 +774,16 @@ function buildEngine(container: HTMLDivElement): Engine {
         vec3 night = uWhite > 0.5
           ? vec3(0.13, 0.15, 0.20)
           : day * 0.10 + vec3(0.010, 0.024, 0.055);
+
+        // 夜间灯光底图：把背光那一侧的"黑面"换成城市灯光。
+        // 先减掉贴图底色（海洋与陆地的微弱噪点），再提亮，灯光点才干净；
+        // 乘 (1-dayAmt) 保证只在夜半球显示，白天一侧完全看不到灯点。
+        if (uWhite < 0.5 && uNight > 0.5 && uHasNight > 0.5) {
+          vec3 lights = texture2D(nightMap, vUv).rgb;
+          lights = max(lights - vec3(0.030), vec3(0.0)) * 1.9;
+          night += lights * (1.0 - dayAmt);
+        }
+
         gl_FragColor = vec4(mix(night, day, dayAmt), 1.0);
       }
     `
@@ -1390,14 +1436,39 @@ function buildEngine(container: HTMLDivElement): Engine {
   subsolarGroup.add(subsolarLabelRef.sprite);
   envGroup.add(subsolarGroup);
 
-  /* ---- 平行太阳光线束 ---- */
+  /* ---- 平行太阳光线束（半透明光柱） ----
+     每条光线是一根从地球表面射向太阳的半透明直圆柱，靠太阳一端渐隐、
+     靠地球一端最实，加法混合出"光照"的体积感，不再是细线假装。
+     正中间那条（太阳直射光线）保留为醒目的橙红实心细柱，作为基准线。 */
   const rayGroup = new THREE.Group();
-  const rayGeometry = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true);
-  const rayMaterial = new THREE.MeshBasicMaterial({
-    color: COLORS.sunRay,
+  const rayGeometry = new THREE.CylinderGeometry(1, 1, 1, 12, 1, true);
+  const rayMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(COLORS.sunRay) },
+      uOpacity: { value: 0.20 }
+    },
+    vertexShader: `
+      varying vec2 vBeamUv;
+      void main() {
+        vBeamUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uOpacity;
+      varying vec2 vBeamUv;
+      void main() {
+        // uv.y：0 = 地球一端，1 = 太阳一端。远端渐隐，近地端最亮，
+        // 看起来就像一束从地球射向太阳的光。
+        float fade = mix(1.0, 0.12, smoothstep(0.15, 1.0, vBeamUv.y));
+        gl_FragColor = vec4(uColor, uOpacity * fade);
+      }
+    `,
     transparent: true,
-    opacity: 0.5,
-    depthWrite: false
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide
   });
   // 中间那条是太阳直射光线，用醒目的橙红色区分，并略微加粗
   const rayCoreMaterial = new THREE.MeshBasicMaterial({
@@ -1413,7 +1484,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     const mesh = new THREE.Mesh(rayGeometry, isCore ? rayCoreMaterial : rayMaterial);
     rayGroup.add(mesh);
     rayMeshes.push(mesh);
-    rayRadii.push(isCore ? 0.032 : 0.017);
+    rayRadii.push(isCore ? 0.032 : 0.10);
   });
   envGroup.add(rayGroup);
 
@@ -1812,6 +1883,41 @@ function buildEngine(container: HTMLDivElement): Engine {
     });
   }
 
+  /** 开发自检：太阳光线束形态 + 每根光柱的屏幕取样点（验证"半透明光柱真的可见"） */
+  function readRays() {
+    const rect = renderer.domElement.getBoundingClientRect();
+    const proj = (v: THREE.Vector3) => {
+      const p = v.clone().project(camera);
+      return {
+        x: +((p.x * 0.5 + 0.5) * rect.width).toFixed(1),
+        y: +((-p.y * 0.5 + 0.5) * rect.height).toFixed(1)
+      };
+    };
+    const coreIndex = RAY_OFFSETS.findIndex(([ox, oy]) => ox === 0 && oy === 0);
+    const samples = rayMeshes.map((mesh, i) => {
+      mesh.updateMatrixWorld();
+      const mid = new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld);
+      const half = mesh.scale.y / 2;
+      return {
+        core: i === coreIndex,
+        mid: proj(mid),
+        earthEnd: proj(mid.clone().addScaledVector(sunDir, -half)),
+        sunEnd: proj(mid.clone().addScaledVector(sunDir, half))
+      };
+    });
+    return {
+      count: rayMeshes.length,
+      visible: rayGroup.visible,
+      beamRadius: +rayRadii[coreIndex === 0 ? 1 : 0].toFixed(3),
+      coreRadius: +rayRadii[coreIndex].toFixed(3),
+      beamOpacity: +rayMaterial.uniforms.uOpacity.value.toFixed(3),
+      beamAdditive: rayMaterial.blending === THREE.AdditiveBlending,
+      beamMaterialType: rayMaterial.type,
+      coreMaterialType: rayCoreMaterial.type,
+      samples
+    };
+  }
+
   applyOrbitView();
 
   /* ---- 渲染循环 ---- */
@@ -1922,6 +2028,7 @@ function buildEngine(container: HTMLDivElement): Engine {
       }
     });
     earthTexture?.dispose();
+    nightTexture?.dispose();
     earthMaterial.dispose();
     overlayMaterial.dispose();
     detachPoleViews();
@@ -1933,12 +2040,17 @@ function buildEngine(container: HTMLDivElement): Engine {
 
   /* ---- 地表素材：影像 / 纯白（纯白优先，两者互斥） ---- */
   let earthTexture: THREE.Texture | null = null;
+  let nightTexture: THREE.Texture | null = null;
   const surfaceState = { texture: true, white: false };
   function applySurface(): void {
     const hasTex = surfaceState.texture && !surfaceState.white && earthTexture ? 1 : 0;
     earthMaterial.uniforms.uHasTex.value = hasTex;
     earthMaterial.uniforms.dayMap.value = hasTex ? earthTexture : null;
     earthMaterial.uniforms.uWhite.value = surfaceState.white ? 1 : 0;
+    // 夜间灯光贴图与「影像 / 纯白」无关：纯白模式下着色器会主动忽略它，
+    // 这里始终把已加载的贴图挂上去，开关由 uNight 控制。
+    earthMaterial.uniforms.uHasNight.value = nightTexture ? 1 : 0;
+    earthMaterial.uniforms.nightMap.value = nightTexture ?? null;
   }
 
   const engine: Engine = {
@@ -1968,6 +2080,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     orbitGroup,
     earthLabel,
     earthTexture: null,
+    nightTexture: null,
     autoRotateWanted: true,
     setOrbitNu,
     setSpinAngle: (deg: number) => {
@@ -1999,6 +2112,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     attachPoleView,
     detachPoleViews,
     readPoleViews,
+    readRays,
     setSpin: (on: boolean) => {
       spinWanted = on;
     },
@@ -2090,6 +2204,8 @@ function buildEngine(container: HTMLDivElement): Engine {
       timezone: overlayMaterial.uniforms.uTz.value === 1,
       white: earthMaterial.uniforms.uWhite.value === 1,
       hasTex: earthMaterial.uniforms.uHasTex.value === 1,
+      nightLights: earthMaterial.uniforms.uNight.value === 1,
+      hasNight: earthMaterial.uniforms.uHasNight.value === 1,
       climateLabels: zoneLabelGroup.visible
     }),
     readZoneLabels: () => {
@@ -2176,6 +2292,23 @@ function buildEngine(container: HTMLDivElement): Engine {
     }
   );
 
+  // 夜面灯光底图（NASA 城市灯光，2048×1024，与白天贴图同投影同尺寸，直接共用 UV）。
+  // 加载失败时着色器退回原来的暗蓝夜面，其它功能不受影响。
+  new THREE.TextureLoader().load(
+    "./textures/earth_night.jpg",
+    (texture) => {
+      texture.colorSpace = THREE.NoColorSpace;
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      nightTexture = texture;
+      engine.nightTexture = texture;
+      applySurface();
+    },
+    undefined,
+    () => {
+      // 加载失败：夜面保持原样。
+    }
+  );
+
   setOrbitNu(SEASONS[1].nu); // 默认夏至：北极圈极昼，昼夜对比最直观
   return engine;
 }
@@ -2240,6 +2373,7 @@ const LAYER_GROUPS: { title: string; items: LayerDef[] }[] = [
     title: "地球表面",
     items: [
       { key: "texture", label: "地球影像", color: "#3f6b4f" },
+      { key: "nightLights", label: "夜间灯光（夜面城市灯光）", color: "#ffcf5a" },
       { key: "white", label: "纯白地球（不贴影像）", color: "#ffffff" },
       { key: "climate", label: "五带（热·温·寒）", color: "#ff6b3d" },
       { key: "timezone", label: "全球时区（24 个）", color: "#5a86ff" },
@@ -2286,6 +2420,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
 
   const [layers, setLayers] = useState<LayerState>({
     texture: true,
+    // 夜面灯光默认开启：黑的那一侧直接是城市灯光，昼夜对比一目了然
+    nightLights: true,
     white: false,
     grid: true,
     equator: true,
@@ -2472,7 +2608,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         }
         engine.setView(key);
       },
-      readPoleViews: () => engine.readPoleViews()
+      readPoleViews: () => engine.readPoleViews(),
+      readRays: () => engine.readRays()
     };
 
     return () => {
@@ -2530,6 +2667,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     engine.overlayMaterial.uniforms.uTz.value = layers.timezone ? 1 : 0;
     // 地表素材：纯白优先于影像（两者同时勾选时以纯白为准）
     engine.applySurface({ texture: layers.texture, white: layers.white });
+    // 夜面灯光底图开关（贴图本身在加载完成后由 applySurface 挂上）
+    engine.earthMaterial.uniforms.uNight.value = layers.nightLights ? 1 : 0;
   }, [layers]);
 
   // 公转轨道与地球标签只在公转视角显示（特写时轨道会横穿地球、标签会遮挡画面）

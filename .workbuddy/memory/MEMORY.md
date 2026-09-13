@@ -23,7 +23,8 @@
 ## 打包 / 上架
 
 - 构建：在游戏目录 `npm run build`（`tsc --noEmit && vite build`，产物在 `dist/web/`）。
-- 上架脚本：`.workbuddy/tmp/publish_solar.py`（单游戏）、`publish_demo_games.py`（earth-globe + solar-system）。
+- 上架脚本：`.workbuddy/tmp/publish_solar.py`（单游戏太阳系）、`publish_globe.py`（单游戏地球仪）、
+  `publish_demo_games.py`（earth-globe + solar-system 一起）。
   流程 = 打 zip（`manifest.json` + `dist/web/**`）→ `POST /admin/games/{code}/packages` → `PATCH .../status ACTIVE`。
 - 双后端：本地 `7070`、云端 `17070`，管理员 `admin/admin123`，教师演示账号 `123456/123456`。
 - **所有后端接口都在 `/api/v1` 下**（`/api/v1/admin/login`、`/api/v1/admin/games`、`/api/v1/store/games`）。
@@ -127,4 +128,45 @@ pos = camera.position
   实现：把 `RightLocal`/`UpLocal` 投影到赤道面当屏幕方位的基 `eX/eY`，
   `点 = cl·(cosγ·eX + sinγ·eY) + sl·地轴`；可见性按 `sin(lat)·want > 0` 过滤。
   实测最近间距 224px（阈值 100px）。
+
+## 地球仪贴图与太阳光线（v1.4.4）
+
+- 地表两张贴图都在 `public/textures/`，都用 `TextureLoader` + `NoColorSpace` 加载：
+  `earth.jpg`（白天影像，2048×1024）、`earth_night.jpg`（夜面城市灯光，2048×1024，218 KB）。
+  夜灯源图取自 `three-globe` 包的 `example/img/earth-night.jpg`（NASA 城市灯光），缩到 2048×1024。
+- **接入外来贴图前先验对齐**：把新图与已有贴图缩到同一尺寸算灰度 NCC，并与「水平镜像」的
+  NCC 对比。earth_night 对 earth.jpg：原图 0.842 / 镜像 0.694 ⇒ 同投影、无镜像，可共用 UV。
+  只凭「看起来像」就接，很容易在自转时发现大陆与灯点错位。
+- 夜灯只贴夜面：`night += max(nightMap - 0.030, 0) * 1.9 * (1 - dayAmt)`；
+  `* (1-dayAmt)` 是关键，否则白天一侧会透出灯点；纯白模式整段跳过（实测差 = 0）。
+- 太阳光线是 `CylinderGeometry` 柱体，不是 Line。**想让它像「光」而不是「线」，靠三件事**：
+  半径够粗（0.10）、`AdditiveBlending`、片元里按 `uv.y` 轴向渐隐（近地端 1.0 → 太阳端 0.12）。
+  中间那条太阳直射光线单独用 `MeshBasicMaterial` 橙红实心细柱（半径 0.032）保留为基准线。
+- 素材获取：本机 **GitHub raw 不通**（curl 返回 000），**jsdelivr 的 npm 包通**——
+  `https://data.jsdelivr.com/v1/packages/npm/<pkg>?structure=flat` 列文件，
+  `https://cdn.jsdelivr.net/npm/<pkg>@<ver>/<path>` 下载。Git Bash 下 `curl -w %{size_download}`
+  会假报 0 字节，核对字节数/md5 用 Python。
+
+## 编辑与验证纪律（本会话踩出来的）
+
+- **同一文件连续多处 Edit 会静默丢改动**（本会话在 `EarthGlobe.tsx` 上发生过 6 次）。
+  每次成批编辑后必须 `grep` 关键标记确认，然后立刻 `npm run build`。
+- 构造「开/关某图层」的像素对比时，**必须先把自转和自动旋转都关掉**
+  （`setRotate(false)` + `setAutoRotate(false)`；只 `setSpin(角度)` 不停止自转），
+  并断言两次采样之间地球屏幕位置漂移 < 1px，否则对比无效（会被自转造成的明暗移位带偏）。
+
+## 抢答/轮次类游戏：每条分支都必须有「下一题」出口
+
+`province-quiz` 双人 PK 曾死锁：推进下一题的 `setTimeout` **只写在"答对"分支里**，
+答错分支 `return` 掉；而按钮 `disabled={leftWrong || winnerName}` ⇒ 双方都答错时
+题号不动 + 按钮全禁 = 永久卡死（界面还停在"本题作废"看着像正常状态）。
+
+写这类状态机时的固定规矩：
+- 把推进逻辑抽成**唯一一个** `settleQuestion()`，所有"本题结束"的分支都调它；
+- 用 ref 做**已结算**与**定时器**双保险，防止重复挂定时器导致跳题 / 卸载后 setState；
+- 遍历**所有能结束本题**的分支（答对、答错、双方答错、超时、放弃…），逐个确认都有出口。
+
+回归测试打法（无需知道正确答案）：左右两侧渲染的是**同一份 options 数组**，
+同下标必同名 ⇒ 左侧押 0 号、若被锁定则右侧也押 0 号，必然复现"双方都答错"。
+然后断言每题题号都 +1、最后能进结果页。脚本见 `.workbuddy/tmp/pkverify/shot.js`。
 
