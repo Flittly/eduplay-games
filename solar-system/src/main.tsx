@@ -5,7 +5,7 @@ import type { PlayerInfo } from "./SolarSystem";
 import "./styles.css";
 
 const gameCode = "solar_system";
-const version = "1.1.1";
+const version = "1.1.2";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {

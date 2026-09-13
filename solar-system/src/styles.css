@@ -105,7 +105,10 @@ input {
   top: 16px;
   background: var(--space-soft);
   border: 1px solid rgba(212, 168, 67, 0.55);
-  padding: 8px 14px;
+  /* 右侧留出收起按钮的宽度：按钮是绝对定位在右上角的，
+     不留白的话第一行右对齐的「第 12.3 天」末尾会被按钮压住（"天"字看不见）。
+     与 .solar-hint 用 padding-right 让开按钮是同一套做法。 */
+  padding: 8px 34px 8px 14px;
   min-width: 190px;
   backdrop-filter: blur(3px);
 }

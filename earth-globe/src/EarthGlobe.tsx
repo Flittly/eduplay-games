@@ -35,7 +35,8 @@ interface MarkerInfo {
   lon: number;
 }
 
-type ViewKey = "orbit" | "top" | "earth" | "north" | "south";
+/** 主视图的视角预设。极地俯视不再是主视角模式——v1.4.3 起改为左下角两个独立子图。 */
+type ViewKey = "orbit" | "top" | "earth";
 
 const DEG = Math.PI / 180;
 const EARTH_TILT = 23.44;
@@ -623,6 +624,18 @@ interface Engine {
     text: string;
     visible: boolean;
     screen: { x: number; y: number };
+  }[];
+  /**
+   * 极地俯视子图：在宿主元素里挂一块独立小画布，用一台沿地轴的相机
+   * 单独渲染，不改变主视图的取景。收起面板时 detach。
+   */
+  attachPoleView: (pole: "north" | "south", host: HTMLDivElement) => void;
+  detachPoleViews: () => void;
+  /** 开发自检：极地子图的画布矩形（页面坐标）与最近一帧画出的三角形数 */
+  readPoleViews: () => {
+    pole: "north" | "south";
+    rect: { x: number; y: number; w: number; h: number };
+    triangles: number;
   }[];
   dispose: () => void;
   placeMarker: (lat: number, lon: number) => void;
@@ -1666,13 +1679,9 @@ function buildEngine(container: HTMLDivElement): Engine {
   }
 
   /* ---- 视角预设 ---- */
-  /** 镜头是否锁定在地球上（特写 / 南北极俯视都算），用于公转时同步平移相机 */
+  /** 镜头是否锁定在地球上（地球特写），用于公转时同步平移相机 */
   function isEarthLocked() {
-    return (
-      viewState.current === "earth" ||
-      viewState.current === "north" ||
-      viewState.current === "south"
-    );
+    return viewState.current === "earth";
   }
 
   function applyOrbitView() {
@@ -1708,25 +1717,99 @@ function buildEngine(container: HTMLDivElement): Engine {
     onViewChange?.("earth");
   }
 
-  /**
-   * 极地俯视：镜头沿地轴方向看球心，极点正好落在画面中心。
-   * 北极俯视 = 从北极正上方往下看（南极在球背面）；南极仰视反之。
-   * 注意要把 camera.up 换成「与地轴垂直」的方向，否则视线与 up 平行，OrbitControls 会退化。
-   */
-  function applyPoleView(pole: "north" | "south") {
-    viewState.current = pole;
-    // 与地轴垂直的参考「上」方向：把世界 +Z 投到地轴的垂面上（退化时改用 +X）
-    tmpPoleUp.set(0, 0, 1).addScaledVector(AXIS_WORLD, -AXIS_WORLD.z);
-    if (tmpPoleUp.lengthSq() < 1e-6) {
-      tmpPoleUp.set(1, 0, 0).addScaledVector(AXIS_WORLD, -AXIS_WORLD.x);
+  /* ---- 极地俯视子图（左下角两个独立小画布，不动主视图相机） ----
+     北极朝下看 = 相机在地轴正方向往球心看；南极朝上看反之。
+     子图与主图共用同一个 scene：图层开关、昼夜、自转全都实时同步，
+     只是各自用一台独立相机 + 一块独立的小 WebGL 画布。 */
+  const POLE_VIEW_SIZE = 128;
+  const POLE_VIEW_DIST = 3.2;
+  const poleViews: {
+    pole: "north" | "south";
+    renderer: THREE.WebGLRenderer;
+    camera: THREE.PerspectiveCamera;
+    host: HTMLDivElement;
+  }[] = [];
+  /** 渲染子图前临时藏起来的文字标签（沿轴看时它们会全挤到圆心附近叠成一团） */
+  const poleHiddenSprites: { sprite: THREE.Sprite; was: boolean }[] = [];
+
+  function attachPoleView(pole: "north" | "south", host: HTMLDivElement) {
+    const existed = poleViews.findIndex((p) => p.pole === pole);
+    if (existed >= 0) {
+      if (poleViews[existed].host === host) {
+        return;
+      }
+      disposePoleView(existed);
     }
-    camera.up.copy(tmpPoleUp.normalize());
-    controls.target.copy(earthPos);
-    camera.position
-      .copy(earthPos)
-      .addScaledVector(AXIS_WORLD, pole === "north" ? 3.0 : -3.0);
-    controls.update();
-    onViewChange?.(pole);
+    const pr = new THREE.WebGLRenderer({ antialias: true });
+    // 小图不追求分辨率：pixelRatio 固定 1，软渲染（SwiftShader）验证时也省算力
+    pr.setPixelRatio(1);
+    pr.setSize(POLE_VIEW_SIZE, POLE_VIEW_SIZE);
+    const pc = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
+    host.appendChild(pr.domElement);
+    poleViews.push({ pole, renderer: pr, camera: pc, host });
+  }
+
+  function disposePoleView(index: number) {
+    const pv = poleViews[index];
+    pv.renderer.dispose();
+    pv.renderer.domElement.remove();
+    poleViews.splice(index, 1);
+  }
+
+  function detachPoleViews() {
+    while (poleViews.length > 0) {
+      disposePoleView(0);
+    }
+  }
+
+  /** 把两个子图各自渲染一帧：藏标签 → 沿轴取景 → 渲染 → 还原标签可见性 */
+  function renderPoleViews() {
+    for (const pv of poleViews) {
+      if (!pv.host.isConnected) {
+        continue;
+      }
+      // 与地轴垂直的「上」参考：把世界 +Z 投影到地轴垂面（退化时改用 +X），
+      // 否则视线（沿地轴）与 camera.up 平行，取景会翻滚不定
+      tmpPoleUp.set(0, 0, 1).addScaledVector(AXIS_WORLD, -AXIS_WORLD.z);
+      if (tmpPoleUp.lengthSq() < 1e-6) {
+        tmpPoleUp.set(1, 0, 0).addScaledVector(AXIS_WORLD, -AXIS_WORLD.x);
+      }
+      pv.camera.up.copy(tmpPoleUp.normalize());
+      pv.camera.position
+        .copy(earthPos)
+        .addScaledVector(AXIS_WORLD, pv.pole === "north" ? POLE_VIEW_DIST : -POLE_VIEW_DIST);
+      pv.camera.lookAt(earthPos);
+      pv.camera.updateProjectionMatrix();
+
+      poleHiddenSprites.length = 0;
+      scene.traverse((obj) => {
+        const sprite = obj as THREE.Sprite;
+        if (sprite.isSprite) {
+          poleHiddenSprites.push({ sprite, was: sprite.visible });
+          sprite.visible = false;
+        }
+      });
+      pv.renderer.render(scene, pv.camera);
+      for (const item of poleHiddenSprites) {
+        item.sprite.visible = item.was;
+      }
+    }
+  }
+
+  function readPoleViews() {
+    return poleViews.map((pv) => {
+      const rect = pv.renderer.domElement.getBoundingClientRect();
+      return {
+        pole: pv.pole,
+        rect: {
+          x: +rect.x.toFixed(1),
+          y: +rect.y.toFixed(1),
+          w: +rect.width.toFixed(1),
+          h: +rect.height.toFixed(1)
+        },
+        triangles: pv.renderer.info.render.triangles
+      };
+    });
   }
 
   applyOrbitView();
@@ -1791,6 +1874,8 @@ function buildEngine(container: HTMLDivElement): Engine {
     // 纬线标签（赤道 / 回归线 / 极圈）：同样依赖当帧最终相机姿态
     updateParallelLabels();
     renderer.render(scene, camera);
+    // 极地俯视子图（挂在左下角面板里）：面板收起时 poleViews 为空，零开销
+    renderPoleViews();
   }
   animate();
 
@@ -1839,6 +1924,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     earthTexture?.dispose();
     earthMaterial.dispose();
     overlayMaterial.dispose();
+    detachPoleViews();
     renderer.dispose();
     if (renderer.domElement.parentElement === container) {
       container.removeChild(renderer.domElement);
@@ -1906,12 +1992,13 @@ function buildEngine(container: HTMLDivElement): Engine {
         applyOrbitView();
       } else if (key === "top") {
         applyTopView();
-      } else if (key === "north" || key === "south") {
-        applyPoleView(key);
       } else {
         applyEarthView();
       }
     },
+    attachPoleView,
+    detachPoleViews,
+    readPoleViews,
     setSpin: (on: boolean) => {
       spinWanted = on;
     },
@@ -2192,6 +2279,9 @@ const VIEW_DEFS: { key: ViewKey; label: string }[] = [
 export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
+  /** 极地俯视子图的画布宿主：引擎会把各自的小 WebGL 画布 append 进来 */
+  const northPoleHostRef = useRef<HTMLDivElement>(null);
+  const southPoleHostRef = useRef<HTMLDivElement>(null);
   const markerLastRef = useRef<MarkerInfo | null>(null);
 
   const [layers, setLayers] = useState<LayerState>({
@@ -2376,12 +2466,13 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         };
       },
       view: (key: ViewKey) => {
-        if (key === "earth" || key === "north" || key === "south") {
+        if (key === "earth") {
           engine.controls.autoRotate = false;
           engine.autoRotateWanted = false;
         }
         engine.setView(key);
-      }
+      },
+      readPoleViews: () => engine.readPoleViews()
     };
 
     return () => {
@@ -2395,6 +2486,25 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       engineRef.current = null;
     };
   }, []);
+
+  // 极地俯视子图：面板展开时把两块宿主 div 交给引擎挂画布，收起时摘掉。
+  // 依赖 open.poles——收起时宿主 div 会被 React 卸载，必须同步 detach，
+  // 否则引擎拿着已脱离 DOM 的画布继续每帧渲染。
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) {
+      return;
+    }
+    if (open.poles) {
+      if (northPoleHostRef.current) {
+        engine.attachPoleView("north", northPoleHostRef.current);
+      }
+      if (southPoleHostRef.current) {
+        engine.attachPoleView("south", southPoleHostRef.current);
+      }
+    }
+    return () => engine.detachPoleViews();
+  }, [open.poles]);
 
   // 图层开关
   useEffect(() => {
@@ -2486,8 +2596,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   function applyView(key: ViewKey) {
     engineRef.current?.setView(key);
     setView(key);
-    if (key === "earth" || key === "north" || key === "south") {
-      // 特写 / 极地俯视都用于讲解昼夜与自转，关掉自动旋转以保持取景稳定
+    if (key === "earth") {
+      // 特写用于讲解昼夜与自转，关掉自动旋转以保持取景稳定
       setAutoRotate(false);
     }
   }
@@ -2629,7 +2739,9 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         )}
       </div>
 
-      {/* 左下角：极地俯视。北极朝下看 = 从北极正上方看球心，南极反之。 */}
+      {/* 左下角：极地俯视子图。北极朝下看 = 从北极正上方看球心，南极反之。
+          两块独立小画布各自配一台沿地轴的相机，与主视图互不影响；
+          画布由引擎在挂载时塞进宿主 div（WebGL 上下文归引擎管，随面板卸载）。 */}
       <div className={open.poles ? "globe-poles" : "globe-poles is-collapsed"}>
         <button
           type="button"
@@ -2641,21 +2753,14 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         </button>
         {open.poles && (
           <div className="pole-body">
-            <span className="pole-title">极地俯视</span>
-            <button
-              type="button"
-              className={view === "north" ? "is-on" : ""}
-              onClick={() => applyView("north")}
-            >
-              北极朝下看
-            </button>
-            <button
-              type="button"
-              className={view === "south" ? "is-on" : ""}
-              onClick={() => applyView("south")}
-            >
-              南极朝上看
-            </button>
+            <div className="pole-view">
+              <span className="pole-title">北极朝下看</span>
+              <div className="pole-canvas" ref={northPoleHostRef} />
+            </div>
+            <div className="pole-view">
+              <span className="pole-title">南极朝上看</span>
+              <div className="pole-canvas" ref={southPoleHostRef} />
+            </div>
           </div>
         )}
       </div>

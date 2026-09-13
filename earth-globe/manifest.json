@@ -1,7 +1,7 @@
 {
   "gameCode": "earth_globe",
   "name": "寰宇地球仪",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",

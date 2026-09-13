@@ -541,7 +541,7 @@ input {
   position: absolute;
   left: 16px;
   bottom: 16px;
-  width: 152px;
+  width: auto;
   display: flex;
   flex-direction: column;
   background: var(--paper);
@@ -554,32 +554,29 @@ input {
 .pole-body {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
 }
 
 .pole-title {
+  display: block;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.14em;
   color: var(--brown);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
-.pole-body button {
-  padding: 6px 0;
-  font-size: 12px;
-  background: var(--paper-dim);
+/* 子图画布宿主：画布尺寸由引擎固定为 128×128（pixelRatio=1） */
+.pole-canvas {
+  width: 128px;
+  height: 128px;
   border: 2px solid #2b2620;
-  cursor: pointer;
+  background: #070c16;
+  line-height: 0;
 }
 
-.pole-body button:hover {
-  background: #dccfae;
-}
-
-.pole-body button.is-on {
-  background: var(--gold);
-  border-color: #8a5a12;
+.pole-canvas canvas {
+  display: block;
 }
 
 /* ---------- 底部提示 ---------- */

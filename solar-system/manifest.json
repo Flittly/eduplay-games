@@ -1,7 +1,7 @@
 {
   "gameCode": "solar_system",
   "name": "寰宇太阳系",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "2.0.0",
   "type": "iframe",
