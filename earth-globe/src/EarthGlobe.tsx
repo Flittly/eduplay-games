@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import Knob, { type KnobTick } from "./Knob";
@@ -35,7 +35,7 @@ interface MarkerInfo {
   lon: number;
 }
 
-type ViewKey = "orbit" | "top" | "earth";
+type ViewKey = "orbit" | "top" | "earth" | "north" | "south";
 
 const DEG = Math.PI / 180;
 const EARTH_TILT = 23.44;
@@ -636,6 +636,16 @@ interface Engine {
     latLon: MarkerInfo | null;
   };
   focusLatLon: (lat: number, lon: number, distance?: number) => void;
+  /**
+   * 开发自检：纬线标签（赤道 / 回归线 / 极圈）每帧归位后的实际位置。
+   * front = 标签点方向·相机方向，>0 才在朝向镜头的半球上，越大越正对镜头。
+   */
+  readLatLabels: () => {
+    text: string;
+    visible: boolean;
+    screen: { x: number; y: number };
+    front: number;
+  }[];
 }
 
 function buildEngine(container: HTMLDivElement): Engine {
@@ -901,37 +911,221 @@ function buildEngine(container: HTMLDivElement): Engine {
   earthAnchor.add(envGroup);
 
   /* ---- 赤道 / 回归线 / 极圈 / 本初子午线（鲜明配色 + 经纬度标签） ---- */
-  const labelLon = 105; // 标签统一放在面向特写视角的东侧经线上
-  function labelAt(latDeg: number, lonDeg: number, text: string, color: string, lift = 1.06) {
+  const labelLon = 105; // 经线标签仍固定在面向特写视角的东侧经线上
+  function fixedLabelAt(latDeg: number, lonDeg: number, text: string, color: string, lift = 1.06) {
     const sprite = makeLabelSprite(text, color);
     sprite.position.copy(localFromLatLon(latDeg, lonDeg).multiplyScalar(lift));
     return sprite;
   }
 
+  /* 纬线标签（赤道 / 南北回归线 / 南北极圈）不绑死经度：
+     一旦绑死经度，地球自转半圈标签就跟着转到背面，被地球本体挡得看不见了。
+     改为每帧按当前相机方向重算落点（见 updateParallelLabels），
+     让标签始终停在该纬度圈朝镜头的那一侧。 */
+  const parallelLabels: { sprite: THREE.Sprite; lat: number; lift: number; text: string }[] = [];
+  function latLabel(latDeg: number, text: string, color: string, lift = 1.06) {
+    const sprite = makeLabelSprite(text, color);
+    // 关闭深度测试：标签精灵是一块「正对镜头的平面」，而地球是弧面。贴着球面摆放时，
+    // 标签靠近盘心的那一侧会扎进地球前半面之下、被判定为被遮挡，文字就被切掉半截
+    // （赤道那种短标签没事，南北回归线这种长标签就会断在中间）。
+    // 标签点由 updateParallelLabels 保证永远落在朝向镜头的一侧，所以这里放开深度测试是安全的；
+    // 真正转到背面时会把 sprite 整个隐藏掉，不会出现"透过地球看见字"。
+    sprite.material.depthTest = false;
+    sprite.material.depthWrite = false;
+    parallelLabels.push({ sprite, lat: latDeg, lift, text });
+    return sprite;
+  }
+
   const equatorGroup = new THREE.Group();
   equatorGroup.add(makeParallelRing(0, 0.010, COLORS.equator));
-  equatorGroup.add(labelAt(0, labelLon, "赤道 0°", "#ff6b5e"));
+  equatorGroup.add(latLabel(0, "赤道 0°", "#ff6b5e"));
   spinGroup.add(equatorGroup);
 
   const tropicsGroup = new THREE.Group();
   tropicsGroup.add(makeParallelRing(EARTH_TILT, 0.007, COLORS.tropics));
   tropicsGroup.add(makeParallelRing(-EARTH_TILT, 0.007, COLORS.tropics));
-  tropicsGroup.add(labelAt(EARTH_TILT, labelLon, "北回归线 23.5°N", "#ffc247"));
-  tropicsGroup.add(labelAt(-EARTH_TILT, labelLon, "南回归线 23.5°S", "#ffc247"));
+  tropicsGroup.add(latLabel(EARTH_TILT, "北回归线 23.5°N", "#ffc247"));
+  tropicsGroup.add(latLabel(-EARTH_TILT, "南回归线 23.5°S", "#ffc247"));
   spinGroup.add(tropicsGroup);
 
   const polarGroup = new THREE.Group();
   polarGroup.add(makeParallelRing(66.56, 0.006, COLORS.polar));
   polarGroup.add(makeParallelRing(-66.56, 0.006, COLORS.polar));
-  polarGroup.add(labelAt(66.56, labelLon, "北极圈 66.5°N", "#6ee9ff"));
-  polarGroup.add(labelAt(-66.56, labelLon, "南极圈 66.5°S", "#6ee9ff"));
+  polarGroup.add(latLabel(66.56, "北极圈 66.5°N", "#6ee9ff"));
+  polarGroup.add(latLabel(-66.56, "南极圈 66.5°S", "#6ee9ff"));
   spinGroup.add(polarGroup);
 
   const meridianGroup = new THREE.Group();
   meridianGroup.add(makeMeridianRing(0, 0.010, COLORS.meridian));
-  meridianGroup.add(labelAt(42, 0, "本初子午线 0°", "#b39cff", 1.07));
-  meridianGroup.add(labelAt(42, 180, "180°", "#b39cff", 1.07));
+  meridianGroup.add(fixedLabelAt(42, 0, "本初子午线 0°", "#b39cff", 1.07));
+  meridianGroup.add(fixedLabelAt(42, 180, "180°", "#b39cff", 1.07));
   spinGroup.add(meridianGroup);
+
+  /* ---- 纬线标签每帧归位 ----
+     把「相机方向」与「屏幕右方向」都变换到地球自转坐标系（spinGroup 局部系）后，
+     在那里每条纬线圈就是一个水平圆。在该圆上「正对镜头那一点」左右各 PL_SIDE_ANGLE
+     的范围内采样，取最靠画面左侧、且仍朝镜头的那一点当作标签落点。
+     于是无论自转转到哪个角度、镜头从哪个方位看，标签都不会翻到背面去。 */
+  const tmpPlQuat = new THREE.Quaternion();
+  const tmpPlQuatInv = new THREE.Quaternion();
+  const tmpPlCamLocal = new THREE.Vector3();
+  const tmpPlRightLocal = new THREE.Vector3();
+  const tmpPlUpLocal = new THREE.Vector3();
+  const tmpPlE1 = new THREE.Vector3();
+  const tmpPlE2 = new THREE.Vector3();
+  const tmpPlAxis = new THREE.Vector3(0, 1, 0);
+  const tmpPlPoint = new THREE.Vector3();
+  const tmpPlBest = new THREE.Vector3();
+  /** 标签相对「正对镜头那一点」朝画面左侧偏开的角度：偏离中央，避让直射点/晨昏线标签 */
+  const PL_SIDE_ANGLE = 26 * DEG;
+  /** 采样次数（绕该纬度圈） */
+  const PL_SAMPLES = 72;
+  /** 朝向镜头的最低要求：低于它的点已经贴到球面轮廓、甚至翻到背面，弃用 */
+  const PL_FRONT_MIN = 0.2;
+  /** 极地俯视专用：屏幕右/上方向在赤道面内的投影，作为“摆到某个屏幕方位”的基 */
+  const tmpPlEx = new THREE.Vector3();
+  const tmpPlEy = new THREE.Vector3();
+  /** 极地俯视时最外侧纬线（赤道）标签的屏幕方位角：正左方 */
+  const PL_POLAR_START = 180 * DEG;
+  /** 每往里一层（半径更小的纬线）标签再转过的角度，扇开避免叠字 */
+  const PL_POLAR_STEP = 40 * DEG;
+
+  function updateParallelLabels() {
+    if (parallelLabels.length === 0) {
+      return;
+    }
+    tmpPlQuat.copy(tiltGroup.quaternion).multiply(spinGroup.quaternion);
+    tmpPlQuatInv.copy(tmpPlQuat).invert();
+    tmpPlCamLocal
+      .copy(camera.position)
+      .sub(earthPos)
+      .normalize()
+      .applyQuaternion(tmpPlQuatInv);
+    tmpPlRightLocal
+      .set(1, 0, 0)
+      .applyQuaternion(camera.quaternion)
+      .applyQuaternion(tmpPlQuatInv);
+    tmpPlUpLocal
+      .set(0, 1, 0)
+      .applyQuaternion(camera.quaternion)
+      .applyQuaternion(tmpPlQuatInv);
+
+    // 纬度圈平面内、正对镜头的那一点的方向（把相机方向投到垂直于地轴的平面上）
+    tmpPlE1.copy(tmpPlCamLocal).addScaledVector(tmpPlAxis, -tmpPlCamLocal.dot(tmpPlAxis));
+    if (tmpPlE1.lengthSq() < 1e-6) {
+      // 退化：镜头几乎沿地轴俯视，改用「屏幕上方」在地轴垂面上的投影作参考
+      tmpPlE1.copy(tmpPlUpLocal).addScaledVector(tmpPlAxis, -tmpPlUpLocal.dot(tmpPlAxis));
+    }
+    if (tmpPlE1.lengthSq() < 1e-6) {
+      tmpPlE1.set(1, 0, 0);
+    }
+    tmpPlE1.normalize();
+    tmpPlE2.crossVectors(tmpPlAxis, tmpPlE1).normalize();
+
+    // 视线几乎沿地轴（南北极俯视）：几条纬线在屏幕上退化成一组同心圆，
+    // 此时“哪一侧朝镜头”没有横向意义，交给专门的同心圆摆法（见 placeLabelsPolar）。
+    if (Math.abs(tmpPlCamLocal.y) > 0.85) {
+      placeLabelsPolar(tmpPlCamLocal.y > 0);
+      return;
+    }
+
+    for (const item of parallelLabels) {
+      const lat = item.lat * DEG;
+      const cl = Math.cos(lat);
+      const sl = Math.sin(lat);
+      let bestScore = -Infinity;
+      let found = false;
+      for (let i = 0; i < PL_SAMPLES; i++) {
+        const beta = (i / (PL_SAMPLES - 1) - 0.5) * 2 * PL_SIDE_ANGLE;
+        tmpPlPoint
+          .copy(tmpPlE1)
+          .multiplyScalar(Math.cos(beta) * cl)
+          .addScaledVector(tmpPlE2, Math.sin(beta) * cl)
+          .addScaledVector(tmpPlAxis, sl);
+        const front = tmpPlPoint.dot(tmpPlCamLocal);
+        if (front < PL_FRONT_MIN) {
+          continue;
+        }
+        // 屏幕横向位置 ∝ (点·屏幕右方向) / 该点到相机的进深，越小越靠左
+        const score = -tmpPlPoint.dot(tmpPlRightLocal) / front;
+        if (score > bestScore) {
+          bestScore = score;
+          tmpPlBest.copy(tmpPlPoint);
+          found = true;
+        }
+      }
+      if (!found) {
+        // 兜底：万一窗口内一个采样点都不够朝镜头，就整圈扫一遍取最靠左的点
+        for (let i = 0; i < PL_SAMPLES; i++) {
+          const beta = (i / PL_SAMPLES) * Math.PI * 2;
+          tmpPlPoint
+            .copy(tmpPlE1)
+            .multiplyScalar(Math.cos(beta) * cl)
+            .addScaledVector(tmpPlE2, Math.sin(beta) * cl)
+            .addScaledVector(tmpPlAxis, sl);
+          const front = Math.max(0.1, tmpPlPoint.dot(tmpPlCamLocal));
+          const score = -tmpPlPoint.dot(tmpPlRightLocal) / front;
+          if (score > bestScore) {
+            bestScore = score;
+            tmpPlBest.copy(tmpPlPoint);
+            found = true;
+          }
+        }
+      }
+      if (found) {
+        // 落在背面就直接藏掉，别让文字浮在球面上（例如转到地球背面的那条回归线）
+        const front = tmpPlBest.dot(tmpPlCamLocal);
+        item.sprite.visible = front > -0.02;
+        if (item.sprite.visible) {
+          item.sprite.position.copy(tmpPlBest).multiplyScalar(item.lift);
+        }
+      }
+    }
+  }
+
+  /* ---- 极地俯视时的纬线标签摆法 ----
+     从北极朝下 / 南极朝上看时，各条纬线在屏幕上退化成一组同心圆，
+     这时「朝镜头的一侧」已经没有横向意义（整圈都朝向镜头）。
+     于是改按「屏幕方位角」把标签错开：最外圈（赤道）摆在正左方，
+     每往里一层再转过 PL_POLAR_STEP，像一把扇子从正左扇向左上方；
+     各标签落在自己那一圈的圆环上，既与同心圆一一对应，又互不叠字。 */
+  function placeLabelsPolar(northUp: boolean) {
+    // 屏幕右 / 上方向在赤道面（垂直于地轴的平面）内的投影，当作“屏幕方位”的基
+    tmpPlEx.copy(tmpPlRightLocal).addScaledVector(tmpPlAxis, -tmpPlRightLocal.dot(tmpPlAxis));
+    tmpPlEy.copy(tmpPlUpLocal).addScaledVector(tmpPlAxis, -tmpPlUpLocal.dot(tmpPlAxis));
+    if (tmpPlEx.lengthSq() < 1e-6) {
+      tmpPlEx.copy(tmpPlE1);
+    }
+    if (tmpPlEy.lengthSq() < 1e-6) {
+      tmpPlEy.crossVectors(tmpPlAxis, tmpPlEx);
+    }
+    tmpPlEx.normalize();
+    tmpPlEy.normalize();
+
+    // 俯视只能看见与镜头同一侧的半球：北俯视看到北回归线 / 北极圈，南俯视看到南回归线 / 南极圈
+    const want = northUp ? 1 : -1;
+    const visible = parallelLabels
+      .filter((item) => Math.sin(item.lat * DEG) * want > -1e-6)
+      .sort((a, b) => Math.cos(b.lat * DEG) - Math.cos(a.lat * DEG));
+    const shown = new Set(visible);
+    for (const item of parallelLabels) {
+      if (!shown.has(item)) {
+        item.sprite.visible = false;
+      }
+    }
+    visible.forEach((item, k) => {
+      const lat = item.lat * DEG;
+      const cl = Math.cos(lat);
+      const gamma = PL_POLAR_START - k * PL_POLAR_STEP;
+      tmpPlPoint
+        .copy(tmpPlEx)
+        .multiplyScalar(cl * Math.cos(gamma))
+        .addScaledVector(tmpPlEy, cl * Math.sin(gamma))
+        .addScaledVector(tmpPlAxis, Math.sin(lat));
+      item.sprite.visible = tmpPlPoint.dot(tmpPlCamLocal) > -0.02;
+      item.sprite.position.copy(tmpPlPoint).multiplyScalar(item.lift);
+    });
+  }
 
   /* ---- 经纬网（每 15° 一格，赤道与本初子午线另有专属图层，这里跳过） ---- */
   const gridGroup = new THREE.Group();
@@ -1011,7 +1205,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     })
   );
   zoneGroup.add(zoneBand);
-  zoneGroup.add(labelAt(0, 148, "太阳直射带", "#ffd76a", 1.16));
+  zoneGroup.add(fixedLabelAt(0, 148, "太阳直射带", "#ffd76a", 1.16));
   tiltGroup.add(zoneGroup);
 
   // ---- 地球标签（只在公转视角显示） ----
@@ -1361,6 +1555,8 @@ function buildEngine(container: HTMLDivElement): Engine {
   const tmpDropDir = new THREE.Vector3();
   /** 特写视角下镜头跟随地球的位移量 */
   const tmpFollow = new THREE.Vector3();
+  /** 极地俯视用的「上方向」临时量 */
+  const tmpPoleUp = new THREE.Vector3();
 
   /**
    * 摆放「太阳直射点 xx°N」标签。
@@ -1462,7 +1658,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     // 一转公转旋钮地球就"跳"回原位，体验上和自转旋钮不一致。
     // 只要相机与 target 同步平移，地球在画面里的位置与大小就完全不变，
     // 变的只有光照（太阳直射点纬度、晨昏线倾角），这正是要看的东西。
-    if (viewState.current === "earth") {
+    if (isEarthLocked()) {
       tmpFollow.set(earthPos.x - prevX, earthPos.y - prevY, earthPos.z - prevZ);
       camera.position.add(tmpFollow);
       controls.target.add(tmpFollow);
@@ -1470,8 +1666,18 @@ function buildEngine(container: HTMLDivElement): Engine {
   }
 
   /* ---- 视角预设 ---- */
+  /** 镜头是否锁定在地球上（特写 / 南北极俯视都算），用于公转时同步平移相机 */
+  function isEarthLocked() {
+    return (
+      viewState.current === "earth" ||
+      viewState.current === "north" ||
+      viewState.current === "south"
+    );
+  }
+
   function applyOrbitView() {
     viewState.current = "orbit";
+    camera.up.copy(WORLD_UP);
     controls.target.set(0, 0, 0);
     const d = ORBIT_A * 2.65;
     camera.position.set(d * 0.12, d * 0.66, d * 0.74);
@@ -1481,6 +1687,7 @@ function buildEngine(container: HTMLDivElement): Engine {
 
   function applyTopView() {
     viewState.current = "top";
+    camera.up.copy(WORLD_UP);
     controls.target.set(0, 0, 0);
     camera.position.set(0.0016, ORBIT_A * 2.95, 0.0016);
     controls.update();
@@ -1489,6 +1696,7 @@ function buildEngine(container: HTMLDivElement): Engine {
 
   function applyEarthView() {
     viewState.current = "earth";
+    camera.up.copy(WORLD_UP);
     controls.target.copy(earthPos);
     // 镜头放在 sunDir 的侧向：视线垂直于太阳方向，晨昏线纵贯画面中央。
     // 这样地球自转时，画面里能直接看到"白天 → 黑夜"的滚动；
@@ -1498,6 +1706,27 @@ function buildEngine(container: HTMLDivElement): Engine {
     camera.position.copy(earthPos).addScaledVector(side, 3.0);
     controls.update();
     onViewChange?.("earth");
+  }
+
+  /**
+   * 极地俯视：镜头沿地轴方向看球心，极点正好落在画面中心。
+   * 北极俯视 = 从北极正上方往下看（南极在球背面）；南极仰视反之。
+   * 注意要把 camera.up 换成「与地轴垂直」的方向，否则视线与 up 平行，OrbitControls 会退化。
+   */
+  function applyPoleView(pole: "north" | "south") {
+    viewState.current = pole;
+    // 与地轴垂直的参考「上」方向：把世界 +Z 投到地轴的垂面上（退化时改用 +X）
+    tmpPoleUp.set(0, 0, 1).addScaledVector(AXIS_WORLD, -AXIS_WORLD.z);
+    if (tmpPoleUp.lengthSq() < 1e-6) {
+      tmpPoleUp.set(1, 0, 0).addScaledVector(AXIS_WORLD, -AXIS_WORLD.x);
+    }
+    camera.up.copy(tmpPoleUp.normalize());
+    controls.target.copy(earthPos);
+    camera.position
+      .copy(earthPos)
+      .addScaledVector(AXIS_WORLD, pole === "north" ? 3.0 : -3.0);
+    controls.update();
+    onViewChange?.(pole);
   }
 
   applyOrbitView();
@@ -1559,6 +1788,8 @@ function buildEngine(container: HTMLDivElement): Engine {
     // 五带文字标注：必须放在 controls.update() 之后——它依赖当帧最终的相机姿态，
     // 用来把标签摆到球面轮廓内最靠左的位置（避让中央的晨昏线与直射点标签）。
     updateZoneLabels();
+    // 纬线标签（赤道 / 回归线 / 极圈）：同样依赖当帧最终相机姿态
+    updateParallelLabels();
     renderer.render(scene, camera);
   }
   animate();
@@ -1675,6 +1906,8 @@ function buildEngine(container: HTMLDivElement): Engine {
         applyOrbitView();
       } else if (key === "top") {
         applyTopView();
+      } else if (key === "north" || key === "south") {
+        applyPoleView(key);
       } else {
         applyEarthView();
       }
@@ -1783,6 +2016,24 @@ function buildEngine(container: HTMLDivElement): Engine {
             x: +((v.x * 0.5 + 0.5) * rect.width).toFixed(1),
             y: +((-v.y * 0.5 + 0.5) * rect.height).toFixed(1)
           }
+        };
+      });
+    },
+    readLatLabels: () => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const camDir = new THREE.Vector3().copy(camera.position).sub(earthPos).normalize();
+      return parallelLabels.map((item) => {
+        const world = item.sprite.getWorldPosition(new THREE.Vector3());
+        const v = world.clone().project(camera);
+        const u = world.clone().sub(earthPos).normalize();
+        return {
+          text: item.text,
+          visible: item.sprite.visible,
+          screen: {
+            x: +((v.x * 0.5 + 0.5) * rect.width).toFixed(1),
+            y: +((-v.y * 0.5 + 0.5) * rect.height).toFixed(1)
+          },
+          front: +u.dot(camDir).toFixed(3)
         };
       });
     },
@@ -1969,6 +2220,15 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   const [spinning, setSpinning] = useState(false);
   const [rotating, setRotating] = useState(true);
   const [spinDeg, setSpinDeg] = useState(0);
+  /** 各浮动栏的最小化状态：把画面尽量让给地球 */
+  const [open, setOpen] = useState({
+    knobs: true,
+    panel: true,
+    poles: true,
+    hint: true
+  });
+  const togglePanel = (key: keyof typeof open) =>
+    setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
   /** 自转旋钮拖动中的即时值（优先于引擎回传值，保证指针跟手） */
   const [spinDragValue, setSpinDragValue] = useState<number | null>(null);
   /** 引擎回传的时钟信息：直射经线 + 标记点地方时 */
@@ -2055,6 +2315,12 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       readGeometry: () => engine.readGeometry(),
       readSubsolarLabelBox: () => engine.readSubsolarLabelBox(),
       setSpin: (deg: number) => engine.setSpinAngle(deg),
+      /** 开发自检：冻结/恢复自转推进，便于在固定自转角下反复读取同一帧的布局 */
+      setRotate: (on: boolean) => engine.setRotate(on),
+      setAutoRotate: (on: boolean) => {
+        engine.autoRotateWanted = on;
+        engine.controls.autoRotate = on;
+      },
       readClock: () => ({
         subsolarLon: engine.readSubsolarLon(),
         spinDeg: engine.readSpinAngle()
@@ -2064,6 +2330,7 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       readMarkerDebug: () => engine.readMarkerDebug(),
       readVisibility: () => engine.readVisibility(),
       readZoneLabels: () => engine.readZoneLabels(),
+      readLatLabels: () => engine.readLatLabels(),
       readCamDebug: () => {
         const rect = engine.renderer.domElement.getBoundingClientRect();
         const earth = engine.earthAnchor.position.clone().project(engine.camera);
@@ -2090,8 +2357,26 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       },
       setLayers: (patch: Partial<LayerState>) =>
         setLayers((prev) => ({ ...prev, ...patch })),
+      /** 开发自检：地轴两端投影到屏幕的位置（验证极地俯视时极点确实落在画面中心） */
+      readPoleAxis: () => {
+        const rect = engine.renderer.domElement.getBoundingClientRect();
+        const proj = (p: THREE.Vector3) => {
+          const v = p.clone().project(engine.camera);
+          return {
+            x: +((v.x * 0.5 + 0.5) * rect.width).toFixed(1),
+            y: +((-v.y * 0.5 + 0.5) * rect.height).toFixed(1)
+          };
+        };
+        const base = engine.earthAnchor.position;
+        return {
+          view: engine.readGeometry().view,
+          north: proj(base.clone().addScaledVector(AXIS_WORLD, 1)),
+          south: proj(base.clone().addScaledVector(AXIS_WORLD, -1)),
+          earth: proj(base.clone())
+        };
+      },
       view: (key: ViewKey) => {
-        if (key === "earth") {
+        if (key === "earth" || key === "north" || key === "south") {
           engine.controls.autoRotate = false;
           engine.autoRotateWanted = false;
         }
@@ -2201,8 +2486,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   function applyView(key: ViewKey) {
     engineRef.current?.setView(key);
     setView(key);
-    if (key === "earth") {
-      // 特写视角用于讲解昼夜，关掉自动旋转以保持晨昏线取景稳定
+    if (key === "earth" || key === "north" || key === "south") {
+      // 特写 / 极地俯视都用于讲解昼夜与自转，关掉自动旋转以保持取景稳定
       setAutoRotate(false);
     }
   }
@@ -2267,8 +2552,18 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       <div className="globe-canvas" ref={mountRef} />
 
       {/* 自转 / 公转旋钮独立成左侧旋钮台：从右栏抽出来，右手拖旋钮、左手不挡画面，
-          同时把右栏留给参数读数。 */}
-      <div className="globe-knobs">
+          同时把右栏留给参数读数。整块可用右上角按钮收起，把画面让给地球。 */}
+      <div className={open.knobs ? "globe-knobs" : "globe-knobs is-collapsed"}>
+        <button
+          type="button"
+          className="panel-toggle"
+          title={open.knobs ? "收起旋钮台" : "展开旋钮台"}
+          onClick={() => togglePanel("knobs")}
+        >
+          {open.knobs ? "—" : "旋钮 ＋"}
+        </button>
+        {open.knobs && (
+          <>
         <div className="knob-card">
           <Knob
             value={nu}
@@ -2330,9 +2625,52 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         <p className="knob-deck-hint">
           按住圆盘绕中心拖动即可自由转动；旋钮刻度为二分二至 / 四象限。
         </p>
+          </>
+        )}
       </div>
 
-      <aside className="globe-panel">
+      {/* 左下角：极地俯视。北极朝下看 = 从北极正上方看球心，南极反之。 */}
+      <div className={open.poles ? "globe-poles" : "globe-poles is-collapsed"}>
+        <button
+          type="button"
+          className="panel-toggle"
+          title={open.poles ? "收起俯视图栏" : "展开俯视图栏"}
+          onClick={() => togglePanel("poles")}
+        >
+          {open.poles ? "—" : "俯视图 ＋"}
+        </button>
+        {open.poles && (
+          <div className="pole-body">
+            <span className="pole-title">极地俯视</span>
+            <button
+              type="button"
+              className={view === "north" ? "is-on" : ""}
+              onClick={() => applyView("north")}
+            >
+              北极朝下看
+            </button>
+            <button
+              type="button"
+              className={view === "south" ? "is-on" : ""}
+              onClick={() => applyView("south")}
+            >
+              南极朝上看
+            </button>
+          </div>
+        )}
+      </div>
+
+      <aside className={open.panel ? "globe-panel" : "globe-panel is-collapsed"}>
+        <button
+          type="button"
+          className="panel-toggle"
+          title={open.panel ? "收起面板" : "展开面板"}
+          onClick={() => togglePanel("panel")}
+        >
+          {open.panel ? "—" : "控制台 ＋"}
+        </button>
+        {open.panel && (
+          <div className="panel-body">
         <section>
           <h2>图层</h2>
           {LAYER_GROUPS.map((group) => (
@@ -2340,44 +2678,55 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
               <div className="layer-group-title">{group.title}</div>
               <ul className="layer-list">
                 {group.items.map((item) => (
-                  <li key={item.key}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={layers[item.key]}
-                        onChange={() => toggleLayer(item.key)}
-                      />
-                      <span className="layer-chip" style={{ background: item.color }} />
-                      <span className="layer-label">{item.label}</span>
-                    </label>
-                  </li>
+                  <Fragment key={item.key}>
+                    <li>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={layers[item.key]}
+                          onChange={() => toggleLayer(item.key)}
+                        />
+                        <span className="layer-chip" style={{ background: item.color }} />
+                        <span className="layer-label">{item.label}</span>
+                      </label>
+                    </li>
+                    {/* 五带的图例与使用说明直接跟在「五带」这一项下面：
+                        它解释的就是上面这个开关，放在图层列表末尾会和「时区」「星空」等
+                        无关项混在一起，看不出是谁的注解。 */}
+                    {item.key === "climate" && (
+                      <li className="zone-legend-item">
+                        <div className="zone-legend">
+                          <span>
+                            <i style={{ background: "#59b8ff" }} />
+                            北寒带 66.5°N 以北
+                          </span>
+                          <span>
+                            <i style={{ background: "#4ddc7a" }} />
+                            北温带 23.5°~66.5°N
+                          </span>
+                          <span>
+                            <i style={{ background: "#ff6b3d" }} />
+                            热带 23.5°N~23.5°S
+                          </span>
+                          <span>
+                            <i style={{ background: "#4ddc7a" }} />
+                            南温带 23.5°~66.5°S
+                          </span>
+                          <span>
+                            <i style={{ background: "#59b8ff" }} />
+                            南寒带 66.5°S 以南
+                          </span>
+                        </div>
+                        <p className="knob-hint">
+                          球面上五带的文字标注只在「地球特写」视角显示。
+                        </p>
+                      </li>
+                    )}
+                  </Fragment>
                 ))}
               </ul>
             </div>
           ))}
-          <div className="zone-legend">
-            <span>
-              <i style={{ background: "#59b8ff" }} />
-              北寒带 66.5°N 以北
-            </span>
-            <span>
-              <i style={{ background: "#4ddc7a" }} />
-              北温带 23.5°~66.5°N
-            </span>
-            <span>
-              <i style={{ background: "#ff6b3d" }} />
-              热带 23.5°N~23.5°S
-            </span>
-            <span>
-              <i style={{ background: "#4ddc7a" }} />
-              南温带 23.5°~66.5°S
-            </span>
-            <span>
-              <i style={{ background: "#59b8ff" }} />
-              南寒带 66.5°S 以南
-            </span>
-          </div>
-          <p className="knob-hint">球面上五带的文字标注只在「地球特写」视角显示。</p>
         </section>
 
         <section>
@@ -2508,10 +2857,24 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
             </p>
           </section>
         )}
+          </div>
+        )}
       </aside>
 
-      <footer className="globe-hint">
-        拖动旋转 · 滚轮缩放 · 旋钮调自转与公转 · 切「地球特写」点击球面读经纬度与地方时
+      <footer className={open.hint ? "globe-hint" : "globe-hint is-collapsed"}>
+        <button
+          type="button"
+          className="panel-toggle"
+          title={open.hint ? "收起提示" : "展开提示"}
+          onClick={() => togglePanel("hint")}
+        >
+          {open.hint ? "—" : "操作提示 ＋"}
+        </button>
+        {open.hint && (
+          <span className="hint-text">
+            拖动旋转 · 滚轮缩放 · 旋钮调自转与公转 · 切「地球特写」点击球面读经纬度与地方时
+          </span>
+        )}
       </footer>
     </div>
   );

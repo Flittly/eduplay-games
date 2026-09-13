@@ -485,10 +485,19 @@ export function makeLabelTexture(
   const canvas = createCanvas(16, 16);
   const probe = canvas.getContext("2d");
   const font = `900 ${fontPx}px 'Microsoft YaHei', 'PingFang SC', sans-serif`;
+  const subFont = `700 ${Math.round(fontPx * 0.6)}px 'Microsoft YaHei', 'PingFang SC', sans-serif`;
+  // 画布宽度必须按「主标题 / 副标题里更宽的那个」来定：
+  // 太阳的副标题「恒星 · 太阳系的中心」比主标题「太阳」宽一倍多，
+  // 早先只量主标题，副标题会被画布右边缘直接裁掉，看上去就是后面几个字"没显示"。
   let width = 160;
   if (probe) {
     probe.font = font;
-    width = Math.ceil(probe.measureText(text).width) + 34;
+    let wide = probe.measureText(text).width;
+    if (sub) {
+      probe.font = subFont;
+      wide = Math.max(wide, probe.measureText(sub).width);
+    }
+    width = Math.ceil(wide) + 34;
   }
   const height = Math.ceil(fontPx * (sub ? 2.5 : 1.75));
   canvas.width = width;
@@ -506,7 +515,6 @@ export function makeLabelTexture(
     ctx.fillStyle = color;
     ctx.fillText(text, width / 2, mainY);
     if (sub) {
-      const subFont = `700 ${Math.round(fontPx * 0.6)}px 'Microsoft YaHei', 'PingFang SC', sans-serif`;
       ctx.font = subFont;
       ctx.lineWidth = fontPx * 0.16;
       ctx.strokeText(sub, width / 2, height * 0.76);

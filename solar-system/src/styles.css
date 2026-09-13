@@ -57,42 +57,61 @@ input {
   display: block;
 }
 
-/* ---------- 标题 ---------- */
-.solar-title {
+/* ---------- 浮动栏的最小化按钮 ---------- */
+.panel-toggle {
   position: absolute;
-  top: 16px;
-  left: 18px;
-  background: var(--paper);
+  top: 4px;
+  right: 4px;
+  z-index: 5;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  font-size: 12px;
+  line-height: 1;
   color: var(--ink);
-  border: 3px solid #2b2620;
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
-  padding: 10px 18px 12px;
-  max-width: 280px;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.solar-title h1 {
-  font-size: 22px;
-  letter-spacing: 0.08em;
+.panel-toggle:hover {
+  background: var(--gold);
 }
 
-.solar-title span {
-  display: block;
-  margin-top: 2px;
+/* 收起后：整块缩成一个小胶囊，只留按钮本身 */
+.solar-hud.is-collapsed,
+.solar-panel.is-collapsed,
+.solar-hint.is-collapsed {
+  width: auto;
+  min-width: 0;
+  height: auto;
+  bottom: auto;
+  padding: 4px;
+}
+
+.solar-hud.is-collapsed .panel-toggle,
+.solar-panel.is-collapsed .panel-toggle,
+.solar-hint.is-collapsed .panel-toggle {
+  position: static;
   font-size: 11px;
-  color: var(--brown);
-  letter-spacing: 0.16em;
+  padding: 0 8px;
 }
 
 /* ---------- 时间 HUD ---------- */
 .solar-hud {
   position: absolute;
   left: 18px;
-  top: 108px;
+  top: 16px;
   background: var(--space-soft);
   border: 1px solid rgba(212, 168, 67, 0.55);
   padding: 8px 14px;
   min-width: 190px;
   backdrop-filter: blur(3px);
+}
+
+.solar-hud .panel-toggle {
+  background: rgba(242, 232, 213, 0.9);
 }
 
 .hud-row {
@@ -415,8 +434,12 @@ input {
   background: var(--space-soft);
   border: 1px solid rgba(212, 168, 67, 0.55);
   color: var(--paper);
-  padding: 7px 22px;
+  padding: 7px 36px 7px 22px;
   font-size: 12px;
   letter-spacing: 0.1em;
   white-space: nowrap;
+}
+
+.solar-hint .panel-toggle {
+  background: rgba(242, 232, 213, 0.9);
 }

@@ -178,6 +178,8 @@ function makeLabelSprite(
     })
   );
   sprite.scale.set(height * aspect, height, 1);
+  // 留存文本信息，供开发自检核对画布宽度有没有把副标题裁掉
+  sprite.userData.label = { text, sub: sub ?? null, fontPx };
   return { sprite, baseW: height * aspect, baseH: height };
 }
 
@@ -243,8 +245,11 @@ function buildEngine(container: HTMLDivElement, onTick: (timeDays: number) => vo
   scene.add(sunLight);
 
   const labelEntries: LabelEntry[] = [];
-  const sunLabel = makeLabelSprite("太阳", "#ffd76a", 52, 2.4, "恒星 · 太阳系的中心");
-  sunLabel.sprite.position.set(0, SUN_DISPLAY_R + 2.8, 0);
+  // 副标题只写「太阳系的中心」：整串「恒星 · 太阳系的中心」在默认全日系视角下
+  // 会把标签撑到 1.5 倍太阳直径宽，压住旁边的金星/火星标签；恒星这一层信息
+  // 在天体档案面板里已经有「恒星」标签，不必在球面标签上重复。
+  const sunLabel = makeLabelSprite("太阳", "#ffd76a", 46, 2.0, "太阳系的中心");
+  sunLabel.sprite.position.set(0, SUN_DISPLAY_R + 3.1, 0);
   scene.add(sunLabel.sprite);
   labelEntries.push({
     sprite: sunLabel.sprite,
@@ -895,6 +900,11 @@ export default function SolarSystem({ roster }: { roster: PlayerInfo[] }) {
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(3);
   const [follow, setFollow] = useState(true);
+  // 各浮动栏的最小化状态：平台顶栏已经显示游戏名，画布内不再重复标题，
+  // 其余栏目交给用户自己收起，把画面尽量让给星空与行星。
+  const [open, setOpen] = useState({ hud: true, panel: true, hint: true });
+  const togglePanel = (key: keyof typeof open) =>
+    setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const selectedBody = selected ? bodyById(selected.bodyId) : undefined;
   const selectedMoon: MoonData | undefined = useMemo(() => {
@@ -973,6 +983,41 @@ export default function SolarSystem({ roster }: { roster: PlayerInfo[] }) {
           moons: planet.moons.length
         };
       },
+      /** 开发自检：每个标签精灵的画布尺寸 + 它记录的文本（核对副标题有没有被裁） */
+      readLabels: () =>
+        engine.labelEntries.map((entry) => {
+          const map = entry.sprite.material.map as THREE.CanvasTexture | null;
+          const img = map?.image as HTMLCanvasElement | undefined;
+          const info = (entry.sprite.userData.label ?? {}) as {
+            text?: string;
+            sub?: string | null;
+            fontPx?: number;
+          };
+          return {
+            text: info.text ?? "",
+            sub: info.sub ?? null,
+            fontPx: info.fontPx ?? 0,
+            canvasW: img ? img.width : 0,
+            canvasH: img ? img.height : 0,
+            visible: entry.sprite.visible
+          };
+        }),
+      /** 开发自检：用独立的一段测量代码量文本宽度，不依赖被测实现里的算法 */
+      measureText: (text: string, fontPx: number, sub?: string) => {
+        const c = document.createElement("canvas");
+        const ctx = c.getContext("2d");
+        if (!ctx) {
+          return { mainW: 0, subW: 0 };
+        }
+        ctx.font = `900 ${fontPx}px 'Microsoft YaHei', 'PingFang SC', sans-serif`;
+        const mainW = ctx.measureText(text).width;
+        let subW = 0;
+        if (sub) {
+          ctx.font = `700 ${Math.round(fontPx * 0.6)}px 'Microsoft YaHei', 'PingFang SC', sans-serif`;
+          subW = ctx.measureText(sub).width;
+        }
+        return { mainW: +mainW.toFixed(1), subW: +subW.toFixed(1) };
+      },
       time: () => engine.simTime
     };
 
@@ -1022,23 +1067,42 @@ export default function SolarSystem({ roster }: { roster: PlayerInfo[] }) {
     <div className="solar-app">
       <div className="solar-canvas" ref={mountRef} />
 
-      <header className="solar-title">
-        <h1>寰宇太阳系</h1>
-        <span>行星轨道 · 自转公转 · 天体档案</span>
-      </header>
+      {/* 画布内的「寰宇太阳系」标题块已删除：平台顶栏已显示游戏名，重复占地方 */}
 
-      <div className="solar-hud">
-        <div className="hud-row">
-          <span className="hud-label">模拟时间</span>
-          <strong>{formatSimTime(hudTime)}</strong>
-        </div>
-        <div className="hud-row">
-          <span className="hud-label">播放速度</span>
-          <strong>{playing ? formatSpeed(speed) : "已暂停"}</strong>
-        </div>
+      <div className={open.hud ? "solar-hud" : "solar-hud is-collapsed"}>
+        <button
+          type="button"
+          className="panel-toggle"
+          title={open.hud ? "收起时间栏" : "展开时间栏"}
+          onClick={() => togglePanel("hud")}
+        >
+          {open.hud ? "—" : "时间 ＋"}
+        </button>
+        {open.hud && (
+          <div className="panel-body">
+            <div className="hud-row">
+              <span className="hud-label">模拟时间</span>
+              <strong>{formatSimTime(hudTime)}</strong>
+            </div>
+            <div className="hud-row">
+              <span className="hud-label">播放速度</span>
+              <strong>{playing ? formatSpeed(speed) : "已暂停"}</strong>
+            </div>
+          </div>
+        )}
       </div>
 
-      <aside className="solar-panel">
+      <aside className={open.panel ? "solar-panel" : "solar-panel is-collapsed"}>
+        <button
+          type="button"
+          className="panel-toggle"
+          title={open.panel ? "收起控制台" : "展开控制台"}
+          onClick={() => togglePanel("panel")}
+        >
+          {open.panel ? "—" : "控制台 ＋"}
+        </button>
+        {open.panel && (
+          <div className="panel-body">
         <section>
           <h2>天体导航</h2>
           <div className="body-list">
@@ -1214,10 +1278,24 @@ export default function SolarSystem({ roster }: { roster: PlayerInfo[] }) {
           说明：行星大小与轨道距离均已做压缩处理，方便同屏观察；天体数据采用真实值，
           公转轨道按真实偏心率与倾角绘制。
         </p>
+          </div>
+        )}
       </aside>
 
-      <footer className="solar-hint">
-        拖动旋转视角 · 滚轮缩放 · 点击行星查看档案与卫星名称 · 用「内行星 / 外行星」切换观察范围
+      <footer className={open.hint ? "solar-hint" : "solar-hint is-collapsed"}>
+        <button
+          type="button"
+          className="panel-toggle"
+          title={open.hint ? "收起提示" : "展开提示"}
+          onClick={() => togglePanel("hint")}
+        >
+          {open.hint ? "—" : "操作提示 ＋"}
+        </button>
+        {open.hint && (
+          <span className="hint-text">
+            拖动旋转视角 · 滚轮缩放 · 点击行星查看档案与卫星名称 · 用「内行星 / 外行星」切换观察范围
+          </span>
+        )}
       </footer>
     </div>
   );
