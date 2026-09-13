@@ -26,6 +26,10 @@
 - 上架脚本：`.workbuddy/tmp/publish_solar.py`（单游戏）、`publish_demo_games.py`（earth-globe + solar-system）。
   流程 = 打 zip（`manifest.json` + `dist/web/**`）→ `POST /admin/games/{code}/packages` → `PATCH .../status ACTIVE`。
 - 双后端：本地 `7070`、云端 `17070`，管理员 `admin/admin123`，教师演示账号 `123456/123456`。
+- **所有后端接口都在 `/api/v1` 下**（`/api/v1/admin/login`、`/api/v1/admin/games`、`/api/v1/store/games`）。
+  手写探测脚本漏了这个前缀会打到静态资源上，被 `GlobalExceptionHandler` 包成 **HTTP 500
+  `{"code":"INTERNAL_ERROR"}`**——看着像后端挂了，其实只是路径写错，别被误导去查数据库/日志。
+- 验证截图：`screenshots/` 已被 `.gitignore` 忽略（`**/screenshots/`），归档的验证图只留本地、不进仓库。
 - 脚本里 `POST /store/games/{code}/install` 用 admin token 会失败（"只有教师账号可以使用商城"；
   云端直接 500）。这是脚本的老问题，**不影响上架**——版本与 ACTIVE 状态都已生效。
 - 校验方式：教师账号登录后 `GET /store/games` 确认 `gameCode` 可见且 version 是新的。
