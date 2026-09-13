@@ -62,3 +62,41 @@
   跨 0°/360° 取最短方向；`wrap=false` 可连续多圈累计。拖动时 `setPointerDragging(true)`
   暂停自动自转，松手恢复。
 - `setPointerCapture` 要包 try/catch：合成事件下没有活跃指针会抛 NotFoundError。
+
+## 地球仪 v1.4.1：特写视角下镜头怎么跟地球
+
+- **「地球特写」下改公转位置时，只能平移镜头、不能重置机位**：给 `camera.position` 与
+  `controls.target` **同时**加上「地球新旧位置的位移」，相对关系不变 → 地球在画面里
+  位置与大小纹丝不动，只有光照（直射点纬度、晨昏线倾角）在变。
+  千万不要在这种路径上再调 `applyEarthView()`（它按 `sunDir` 侧向重算机位），
+  那样每转一下旋钮地球就"跳"回固定机位。
+- 自检钩子 `readCamDebug()` 报 `earthScreen`（地心屏幕坐标）+ `diskRadiusPx`，
+  用它来量化"地球有没有被挪走"，别靠肉眼比对截图。
+
+## three.js：标注按「屏幕坐标」摆放（五带文字用的就是这套）
+
+球面注记绑经纬度会被自转甩到背面；想让它永远朝镜头、永远可读，就按屏幕坐标摆：
+
+```ts
+renderer.getSize(tmpSize);                       // CSS 尺寸，不用读 DOM
+const h = tmpSize.y;
+project(earthPos) → 圆盘圆心 (cx, cy)
+// 球面轮廓的像素半径（R=1、相机距地心 dist）
+const limbPx = Math.tan(Math.asin(1 / dist)) * (h / 2) / Math.tan(fovRad / 2);
+// 屏幕目标点 (tx, ty) → 相机前方 depth 处的世界坐标
+const pxPerUnit = (h / 2) / (depth * Math.tan(fovRad / 2));
+pos = camera.position
+  + camFwd * depth
+  + camRight * ((tx - cx) / pxPerUnit)
+  + camUp * (-(ty - cy) / pxPerUnit);
+// 想保持屏幕尺寸恒定：世界尺寸 × depth / 该 depth 的标称值
+```
+`camRight = (1,0,0)·camera.quaternion`，`camUp = (0,1,0)·camera.quaternion`。
+
+**什么时候必须这么做**：地轴与视线接近垂直时，两极正好压在球面轮廓上，极地那条带是
+贴着极点的小圆 —— 球面上根本不存在「既在轮廓内、又属于该带」的点，硬摆在纬度圈上
+就会让文字飘到球体外面。实测第一版就这么翻的车。
+
+**踩过的坑**：算圆盘半径别漏除 2。屏幕偏移 px = `ndcΔx * (w/2)`，所以
+「±1 单位两点的距离的一半」= `(|ndcΔx|/2) * (w/2)`，写成 `* w` 会得到 2 倍半径。
+
