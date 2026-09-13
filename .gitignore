@@ -6,4 +6,9 @@ node_modules/
 dist/
 **/dist/
 
+# 本地验证产物（截图、跑测日志）
+**/screenshots/
+*.log
+**/*.log
+
 .workbuddy/tmp/
