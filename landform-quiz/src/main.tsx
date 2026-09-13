@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import type { PlayerInfo } from "./types";
 import "./styles.css";
 
 const gameCode = "landform_quiz";
-const version = "1.1.0";
+const version = "1.2.0";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {
@@ -86,7 +87,53 @@ function GameApp() {
   return <App roster={roster} />;
 }
 
+/**
+ * 错误边界：任何一处渲染抛错，都换成可读的错误卡片 + 重试按钮。
+ * 没有它的话，React 会把整棵树卸载掉，学生在平台里看到的就是一片空白。
+ */
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[landform-quiz] 页面渲染出错：", error, info);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="lq-app lq-center">
+          <div className="card card--warn">
+            <h2>页面出错了</h2>
+            <p>{this.state.error.message || String(this.state.error)}</p>
+            <p className="muted">
+              可以重新加载试试；如果一直这样，请把上面这行信息反馈给老师。
+            </p>
+            <p>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => window.location.reload()}
+              >
+                重新加载
+              </button>
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const container = document.getElementById("root");
 if (container) {
-  createRoot(container).render(<GameApp />);
+  createRoot(container).render(
+    <ErrorBoundary>
+      <GameApp />
+    </ErrorBoundary>
+  );
 }

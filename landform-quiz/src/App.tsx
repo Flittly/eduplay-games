@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MiniMap from "./MiniMap";
 import { buildVector, loadJson, makeResult, resultToText, assetUrl } from "./logic";
+import { canvasToObjectUrl, posterFilename, renderPoster } from "./poster";
 import type {
   ChinaMap,
   Dimension,
@@ -81,6 +82,8 @@ function DetailView({
   onBack
 }: DetailProps) {
   const [toast, setToast] = useState("");
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [posterBusy, setPosterBusy] = useState(false);
 
   const doCopy = async () => {
     const text = resultToText(landform, score ?? 0, vector ?? landform.profile, dims);
@@ -89,6 +92,40 @@ function DetailView({
     );
     setToast(ok ? "结果已复制到剪贴板" : "复制失败，请手动选取文字");
     window.setTimeout(() => setToast(""), 2200);
+  };
+
+  const openPoster = async () => {
+    if (posterBusy) return;
+    setPosterBusy(true);
+    try {
+      const canvas = await renderPoster({
+        landform,
+        score: score ?? 0,
+        vector: vector ?? landform.profile,
+        dims,
+        similar: similar ?? [],
+        china,
+        world,
+        studentName
+      });
+      const url = await canvasToObjectUrl(canvas);
+      setPosterUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
+    } catch (err) {
+      setToast(`长图生成失败：${err instanceof Error ? err.message : String(err)}`);
+      window.setTimeout(() => setToast(""), 3600);
+    } finally {
+      setPosterBusy(false);
+    }
+  };
+
+  const closePoster = () => {
+    setPosterUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   };
 
   const map = landform.category === "domestic" ? china : world;
@@ -218,6 +255,14 @@ function DetailView({
               查看全部地貌
             </button>
           ) : null}
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={openPoster}
+            disabled={posterBusy}
+          >
+            {posterBusy ? "正在生成长图…" : "生成结果长图"}
+          </button>
           <button type="button" className="btn" onClick={doCopy}>
             复制我的结果
           </button>
@@ -229,6 +274,37 @@ function DetailView({
         </div>
         {toast ? <div className="toast">{toast}</div> : null}
       </section>
+
+      {posterUrl ? (
+        <div className="poster-modal" role="dialog" aria-modal="true" aria-label="结果长图">
+          <div className="poster-modal__box">
+            <div className="poster-modal__head">
+              <strong>结果长图</strong>
+              <button type="button" className="btn btn--ghost" onClick={closePoster}>
+                关闭
+              </button>
+            </div>
+            <div className="poster-modal__body">
+              <img src={posterUrl} alt={`${landform.name} 结果长图`} />
+            </div>
+            <div className="poster-modal__foot">
+              <a
+                className="btn btn--primary"
+                href={posterUrl}
+                download={posterFilename(landform)}
+              >
+                保存图片
+              </a>
+              <a className="btn btn--ghost" href={posterUrl} target="_blank" rel="noreferrer">
+                新窗口看原图
+              </a>
+              <span className="poster-modal__hint">
+                保存下来是 1080 宽的竖版长图，手机上也可以长按图片保存
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -243,6 +319,7 @@ export default function App({ roster }: { roster: PlayerInfo[] }) {
   const [error, setError] = useState("");
 
   const [stage, setStage] = useState<Stage>("intro");
+  const [reloadTick, setReloadTick] = useState(0);
   const [pool, setPool] = useState<PoolKey>("domestic");
   const [answers, setAnswers] = useState<number[]>([]);
   const [cursor, setCursor] = useState(0);
@@ -255,6 +332,7 @@ export default function App({ roster }: { roster: PlayerInfo[] }) {
 
   useEffect(() => {
     let alive = true;
+    setError("");
     (async () => {
       try {
         const [lf, qs, cn, wd] = await Promise.all([
@@ -275,7 +353,7 @@ export default function App({ roster }: { roster: PlayerInfo[] }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [reloadTick]);
 
   const dims = data?.dimensions ?? [];
   const dimKeys = useMemo(() => dims.map((d) => d.key), [dims]);
@@ -337,7 +415,16 @@ export default function App({ roster }: { roster: PlayerInfo[] }) {
           <h2>数据加载失败</h2>
           <p>{error}</p>
           <p className="muted">
-            请确认 data/landforms.json、data/questions.json 与 assets/maps/*.json 都在同一目录下。
+            多半是网络不稳或服务刚启动。稍等几秒后点下面的按钮重试即可。
+          </p>
+          <p>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => setReloadTick((t) => t + 1)}
+            >
+              重新加载
+            </button>
           </p>
         </div>
       </div>
