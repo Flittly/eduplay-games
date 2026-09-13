@@ -486,17 +486,13 @@ function makeSunTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-/* ---------------- 平行太阳光线束的偏移排布 ----------------
-   只保留“正午面”——即同时包含日地连线和地轴所在竖直方向的那个平面，光线在这个平面内上下排布。
-   竖向偏移量取 ±1 / ±0.5 / 0（单位＝地球显示半径），含义：
-     ±1  最上、最下两条，恰好与地球相切、擦着球面边缘；夏至/冬至时切点正落在极圈上，
-         这也是极昼极夜范围的几何来源；春秋分时切点落在南北两极。
-     ±0.5 两条，射到纬度约 30° 处，把光线束均匀撑开。
-     0    正中间一条为太阳直射光线，绘制时用另一种颜色（橙红）区分。 */
-const RAY_PLANE_OFFSETS = [-1, -0.5, 0, 0.5, 1];
-const RAY_OFFSETS: [number, number][] = RAY_PLANE_OFFSETS.map(
-  (v) => [0, v] as [number, number]
-);
+/* ---------------- 太阳光柱的几何 ----------------
+   只有一根半透明光柱，从地球射向太阳。圆柱半径＝地球显示半径（球体半径 1），
+   所以它的直径正好等于地球直径：近地端的开口圆环与地球轮廓相切、贴合成"光从地球出发"，
+   远端也不收束，就是一束地球那么粗的光。
+   中间另保留一条橙红色的太阳直射细柱，作为「太阳直射点」的基准线。 */
+const BEAM_RADIUS = 1; // ＝地球显示半径 ⇒ 光柱直径＝地球直径
+const CORE_RADIUS = 0.032; // 太阳直射光线（基准细柱）
 
 /* ---------------- 地方时 / 时区 ---------------- */
 
@@ -646,18 +642,34 @@ interface Engine {
   readRays: () => {
     count: number;
     visible: boolean;
+    /** 光柱半径（世界单位），恒等于地球显示半径 1 ⇒ 直径＝地球直径 */
     beamRadius: number;
+    beamDiameter: number;
+    earthRadius: number;
     coreRadius: number;
     beamOpacity: number;
     beamAdditive: boolean;
     beamMaterialType: string;
     coreMaterialType: string;
+    beamLength: number;
     samples: {
-      core: boolean;
+      name: string;
       mid: { x: number; y: number };
       earthEnd: { x: number; y: number };
       sunEnd: { x: number; y: number };
+      /** 近地端开口圆环的上下两点（屏幕坐标），用于核对柱径与地球视直径 */
+      rimTop: { x: number; y: number };
+      rimBottom: { x: number; y: number };
     }[];
+  };
+  /**
+   * 开发自检：渲染一帧后直接从帧缓冲读像素（CSS 像素坐标 → RGBA）。
+   * 比抓窗口截图可靠得多：不受浏览器合成时机影响，不会读到画了一半的帧。
+   * 返回值附上这一次渲染的耗时，便于观察光柱这种大体量透明几何的性能代价。
+   */
+  samplePixels: (pts: { x: number; y: number }[]) => {
+    pixels: { r: number; g: number; b: number }[];
+    renderMs: number;
   };
   /** 开发自检：极地子图的画布矩形（页面坐标）与最近一帧画出的三角形数 */
   readPoleViews: () => {
@@ -775,12 +787,16 @@ function buildEngine(container: HTMLDivElement): Engine {
           ? vec3(0.13, 0.15, 0.20)
           : day * 0.10 + vec3(0.010, 0.024, 0.055);
 
-        // 夜间灯光底图：把背光那一侧的"黑面"换成城市灯光。
-        // 先减掉贴图底色（海洋与陆地的微弱噪点），再提亮，灯光点才干净；
-        // 乘 (1-dayAmt) 保证只在夜半球显示，白天一侧完全看不到灯点。
+        // 夜间城市灯光：夜半球仍然是上面那层「黑色半透明掩膜」，
+        // 灯光只是这张黑底上的点缀，不替代底色。
+        // 贴图已在离线阶段提纯成"纯灯光点阵"（海洋/陆地底色全部归零），
+        // 这里再抬高一次阈值，把 JPEG 压缩在暗部留下的块状振铃一并抹掉，
+        // 只让城市核心那极小比例的像素亮起来。
         if (uWhite < 0.5 && uNight > 0.5 && uHasNight > 0.5) {
           vec3 lights = texture2D(nightMap, vUv).rgb;
-          lights = max(lights - vec3(0.030), vec3(0.0)) * 1.9;
+          lights = max(lights - 0.06, 0.0) / 0.94;
+          // 暖白偏色，让灯光像钨丝灯而不是纯白噪点
+          lights *= vec3(1.0, 0.88, 0.70);
           night += lights * (1.0 - dayAmt);
         }
 
@@ -1436,56 +1452,65 @@ function buildEngine(container: HTMLDivElement): Engine {
   subsolarGroup.add(subsolarLabelRef.sprite);
   envGroup.add(subsolarGroup);
 
-  /* ---- 平行太阳光线束（半透明光柱） ----
-     每条光线是一根从地球表面射向太阳的半透明直圆柱，靠太阳一端渐隐、
-     靠地球一端最实，加法混合出"光照"的体积感，不再是细线假装。
-     正中间那条（太阳直射光线）保留为醒目的橙红实心细柱，作为基准线。 */
+  /* ---- 太阳光柱（一根，直径＝地球直径） ----
+     一整根从地球射向太阳的半透明直圆柱：加法混合 + 轴向渐隐（近地端最实、太阳端淡出），
+     边缘比正对镜头处略亮一点，看起来像一束有体积的光而不是一块平色矩形。
+     中间那条（太阳直射光线）仍是橙红实心细柱，作为基准线。 */
   const rayGroup = new THREE.Group();
-  const rayGeometry = new THREE.CylinderGeometry(1, 1, 1, 12, 1, true);
-  const rayMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      uColor: { value: new THREE.Color(COLORS.sunRay) },
-      uOpacity: { value: 0.20 }
-    },
-    vertexShader: `
-      varying vec2 vBeamUv;
-      void main() {
-        vBeamUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 uColor;
-      uniform float uOpacity;
-      varying vec2 vBeamUv;
-      void main() {
-        // uv.y：0 = 地球一端，1 = 太阳一端。远端渐隐，近地端最亮，
-        // 看起来就像一束从地球射向太阳的光。
-        float fade = mix(1.0, 0.12, smoothstep(0.15, 1.0, vBeamUv.y));
-        gl_FragColor = vec4(uColor, uOpacity * fade);
-      }
-    `,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide
-  });
-  // 中间那条是太阳直射光线，用醒目的橙红色区分，并略微加粗
-  const rayCoreMaterial = new THREE.MeshBasicMaterial({
+  const beamMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(1, 1, 1, 48, 1, true),
+    new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(COLORS.sunRay) },
+        uOpacity: { value: 0.22 }
+      },
+      vertexShader: `
+        varying vec2 vBeamUv;
+        varying vec3 vNormalW;
+        varying vec3 vPosW;
+        void main() {
+          vBeamUv = uv;
+          vNormalW = normalize(mat3(modelMatrix) * normal);
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vPosW = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform float uOpacity;
+        varying vec2 vBeamUv;
+        varying vec3 vNormalW;
+        varying vec3 vPosW;
+        void main() {
+          // uv.y：0 = 地球一端，1 = 太阳一端
+          float fade = mix(1.0, 0.10, smoothstep(0.10, 1.0, vBeamUv.y));
+          // 近地端再从 0 拉起来一点，让开口处不是一条硬边
+          fade *= smoothstep(0.0, 0.022, vBeamUv.y);
+          // 掠射角（柱壁边缘）略亮，正对镜头处略淡 → 有体积感
+          float rim = 1.0 - abs(dot(normalize(vNormalW), normalize(cameraPosition - vPosW)));
+          gl_FragColor = vec4(uColor, uOpacity * fade * mix(0.70, 1.0, rim));
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      // 只画远侧壁：光柱半径＝地球半径，在地球特写（镜头距地心仅 3 个地球半径）时，
+      // 面向镜头的近侧壁会正好压在地球盘面前方把地表糊掉；只保留背对镜头的远侧壁，
+      // 既回避了这个问题，又仍是一层半透明曲面，"光的体积感"不受影响。
+      side: THREE.BackSide
+    })
+  );
+  rayGroup.add(beamMesh);
+
+  const coreMaterial = new THREE.MeshBasicMaterial({
     color: COLORS.sunRayCore,
     transparent: true,
     opacity: 0.98,
     depthWrite: false
   });
-  const rayMeshes: THREE.Mesh[] = [];
-  const rayRadii: number[] = [];
-  RAY_OFFSETS.forEach(([ox, oy]) => {
-    const isCore = ox === 0 && oy === 0;
-    const mesh = new THREE.Mesh(rayGeometry, isCore ? rayCoreMaterial : rayMaterial);
-    rayGroup.add(mesh);
-    rayMeshes.push(mesh);
-    rayRadii.push(isCore ? 0.032 : 0.10);
-  });
+  const coreMesh = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true), coreMaterial);
+  rayGroup.add(coreMesh);
   envGroup.add(rayGroup);
 
   /* ---- 点击标记 ---- */
@@ -1566,8 +1591,6 @@ function buildEngine(container: HTMLDivElement): Engine {
   const tmpV = new THREE.Vector3();
   const tmpV2 = new THREE.Vector3();
   const rayQuat = new THREE.Quaternion();
-  const e1 = new THREE.Vector3();
-  const e2 = new THREE.Vector3();
   const termE1 = new THREE.Vector3();
   const termE2 = new THREE.Vector3();
   const viewState: { current: ViewKey } = { current: "orbit" };
@@ -1608,27 +1631,19 @@ function buildEngine(container: HTMLDivElement): Engine {
   }
 
   function updateRays() {
-    const up = Math.abs(sunDir.y) > 0.94 ? new THREE.Vector3(1, 0, 0) : WORLD_UP;
-    e1.crossVectors(sunDir, up).normalize();
-    e2.crossVectors(sunDir, e1).normalize();
+    // uStart：太阳那一端（留出半个太阳半径，别插进太阳里）
     const uStart = Math.max(1.3, earthPos.length() - SUN_RADIUS * 0.5);
+    // uEnd = 0：近地端落在过地心、垂直于日地连线的那个平面 ——
+    // 此时半径为 1 的开口圆环正好就是地球的轮廓，光柱像是从地球里长出来的
+    const length = Math.max(0.1, uStart);
     rayQuat.setFromUnitVectors(RAY_AXIS, sunDir);
-    for (let i = 0; i < rayMeshes.length; i++) {
-      const [ox, oy] = RAY_OFFSETS[i];
-      // 垂直偏移（相对光线方向的垂面）
-      const perp = tmpV2
-        .copy(e1)
-        .multiplyScalar(ox)
-        .addScaledVector(e2, oy);
-      const r2 = ox * ox + oy * oy;
-      // 与地球球面（半径 1）的相切/相交点：只有 |o|≤1 的光线才会落在昼半球上
-      const uEnd = r2 < 1 ? Math.sqrt(1 - r2) : 0;
-      const length = Math.max(0.08, uStart - uEnd);
-      const mesh = rayMeshes[i];
-      mesh.position.copy(perp).addScaledVector(sunDir, (uStart + uEnd) / 2);
-      mesh.quaternion.copy(rayQuat);
-      mesh.scale.set(rayRadii[i], length, rayRadii[i]);
-    }
+    const mid = uStart / 2;
+    beamMesh.position.copy(sunDir).multiplyScalar(mid);
+    beamMesh.quaternion.copy(rayQuat);
+    beamMesh.scale.set(BEAM_RADIUS, length, BEAM_RADIUS);
+    coreMesh.position.copy(beamMesh.position);
+    coreMesh.quaternion.copy(rayQuat);
+    coreMesh.scale.set(CORE_RADIUS, length, CORE_RADIUS);
   }
 
   /** 太阳直射点标签：沿日地连线外推的距离，以及在屏幕上「让开直射光线」的下移量（世界单位） */
@@ -1883,9 +1898,8 @@ function buildEngine(container: HTMLDivElement): Engine {
     });
   }
 
-  /** 开发自检：太阳光线束形态 + 每根光柱的屏幕取样点（验证"半透明光柱真的可见"） */
-  function readRays() {
-    const rect = renderer.domElement.getBoundingClientRect();
+  /** 开发自检：太阳光柱的形态（半径/直径/透明度/混合模式/长度）+ 屏幕取样点 */
+  function readRays() {    const rect = renderer.domElement.getBoundingClientRect();
     const proj = (v: THREE.Vector3) => {
       const p = v.clone().project(camera);
       return {
@@ -1893,29 +1907,63 @@ function buildEngine(container: HTMLDivElement): Engine {
         y: +((-p.y * 0.5 + 0.5) * rect.height).toFixed(1)
       };
     };
-    const coreIndex = RAY_OFFSETS.findIndex(([ox, oy]) => ox === 0 && oy === 0);
-    const samples = rayMeshes.map((mesh, i) => {
+    const beamMat = beamMesh.material as THREE.ShaderMaterial;
+    // 近地端开口圆环的上下两点：垂直于日地连线的一个方向
+    const upRef = new THREE.Vector3(0, 1, 0);
+    if (Math.abs(sunDir.dot(upRef)) > 0.94) upRef.set(1, 0, 0);
+    const perpUp = upRef.clone().addScaledVector(sunDir, -upRef.dot(sunDir)).normalize();
+    const nearCenter = earthPos.clone(); // u=0：过地心、垂直于日地连线的平面
+    const sample = (mesh: THREE.Mesh, name: string, radius: number) => {
       mesh.updateMatrixWorld();
       const mid = new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld);
       const half = mesh.scale.y / 2;
       return {
-        core: i === coreIndex,
+        name,
         mid: proj(mid),
         earthEnd: proj(mid.clone().addScaledVector(sunDir, -half)),
-        sunEnd: proj(mid.clone().addScaledVector(sunDir, half))
+        sunEnd: proj(mid.clone().addScaledVector(sunDir, half)),
+        rimTop: proj(nearCenter.clone().addScaledVector(perpUp, radius)),
+        rimBottom: proj(nearCenter.clone().addScaledVector(perpUp, -radius))
       };
-    });
-    return {
-      count: rayMeshes.length,
-      visible: rayGroup.visible,
-      beamRadius: +rayRadii[coreIndex === 0 ? 1 : 0].toFixed(3),
-      coreRadius: +rayRadii[coreIndex].toFixed(3),
-      beamOpacity: +rayMaterial.uniforms.uOpacity.value.toFixed(3),
-      beamAdditive: rayMaterial.blending === THREE.AdditiveBlending,
-      beamMaterialType: rayMaterial.type,
-      coreMaterialType: rayCoreMaterial.type,
-      samples
     };
+    return {
+      count: rayGroup.children.length,
+      visible: rayGroup.visible,
+      beamRadius: BEAM_RADIUS,
+      beamDiameter: BEAM_RADIUS * 2,
+      earthRadius: 1,
+      coreRadius: CORE_RADIUS,
+      beamOpacity: +beamMat.uniforms.uOpacity.value.toFixed(3),
+      beamAdditive: beamMat.blending === THREE.AdditiveBlending,
+      beamMaterialType: beamMat.type,
+      coreMaterialType: (coreMesh.material as THREE.Material).type,
+      beamLength: +beamMesh.scale.y.toFixed(3),
+      samples: [sample(beamMesh, "beam", BEAM_RADIUS), sample(coreMesh, "core", CORE_RADIUS)]
+    };
+  }
+
+  /**
+   * 开发自检：渲染一帧后立刻从帧缓冲读像素。
+   * 之所以不抓窗口截图：软渲染下抓图可能落在"画了一半"的帧上，
+   * 同帧两次截图的差异都能有数十万像素，开关对比会被噪声淹没。
+   * 这里 render + readPixels 在同一个任务内完成，读到的一定是完整一帧。
+   */
+  function samplePixels(pts: { x: number; y: number }[]) {
+    const t0 = performance.now();
+    renderer.render(scene, camera);
+    const renderMs = +(performance.now() - t0).toFixed(1);
+    const gl = renderer.getContext();
+    const dpr = renderer.getPixelRatio();
+    const wpx = renderer.domElement.width;
+    const hpx = renderer.domElement.height;
+    const buf = new Uint8Array(4);
+    const pixels = pts.map((p) => {
+      const bx = Math.max(0, Math.min(wpx - 1, Math.round(p.x * dpr)));
+      const by = Math.max(0, Math.min(hpx - 1, Math.round(p.y * dpr)));
+      gl.readPixels(bx, hpx - 1 - by, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      return { r: buf[0], g: buf[1], b: buf[2] };
+    });
+    return { pixels, renderMs };
   }
 
   applyOrbitView();
@@ -2113,6 +2161,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     detachPoleViews,
     readPoleViews,
     readRays,
+    samplePixels,
     setSpin: (on: boolean) => {
       spinWanted = on;
     },
@@ -2609,7 +2658,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         engine.setView(key);
       },
       readPoleViews: () => engine.readPoleViews(),
-      readRays: () => engine.readRays()
+      readRays: () => engine.readRays(),
+      samplePixels: (pts: { x: number; y: number }[]) => engine.samplePixels(pts)
     };
 
     return () => {
