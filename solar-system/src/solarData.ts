@@ -4,6 +4,9 @@
  *
  * 轨道根数说明：
  *   aAU        —— 轨道半长轴（天文单位 AU，1 AU ≈ 1.496 亿公里）
+ *   orbitOffset —— 显示用轨道半径微调（显示单位，可选）。真实距离经幂函数压缩后，
+ *                  木星与土星会被挤得很近，靠它把两者的显示间距拉开，避免各自
+ *                  最外侧卫星的轨道圈视觉重叠；不影响天体档案里的真实数据。
  *   e          —— 轨道偏心率（0 = 正圆，越大越扁）
  *   periodDays —— 公转周期（地球日）
  *   inclinationDeg —— 轨道倾角（相对黄道面）
@@ -39,6 +42,8 @@ export interface BodyData {
   kind: "star" | "planet" | "dwarf";
   radiusKm: number;
   aAU: number;
+  /** 显示用轨道半径微调（显示单位），仅影响画面间距，不影响真实数据 */
+  orbitOffset?: number;
   e: number;
   periodDays: number;
   inclinationDeg: number;
@@ -360,6 +365,8 @@ export const PLANETS: BodyData[] = [
     kind: "planet",
     radiusKm: 58232,
     aAU: 9.55491,
+    // 外侧巨行星整体外移 2 个显示单位（见文首 orbitOffset 说明）
+    orbitOffset: 2.0,
     e: 0.055508,
     periodDays: 10759.22,
     inclinationDeg: 2.488,
@@ -451,6 +458,8 @@ export const PLANETS: BodyData[] = [
     kind: "planet",
     radiusKm: 25362,
     aAU: 19.21845,
+    // 外侧巨行星整体外移 2 个显示单位（见文首 orbitOffset 说明）
+    orbitOffset: 2.0,
     e: 0.046381,
     periodDays: 30688.5,
     inclinationDeg: 0.773,
@@ -539,6 +548,7 @@ export const PLANETS: BodyData[] = [
     kind: "planet",
     radiusKm: 24622,
     aAU: 30.11039,
+    orbitOffset: 2.0,
     e: 0.009456,
     periodDays: 60195,
     inclinationDeg: 1.770,
@@ -646,7 +656,19 @@ export function moonDisplayRadius(radiusKm: number): number {
   return Math.max(0.028, 0.115 * Math.pow(radiusKm / 1737.4, 0.4));
 }
 
-/** 卫星轨道显示半径：按索引向外排布，避开行星本体与光环。 */
-export function moonOrbitRadius(planetDisplayR: number, index: number): number {
-  return planetDisplayR * 2.5 + 0.14 + index * 0.18;
+/**
+ * 卫星轨道显示半径：按索引向外排布。
+ * ringOuterFactor 为行星光环外缘倍率（土星 2.35、天王星 2.0），
+ * 有光环时卫星从光环外侧起步，避免卫星穿环。
+ */
+export function moonOrbitRadius(
+  planetDisplayR: number,
+  index: number,
+  ringOuterFactor = 0
+): number {
+  const base = Math.max(
+    planetDisplayR * 2,
+    ringOuterFactor > 0 ? planetDisplayR * ringOuterFactor + 0.12 : 0
+  );
+  return base + index * 0.15;
 }

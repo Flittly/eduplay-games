@@ -26,6 +26,8 @@ export interface LayerState {
   orbits: boolean;
   labels: boolean;
   moons: boolean;
+  /** 卫星轨道圈：与「卫星」独立，可单独关闭 */
+  moonOrbits: boolean;
   belt: boolean;
   kuiper: boolean;
   stars: boolean;
@@ -99,7 +101,8 @@ function positionAtTime(
 }
 
 function orbitRadiusDisplay(body: BodyData): number {
-  return AU_SCALE * Math.pow(body.aAU, ORBIT_POW);
+  // 真实距离经 ^ORBIT_POW 压缩后外侧行星会挤在一起，用 orbitOffset 做显示层微调
+  return AU_SCALE * Math.pow(body.aAU, ORBIT_POW) + (body.orbitOffset ?? 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -110,6 +113,7 @@ interface MoonRuntime {
   data: MoonData;
   pivot: THREE.Group;
   mesh: THREE.Mesh;
+  orbit: THREE.LineLoop;
   label: THREE.Sprite | null;
 }
 
@@ -354,7 +358,7 @@ function buildEngine(container: HTMLDivElement, onTick: (timeDays: number) => vo
     const moons: MoonRuntime[] = [];
     data.moons.forEach((moon, index) => {
       const mr = moonDisplayRadius(moon.radiusKm);
-      const orbitR = moonOrbitRadius(r, index);
+      const orbitR = moonOrbitRadius(r, index, data.ring?.outer ?? 0);
       const pivot = new THREE.Group();
       assembly.add(pivot);
       const moonMesh = new THREE.Mesh(
@@ -387,8 +391,8 @@ function buildEngine(container: HTMLDivElement, onTick: (timeDays: number) => vo
       );
       pivot.add(moonOrbit);
 
-      const moonLabel = makeLabelSprite(moon.name, "#dce8ff", 38, 0.8);
-      moonLabel.sprite.position.set(orbitR, mr + 0.28, 0);
+      const moonLabel = makeLabelSprite(moon.name, "#dce8ff", 38, 0.92);
+      moonLabel.sprite.position.set(orbitR, mr + 0.3, 0);
       moonLabel.sprite.visible = false;
       pivot.add(moonLabel.sprite);
       labelEntries.push({
@@ -399,7 +403,13 @@ function buildEngine(container: HTMLDivElement, onTick: (timeDays: number) => vo
         moonIndex: index
       });
 
-      moons.push({ data: moon, pivot, mesh: moonMesh, label: moonLabel.sprite });
+      moons.push({
+        data: moon,
+        pivot,
+        mesh: moonMesh,
+        orbit: moonOrbit,
+        label: moonLabel.sprite
+      });
     });
 
     planets.push({
@@ -528,6 +538,48 @@ function buildEngine(container: HTMLDivElement, onTick: (timeDays: number) => vo
     return points;
   })();
 
+  /* ---------------- 图层可见性 ---------------- */
+
+  const DEFAULT_LAYERS: LayerState = {
+    orbits: true,
+    labels: true,
+    moons: true,
+    moonOrbits: true,
+    belt: true,
+    kuiper: true,
+    stars: true
+  };
+  let currentLayers: LayerState = DEFAULT_LAYERS;
+
+  /**
+   * 依据图层开关 + 当前选中天体，统一刷新可见性。
+   * 选中变化与图层变化都会调用，避免「选中行星后卫星名称不出现」。
+   */
+  function applyLayerVisibility(next: LayerState) {
+    currentLayers = next;
+    orbitGroup.visible = next.orbits;
+    kuiperGroup.visible = next.kuiper;
+    beltMesh.visible = next.belt;
+    starsPoints.visible = next.stars;
+    for (const entry of labelEntries) {
+      if (entry.moonIndex < 0) {
+        entry.sprite.visible = next.labels;
+      } else {
+        // 卫星名称：需开启「天体名称」与「卫星」，且正在查看其所属行星
+        const focused = !!engine.selected && engine.selected.bodyId === entry.bodyId;
+        const planet = planets.find((item) => item.data.id === entry.bodyId);
+        entry.sprite.visible = next.labels && next.moons && focused && planet !== undefined;
+      }
+    }
+    for (const planet of planets) {
+      for (const moon of planet.moons) {
+        moon.pivot.visible = next.moons;
+        // 轨道圈单独控制：关闭「卫星轨道」只隐藏轨道，卫星本体保留
+        moon.orbit.visible = next.moonOrbits;
+      }
+    }
+  }
+
   /* ---------------- 状态与更新 ---------------- */
 
   const engine: Engine = {
@@ -548,28 +600,7 @@ function buildEngine(container: HTMLDivElement, onTick: (timeDays: number) => vo
     selected: null,
     follow: true,
     setLayers: (layers) => {
-      orbitGroup.visible = layers.orbits;
-      kuiperGroup.visible = layers.kuiper;
-      beltMesh.visible = layers.belt;
-      starsPoints.visible = layers.stars;
-      for (const entry of labelEntries) {
-        if (entry.moonIndex < 0) {
-          entry.sprite.visible = layers.labels;
-        } else {
-          const planet = planets.find((item) => item.data.id === entry.bodyId);
-          entry.sprite.visible =
-            layers.labels &&
-            layers.moons &&
-            !!engine.selected &&
-            engine.selected.bodyId === entry.bodyId &&
-            planet !== undefined;
-        }
-      }
-      for (const planet of planets) {
-        for (const moon of planet.moons) {
-          moon.pivot.visible = layers.moons;
-        }
-      }
+      applyLayerVisibility(layers);
     },
     setPlaying: (value) => {
       engine.playing = value;
@@ -604,6 +635,8 @@ function buildEngine(container: HTMLDivElement, onTick: (timeDays: number) => vo
         camera.position.copy(target).addScaledVector(dir, dist);
         controls.update();
       }
+      // 选中变化后刷新标签可见性，让该行星的卫星名称立即显示
+      applyLayerVisibility(currentLayers);
     },
     setFollow: (value) => {
       engine.follow = value;
@@ -832,6 +865,7 @@ const LAYER_DEFS: { key: keyof LayerState; label: string; color: string }[] = [
   { key: "orbits", label: "行星轨道", color: "#8fb6ff" },
   { key: "labels", label: "天体名称", color: "#eef4ff" },
   { key: "moons", label: "卫星", color: "#c9d6ea" },
+  { key: "moonOrbits", label: "卫星轨道", color: "#9fb0cc" },
   { key: "belt", label: "小行星带", color: "#b9ae9d" },
   { key: "kuiper", label: "柯伊伯带", color: "#8fa8c8" },
   { key: "stars", label: "星空背景", color: "#ffffff" }
@@ -853,6 +887,7 @@ export default function SolarSystem({ roster }: { roster: PlayerInfo[] }) {
     orbits: true,
     labels: true,
     moons: true,
+    moonOrbits: true,
     belt: true,
     kuiper: true,
     stars: true
@@ -899,6 +934,30 @@ export default function SolarSystem({ roster }: { roster: PlayerInfo[] }) {
       setSpeed: (value: number) => engine.setSpeed(value),
       setPlaying: (value: boolean) => engine.setPlaying(value),
       view: (name: "overview" | "inner" | "outer" | "top") => engine.applyView(name),
+      /** 把给定天体一起框进画面（视觉验证/教学取景用） */
+      frame: (bodyIds: string[], distance?: number, elevation = 0.5) => {
+        const points = bodyIds
+          .map((id) =>
+            id === "sun"
+              ? new THREE.Vector3(0, 0, 0)
+              : engine.planets
+                  .find((item) => item.data.id === id)
+                  ?.assembly.getWorldPosition(new THREE.Vector3())
+          )
+          .filter((p): p is THREE.Vector3 => !!p);
+        if (points.length === 0) {
+          return;
+        }
+        const center = points
+          .reduce((acc, p) => acc.add(p), new THREE.Vector3())
+          .multiplyScalar(1 / points.length);
+        const spread = Math.max(...points.map((p) => p.distanceTo(center)), 0.6);
+        const dist = distance ?? spread * 2.8 + 1.4;
+        const dir = new THREE.Vector3(0.35, elevation, 1).normalize();
+        engine.controls.target.copy(center);
+        engine.camera.position.copy(center).addScaledVector(dir, dist);
+        engine.controls.update();
+      },
       readBody: (bodyId: string) => {
         const planet = engine.planets.find((item) => item.data.id === bodyId);
         if (!planet) {
@@ -1158,7 +1217,7 @@ export default function SolarSystem({ roster }: { roster: PlayerInfo[] }) {
       </aside>
 
       <footer className="solar-hint">
-        拖动旋转视角 · 滚轮缩放 · 点击行星查看档案 · 用「内行星 / 外行星」切换观察范围
+        拖动旋转视角 · 滚轮缩放 · 点击行星查看档案与卫星名称 · 用「内行星 / 外行星」切换观察范围
       </footer>
     </div>
   );
