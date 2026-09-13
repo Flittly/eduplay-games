@@ -504,6 +504,8 @@ export interface VisibilityState {
   timezone: boolean;
   white: boolean;
   hasTex: boolean;
+  /** 五带文字标注（北寒带…南寒带）是否显示 */
+  climateLabels: boolean;
 }
 
 export interface ClockPayload {  /** 自转角（0~360），供自转旋钮的指针使用 */
@@ -616,6 +618,12 @@ interface Engine {
   onViewChange: ((key: ViewKey) => void) | null;
   /** 开发自检：图层开关最终有没有落到场景上 */
   readVisibility: () => VisibilityState;
+  /** 开发自检：五带文字标注的屏幕位置（确认真的画出来了、且没有叠在一起） */
+  readZoneLabels: () => {
+    text: string;
+    visible: boolean;
+    screen: { x: number; y: number };
+  }[];
   dispose: () => void;
   placeMarker: (lat: number, lon: number) => void;
   clearMarker: () => void;
@@ -797,6 +805,96 @@ function buildEngine(container: HTMLDivElement): Engine {
     overlayMaterial
   );
   spinGroup.add(overlayMesh);
+
+  /* ---- 五带文字标注（北寒带 / 北温带 / 热带 / 南温带 / 南寒带） ----
+     做法：按「屏幕坐标」摆放，不把文字绑到球面的经纬度上。每帧先算出球面投影
+     圆盘的圆心与轮廓半径，再把五个标签沿圆盘左缘按纬度排成一道弧（赤道最靠左、
+     两极往内收）。好处：① 无论什么季节、自转角度、镜头方位，文字都在同一处、
+     永远朝镜头、永远可读；② 标签落在各条带左端，和色带对得上；③ 不会像绑定
+     经纬度那样被自转甩到背面。
+     为什么不直接摆在纬度圈上：地轴与视线接近垂直时两极正好压在球面轮廓上
+     （北寒带是贴着极点的小圆），球面上根本没有既在轮廓内、又属于该带的位置，
+     硬摆就会让文字飘到球体外面，看着像浮在太空里。 */
+  const zoneLabelGroup = new THREE.Group();
+  zoneLabelGroup.visible = false;
+  earthAnchor.add(zoneLabelGroup);
+  const ZONE_LABEL_DEFS = [
+    { text: "北寒带", lat: 78.3, color: "#9ad4ff" },
+    { text: "北温带", lat: 45, color: "#8bf0aa" },
+    { text: "热带", lat: 0, color: "#ffab86" },
+    { text: "南温带", lat: -45, color: "#8bf0aa" },
+    { text: "南寒带", lat: -78.3, color: "#9ad4ff" }
+  ];
+  /** 标签弧所在圆的半径 = 轮廓半径 × 该比例（<1 表示缩进到轮廓以内） */
+  const ZONE_LABEL_X_RATIO = 0.93;
+  /** 纬度 → 圆周角的映射（度）：±90° 纬度对应该圆周角，于是五个标签沿左缘排成一道弧 */
+  const ZONE_LABEL_ANGLE = 70;
+  /** 标签平面比地心靠近相机多少世界单位（保证不被地表挡住） */
+  const ZONE_LABEL_DEPTH_GAP = 1.25;
+  const zoneLabels = ZONE_LABEL_DEFS.map((def) => {
+    const sprite = makeLabelSprite(def.text, def.color, 40, 0.1);
+    zoneLabelGroup.add(sprite);
+    return { ...def, sprite, base: sprite.scale.clone() };
+  });
+  const tmpCamRel = new THREE.Vector3();
+  const tmpCamRight = new THREE.Vector3();
+  const tmpLabelUp = new THREE.Vector3();
+  const tmpCamFwd = new THREE.Vector3();
+  const tmpProj = new THREE.Vector3();
+  const tmpSize = new THREE.Vector2();
+
+  function updateZoneLabels() {
+    // 只在「五带图层开启」且处于地球特写时显示：
+    // 公转全景里地球只有拳头大，文字会糊成一团；拉远到看不全球面时同理。
+    tmpCamRel.copy(camera.position).sub(earthPos);
+    const dist = tmpCamRel.length();
+    const on =
+      overlayMaterial.uniforms.uClimate.value > 0.5 &&
+      viewState.current === "earth" &&
+      dist < 4.2;
+    zoneLabelGroup.visible = on;
+    if (!on) {
+      return;
+    }
+    renderer.getSize(tmpSize);
+    const w = tmpSize.x;
+    const h = tmpSize.y;
+    // 地心在屏幕上的位置
+    tmpProj.copy(earthPos).project(camera);
+    const cx = (tmpProj.x * 0.5 + 0.5) * w;
+    const cy = (-tmpProj.y * 0.5 + 0.5) * h;
+    // 球面轮廓的像素半径 = tan(asin(R/dist)) × 每单位像素数
+    const limbPx =
+      Math.tan(Math.asin(Math.min(1, 1 / dist))) * (h / 2) / Math.tan((camera.fov * DEG) / 2);
+    tmpCamRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    tmpLabelUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    tmpCamFwd.copy(earthPos).sub(camera.position).normalize();
+    // 标签所在平面：比地心靠近相机 1.25 个世界单位，投影到该深度的换算系数
+    const depth = Math.max(0.6, dist - ZONE_LABEL_DEPTH_GAP);
+    const pxPerUnit = h / 2 / (depth * Math.tan((camera.fov * DEG) / 2));
+    const r = ZONE_LABEL_X_RATIO * limbPx;
+
+    for (const item of zoneLabels) {
+      const ang = (item.lat / 90) * ZONE_LABEL_ANGLE * DEG;
+      // 目标屏幕位置：以圆盘左缘为基准、按纬度沿顺时针排布
+      let tx = cx - Math.cos(ang) * r;
+      let ty = cy - Math.sin(ang) * r;
+      // 极端缩放下别把标签甩出画面
+      tx = Math.min(Math.max(tx, 10), w - 10);
+      ty = Math.min(Math.max(ty, 10), h - 10);
+      const dxW = (tx - cx) / pxPerUnit;
+      const dyW = -(ty - cy) / pxPerUnit;
+      item.sprite.position
+        .copy(camera.position)
+        .addScaledVector(tmpCamFwd, depth)
+        .addScaledVector(tmpCamRight, dxW)
+        .addScaledVector(tmpLabelUp, dyW)
+        .sub(earthPos);
+      // 屏幕尺寸恒定：世界尺寸随深度等比例缩放
+      const s = depth / (3 - ZONE_LABEL_DEPTH_GAP);
+      item.sprite.scale.set(item.base.x * s, item.base.y * s, 1);
+    }
+  }
 
   // 地球所属的“环境”节点：与地球同位置，但不随地球自转轴倾斜（晨昏线、光线都在世界方向下定义）
   const envGroup = new THREE.Group();
@@ -1261,6 +1359,8 @@ function buildEngine(container: HTMLDivElement): Engine {
 
   const tmpCamUp = new THREE.Vector3();
   const tmpDropDir = new THREE.Vector3();
+  /** 特写视角下镜头跟随地球的位移量 */
+  const tmpFollow = new THREE.Vector3();
 
   /**
    * 摆放「太阳直射点 xx°N」标签。
@@ -1287,6 +1387,10 @@ function buildEngine(container: HTMLDivElement): Engine {
 
   /** 公转位置更新：地球定位 + 地轴姿态 + 太阳方向 + 晨昏线/直射点/光线 */
   function setOrbitNu(value: number) {
+    // 先记下旧位置：特写视角下要靠这个位移把镜头一起平移（见函数末尾）
+    const prevX = earthPos.x;
+    const prevY = earthPos.y;
+    const prevZ = earthPos.z;
     nu = ((value % 360) + 360) % 360;
     orbitPosition(nu, earthPos);
     earthAnchor.position.copy(earthPos);
@@ -1353,9 +1457,15 @@ function buildEngine(container: HTMLDivElement): Engine {
     updateRays();
     updateRadiusLine();
 
-    // 特写视角跟随地球
+    // 特写视角：镜头跟着地球平移同样的位移，保持用户当前的观察方向与距离。
+    // 这里刻意不调用 applyEarthView()——那会把镜头重置到固定机位（sunDir 的侧向），
+    // 一转公转旋钮地球就"跳"回原位，体验上和自转旋钮不一致。
+    // 只要相机与 target 同步平移，地球在画面里的位置与大小就完全不变，
+    // 变的只有光照（太阳直射点纬度、晨昏线倾角），这正是要看的东西。
     if (viewState.current === "earth") {
-      applyEarthView();
+      tmpFollow.set(earthPos.x - prevX, earthPos.y - prevY, earthPos.z - prevZ);
+      camera.position.add(tmpFollow);
+      controls.target.add(tmpFollow);
     }
   }
 
@@ -1446,6 +1556,9 @@ function buildEngine(container: HTMLDivElement): Engine {
     controls.update();
     // 相机姿态可能刚被改变（切换视角/自动旋转），逐帧重算直射点标签的让位方向
     updateSubsolarLabelPosition();
+    // 五带文字标注：必须放在 controls.update() 之后——它依赖当帧最终的相机姿态，
+    // 用来把标签摆到球面轮廓内最靠左的位置（避让中央的晨昏线与直射点标签）。
+    updateZoneLabels();
     renderer.render(scene, camera);
   }
   animate();
@@ -1656,8 +1769,23 @@ function buildEngine(container: HTMLDivElement): Engine {
       climate: overlayMaterial.uniforms.uClimate.value === 1,
       timezone: overlayMaterial.uniforms.uTz.value === 1,
       white: earthMaterial.uniforms.uWhite.value === 1,
-      hasTex: earthMaterial.uniforms.uHasTex.value === 1
+      hasTex: earthMaterial.uniforms.uHasTex.value === 1,
+      climateLabels: zoneLabelGroup.visible
     }),
+    readZoneLabels: () => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      return zoneLabels.map((item) => {
+        const v = item.sprite.getWorldPosition(new THREE.Vector3()).project(camera);
+        return {
+          text: item.text,
+          visible: zoneLabelGroup.visible,
+          screen: {
+            x: +((v.x * 0.5 + 0.5) * rect.width).toFixed(1),
+            y: +((-v.y * 0.5 + 0.5) * rect.height).toFixed(1)
+          }
+        };
+      });
+    },
     focusLatLon: (lat: number, lon: number, distance = 3) => {
       viewState.current = "earth";
       const dir = localFromLatLon(lat, lon).applyQuaternion(tiltGroup.quaternion).normalize();
@@ -1935,6 +2063,31 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         localHoursAt(lon, engine.readSubsolarLon()),
       readMarkerDebug: () => engine.readMarkerDebug(),
       readVisibility: () => engine.readVisibility(),
+      readZoneLabels: () => engine.readZoneLabels(),
+      readCamDebug: () => {
+        const rect = engine.renderer.domElement.getBoundingClientRect();
+        const earth = engine.earthAnchor.position.clone().project(engine.camera);
+        // 球面轮廓在屏幕上的像素半径：投影赤道方向 ±1 单位取一半，再按 asin/atan 修正到轮廓
+        const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(engine.camera.quaternion);
+        const a = engine.earthAnchor.position.clone().add(camRight).project(engine.camera);
+        const b = engine.earthAnchor.position.clone().sub(camRight).project(engine.camera);
+        const eqR = (Math.abs(a.x - b.x) / 2) * (rect.width / 2);
+        const dist = engine.camera.position.distanceTo(engine.earthAnchor.position);
+        const silhouette = eqR * (Math.asin(Math.min(1, 1 / dist)) / Math.atan(Math.min(1, 1 / dist)));
+        return {
+          view: engine.readGeometry().view,
+          earthScreen: {
+            x: +((earth.x * 0.5 + 0.5) * rect.width).toFixed(1),
+            y: +((-earth.y * 0.5 + 0.5) * rect.height).toFixed(1)
+          },
+          diskRadiusPx: +silhouette.toFixed(1),
+          camPos: [
+            +engine.camera.position.x.toFixed(3),
+            +engine.camera.position.y.toFixed(3),
+            +engine.camera.position.z.toFixed(3)
+          ]
+        };
+      },
       setLayers: (patch: Partial<LayerState>) =>
         setLayers((prev) => ({ ...prev, ...patch })),
       view: (key: ViewKey) => {
@@ -2113,10 +2266,71 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     <div className="globe-app">
       <div className="globe-canvas" ref={mountRef} />
 
-      <header className="globe-title">
-        <h1>寰宇地球仪</h1>
-        <span>公转四季 · 昼夜五带 · 时区与地方时</span>
-      </header>
+      {/* 自转 / 公转旋钮独立成左侧旋钮台：从右栏抽出来，右手拖旋钮、左手不挡画面，
+          同时把右栏留给参数读数。 */}
+      <div className="globe-knobs">
+        <div className="knob-card">
+          <Knob
+            value={nu}
+            size={116}
+            accent="#e0a83c"
+            ticks={SEASON_TICKS}
+            ariaLabel="公转位置旋钮"
+            onDrag={(deg) => {
+              setSpinning(false);
+              setNu(deg);
+            }}
+          />
+          <div className="knob-head">
+            <span className="knob-name">公转位置</span>
+            <strong className="knob-value">{nu.toFixed(0)}°</strong>
+          </div>
+          <span className="knob-sub">{nearestSeasonText}</span>
+          <button
+            type="button"
+            className={spinning ? "spin-btn is-on" : "spin-btn"}
+            onClick={() => setSpinning((v) => !v)}
+          >
+            {spinning ? "演示中" : "自动公转"}
+          </button>
+        </div>
+
+        <div className="knob-card">
+          <Knob
+            value={spinKnobValue}
+            size={116}
+            accent="#3f8cff"
+            wrap={false}
+            ticks={SPIN_TICKS}
+            ariaLabel="地球自转旋钮"
+            onDrag={(deg) => {
+              setSpinDragValue(deg);
+              engineRef.current?.setSpinAngle(deg);
+            }}
+            onDragStart={() => engineRef.current?.setSpinDragging(true)}
+            onDragEnd={() => {
+              engineRef.current?.setSpinDragging(false);
+              setSpinDragValue(null);
+            }}
+          />
+          <div className="knob-head">
+            <span className="knob-name">地球自转</span>
+            <strong className="knob-value">{Math.round(spinDeg)}°</strong>
+          </div>
+          <span className="knob-sub">可一圈圈连续转动</span>
+          <button
+            type="button"
+            className={rotating ? "spin-btn is-on" : "spin-btn"}
+            onClick={() => setRotating((v) => !v)}
+          >
+            {rotating ? "自转中" : "已暂停"}
+          </button>
+        </div>
+
+        <p className="knob-deck-hint">
+          按住圆盘绕中心拖动即可自由转动；旋钮刻度为二分二至 / 四象限。
+        </p>
+      </div>
 
       <aside className="globe-panel">
         <section>
@@ -2143,18 +2357,27 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
           ))}
           <div className="zone-legend">
             <span>
-              <i style={{ background: "#ff6b3d" }} />
-              热带
+              <i style={{ background: "#59b8ff" }} />
+              北寒带 66.5°N 以北
             </span>
             <span>
               <i style={{ background: "#4ddc7a" }} />
-              温带
+              北温带 23.5°~66.5°N
+            </span>
+            <span>
+              <i style={{ background: "#ff6b3d" }} />
+              热带 23.5°N~23.5°S
+            </span>
+            <span>
+              <i style={{ background: "#4ddc7a" }} />
+              南温带 23.5°~66.5°S
             </span>
             <span>
               <i style={{ background: "#59b8ff" }} />
-              寒带
+              南寒带 66.5°S 以南
             </span>
           </div>
+          <p className="knob-hint">球面上五带的文字标注只在「地球特写」视角显示。</p>
         </section>
 
         <section>
@@ -2172,33 +2395,9 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
               </button>
             ))}
           </div>
-          <div className="knob-row">
-            <Knob
-              value={nu}
-              size={124}
-              accent="#e0a83c"
-              ticks={SEASON_TICKS}
-              ariaLabel="公转位置旋钮"
-              onDrag={(deg) => {
-                setSpinning(false);
-                setNu(deg);
-              }}
-            />
-            <div className="knob-meta">
-              <span className="knob-name">公转位置</span>
-              <strong className="knob-value">{nu.toFixed(0)}°</strong>
-              <span className="knob-sub">{nearestSeasonText}</span>
-              <button
-                type="button"
-                className={spinning ? "spin-btn is-on" : "spin-btn"}
-                onClick={() => setSpinning((v) => !v)}
-              >
-                {spinning ? "演示中" : "自动公转"}
-              </button>
-            </div>
-          </div>
           <p className="knob-hint">
-            按住圆盘旋钮转动即可自由调整公转位置，刻度为二分二至（春夏秋冬）。
+            公转位置改由左侧「公转位置」旋钮自由转动（刻度为二分二至），
+            也可点上面的按钮快速定位。
           </p>
 
           <div className="readout-row">
@@ -2216,39 +2415,9 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
 
         <section>
           <h2>自转与地方时</h2>
-          <div className="knob-row">
-            <Knob
-              value={spinKnobValue}
-              size={124}
-              accent="#3f8cff"
-              wrap={false}
-              ticks={SPIN_TICKS}
-              ariaLabel="地球自转旋钮"
-              onDrag={(deg) => {
-                setSpinDragValue(deg);
-                engineRef.current?.setSpinAngle(deg);
-              }}
-              onDragStart={() => engineRef.current?.setSpinDragging(true)}
-              onDragEnd={() => {
-                engineRef.current?.setSpinDragging(false);
-                setSpinDragValue(null);
-              }}
-            />
-            <div className="knob-meta">
-              <span className="knob-name">地球自转</span>
-              <strong className="knob-value">{Math.round(spinDeg)}°</strong>
-              <span className="knob-sub">可一圈圈连续转动</span>
-              <button
-                type="button"
-                className={rotating ? "spin-btn is-on" : "spin-btn"}
-                onClick={() => setRotating((v) => !v)}
-              >
-                {rotating ? "自转中" : "已暂停"}
-              </button>
-            </div>
-          </div>
           <p className="knob-hint">
-            拖动旋钮可手动转动地球，松手后若「自转中」会继续自动转。
+            地球自转改由左侧「地球自转」旋钮控制：按住圆盘可一圈圈连续转动，
+            松手后若「自转中」会接着自动转。
           </p>
           <div className="readout-row">
             <span>太阳直射经线</span>

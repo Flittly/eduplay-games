@@ -57,30 +57,57 @@ input {
   display: block;
 }
 
-/* ---------- 标题 ---------- */
-.globe-title {
+/* ---------- 左侧旋钮台（自转 / 公转） ---------- */
+.globe-knobs {
   position: absolute;
   top: 16px;
-  left: 18px;
+  left: 16px;
+  width: 174px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.knob-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   background: var(--paper);
   color: var(--ink);
   border: 3px solid #2b2620;
   box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
-  padding: 10px 18px 12px;
-  max-width: 260px;
+  padding: 10px 12px 12px;
 }
 
-.globe-title h1 {
-  font-size: 22px;
-  letter-spacing: 0.08em;
+.knob-head {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
 }
 
-.globe-title span {
-  display: block;
-  margin-top: 2px;
+.knob-card .knob-sub {
   font-size: 11px;
-  color: var(--brown);
-  letter-spacing: 0.2em;
+  align-self: flex-start;
+  text-align: left;
+}
+
+.knob-card .spin-btn {
+  margin-top: 8px;
+  padding: 7px 0;
+  font-size: 12px;
+}
+
+.knob-deck-hint {
+  font-size: 10px;
+  line-height: 1.65;
+  font-weight: 700;
+  text-align: center;
+  color: rgba(242, 232, 213, 0.7);
 }
 
 /* ---------- 控制面板 ---------- */
@@ -166,8 +193,8 @@ input {
 /* 五带图例 */
 .zone-legend {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
+  flex-direction: column;
+  gap: 3px;
   margin-top: 9px;
   font-size: 11px;
   font-weight: 800;
@@ -177,24 +204,18 @@ input {
 .zone-legend span {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .zone-legend i {
   display: inline-block;
   width: 11px;
   height: 11px;
+  flex: none;
   border: 1.5px solid #2b2620;
 }
 
 /* 旋钮 */
-.knob-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 10px 0 6px;
-}
-
 .knob-dial {
   flex: none;
   touch-action: none;
@@ -205,23 +226,15 @@ input {
   cursor: grabbing;
 }
 
-.knob-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  min-width: 0;
-}
-
 .knob-name {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   color: var(--brown);
 }
 
 .knob-value {
-  font-size: 22px;
+  font-size: 21px;
   line-height: 1.1;
   color: #8a5a12;
 }
@@ -232,20 +245,16 @@ input {
   color: #6b6154;
 }
 
-.knob-meta .spin-btn {
-  margin-top: 4px;
-  width: auto;
-  padding: 5px 12px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-}
-
 .knob-hint {
   margin: 4px 0 0;
   font-size: 11px;
   line-height: 1.6;
   font-weight: 700;
   color: rgba(43, 38, 32, 0.66);
+}
+
+.knob-hint + .knob-hint {
+  margin-top: 6px;
 }
 
 /* 坐标读取 */
@@ -495,11 +504,22 @@ input {
     max-height: 52vh;
   }
 
-  .globe-title {
-    padding: 8px 14px 10px;
+  /* 窄屏下两个旋钮台一起缩小，别把中间的地球挤没 */
+  .globe-knobs {
+    width: 146px;
+    gap: 8px;
   }
 
-  .globe-title h1 {
+  .knob-card {
+    padding: 8px 10px 10px;
+  }
+
+  .knob-card .knob-dial {
+    width: 96px;
+    height: 96px;
+  }
+
+  .knob-card .knob-value {
     font-size: 18px;
   }
 }
