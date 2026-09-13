@@ -50,6 +50,8 @@ const AXIS_AZIMUTH = 14;
 const SUBSOLAR_LON = 15;
 /** 公转演示速度（度/秒） */
 const SPIN_SPEED = 12;
+/** 地球自转演示速度（度/秒）：约 6°/秒，公转一周 ≈ 30 秒内自转约 5 圈 */
+const ROTATION_SPEED = 60;
 
 const EARTH_TILT_RAD = EARTH_TILT * DEG;
 const AXIS_AZIMUTH_RAD = AXIS_AZIMUTH * DEG;
@@ -473,6 +475,7 @@ interface Engine {
   readNu: () => number;
   setView: (key: ViewKey) => void;
   setSpin: (on: boolean) => void;
+  setRotate: (on: boolean) => void;
   readGeometry: () => {
     camLat: number;
     camLon: number;
@@ -528,11 +531,16 @@ function buildEngine(container: HTMLDivElement): Engine {
     worldLabels.push({ sprite, base: sprite.scale.clone(), refDist });
   }
 
-  /* ---- 地球：earthAnchor（公转位置）→ tiltGroup（地轴姿态）---- */
+  /* ---- 地球：earthAnchor（公转位置）→ tiltGroup（地轴姿态）→ spinGroup（自转）---- */
   const earthAnchor = new THREE.Group();
   scene.add(earthAnchor);
   const tiltGroup = new THREE.Group();
   earthAnchor.add(tiltGroup);
+  /* spinGroup 嵌在 tiltGroup 内，绕本地 Y 轴（与地轴重合）旋转；
+     地球表面贴图、经纬线、用户标记都挂在这里，随自转一起转；
+     地轴杆（axisGroup）、太阳直射带（zoneGroup）则留在 tiltGroup 上，保持地轴姿态。 */
+  const spinGroup = new THREE.Group();
+  tiltGroup.add(spinGroup);
 
   const earthMaterial = new THREE.ShaderMaterial({
     uniforms: {
@@ -567,7 +575,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     `
   });
   const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), earthMaterial);
-  tiltGroup.add(earthMesh);
+  spinGroup.add(earthMesh);
 
   // 地球所属的“环境”节点：与地球同位置，但不随地球自转轴倾斜（晨昏线、光线都在世界方向下定义）
   const envGroup = new THREE.Group();
@@ -584,27 +592,27 @@ function buildEngine(container: HTMLDivElement): Engine {
   const equatorGroup = new THREE.Group();
   equatorGroup.add(makeParallelRing(0, 0.010, COLORS.equator));
   equatorGroup.add(labelAt(0, labelLon, "赤道 0°", "#ff6b5e"));
-  tiltGroup.add(equatorGroup);
+  spinGroup.add(equatorGroup);
 
   const tropicsGroup = new THREE.Group();
   tropicsGroup.add(makeParallelRing(EARTH_TILT, 0.007, COLORS.tropics));
   tropicsGroup.add(makeParallelRing(-EARTH_TILT, 0.007, COLORS.tropics));
   tropicsGroup.add(labelAt(EARTH_TILT, labelLon, "北回归线 23.5°N", "#ffc247"));
   tropicsGroup.add(labelAt(-EARTH_TILT, labelLon, "南回归线 23.5°S", "#ffc247"));
-  tiltGroup.add(tropicsGroup);
+  spinGroup.add(tropicsGroup);
 
   const polarGroup = new THREE.Group();
   polarGroup.add(makeParallelRing(66.56, 0.006, COLORS.polar));
   polarGroup.add(makeParallelRing(-66.56, 0.006, COLORS.polar));
   polarGroup.add(labelAt(66.56, labelLon, "北极圈 66.5°N", "#6ee9ff"));
   polarGroup.add(labelAt(-66.56, labelLon, "南极圈 66.5°S", "#6ee9ff"));
-  tiltGroup.add(polarGroup);
+  spinGroup.add(polarGroup);
 
   const meridianGroup = new THREE.Group();
   meridianGroup.add(makeMeridianRing(0, 0.010, COLORS.meridian));
   meridianGroup.add(labelAt(42, 0, "本初子午线 0°", "#b39cff", 1.07));
   meridianGroup.add(labelAt(42, 180, "180°", "#b39cff", 1.07));
-  tiltGroup.add(meridianGroup);
+  spinGroup.add(meridianGroup);
 
   const gridGroup = new THREE.Group();
   for (const lat of [30, -30, 60, -60]) {
@@ -613,7 +621,7 @@ function buildEngine(container: HTMLDivElement): Engine {
   for (let lon = 0; lon < 180; lon += 30) {
     gridGroup.add(makeThinCircle(lon, "meridian"));
   }
-  tiltGroup.add(gridGroup);
+  spinGroup.add(gridGroup);
 
   const axisGroup = new THREE.Group();
   const axisGeometry = new THREE.BufferGeometry().setFromPoints([
@@ -869,7 +877,7 @@ function buildEngine(container: HTMLDivElement): Engine {
 
   /* ---- 点击标记 ---- */
   const markerGroup = new THREE.Group();
-  tiltGroup.add(markerGroup);
+  spinGroup.add(markerGroup);
 
   function clearMarker() {
     markerGroup.traverse((child) => {
@@ -915,6 +923,8 @@ function buildEngine(container: HTMLDivElement): Engine {
   let nu = SEASONS[1].nu;
   let declination = declinationForNu(nu);
   let spinWanted = false;
+  let rotateWanted = true;
+  let spinAngle = 0;
   const earthPos = new THREE.Vector3();
   const sunDir = new THREE.Vector3();
   const tmpV = new THREE.Vector3();
@@ -1009,16 +1019,10 @@ function buildEngine(container: HTMLDivElement): Engine {
     // 太阳方向（地球 → 太阳）
     sunDir.copy(earthPos).multiplyScalar(-1).normalize();
 
-    // 地轴指向空间固定方向 AXIS_WORLD；再绕地轴自转，使太阳始终位于本地经度 SUBSOLAR_LON，
-    // 这样特写视角下晨昏线永远纵贯画面中央、经纬度标签也始终朝向镜头。
-    const qBase = new THREE.Quaternion().setFromUnitVectors(WORLD_UP, AXIS_WORLD);
-    const sLocal = tmpV.copy(sunDir).applyQuaternion(qBase.clone().invert());
-    const lam = Math.atan2(-sLocal.z, sLocal.x);
-    const spin = new THREE.Quaternion().setFromAxisAngle(
-      WORLD_UP,
-      lam - SUBSOLAR_LON * DEG
-    );
-    tiltGroup.quaternion.copy(qBase).multiply(spin);
+    // 地轴指向空间固定方向 AXIS_WORLD（四季成因）；
+    // tiltGroup 只承担姿态，不再"模拟"自转——真实的连续自转由 spinGroup 承担，
+    // 这样贴图会真的转动，地球特写视角下能看到白天/黑夜在球面上滚过。
+    tiltGroup.quaternion.setFromUnitVectors(WORLD_UP, AXIS_WORLD);
 
     declination = Math.asin(THREE.MathUtils.clamp(sunDir.dot(AXIS_WORLD), -1, 1)) / DEG;
 
@@ -1101,8 +1105,12 @@ function buildEngine(container: HTMLDivElement): Engine {
   function applyEarthView() {
     viewState.current = "earth";
     controls.target.copy(earthPos);
-    const dir = localFromLatLon(12, labelLon).applyQuaternion(tiltGroup.quaternion).normalize();
-    camera.position.copy(earthPos).addScaledVector(dir, 3.0);
+    // 镜头放在 sunDir 的侧向：视线垂直于太阳方向，晨昏线纵贯画面中央。
+    // 这样地球自转时，画面里能直接看到"白天 → 黑夜"的滚动；
+    // 地轴倾斜导致极昼/极夜区域也正好出现在画面上下的对应一侧。
+    const up = Math.abs(sunDir.y) > 0.94 ? new THREE.Vector3(1, 0, 0) : WORLD_UP;
+    const side = new THREE.Vector3().crossVectors(sunDir, up).normalize();
+    camera.position.copy(earthPos).addScaledVector(side, 3.0);
     controls.update();
     onViewChange?.("earth");
   }
@@ -1125,6 +1133,13 @@ function buildEngine(container: HTMLDivElement): Engine {
         lastNotify = now;
         onNuChange?.(nu);
       }
+    }
+
+    // 地球自转：始终围绕地轴（tiltGroup 本地 Y 轴）连续旋转，
+    // 不论是否在公转演示中。这样画面里能持续看到白天/黑夜的滚动。
+    if (rotateWanted) {
+      spinAngle += dt * ROTATION_SPEED;
+      spinGroup.rotation.y = spinAngle * DEG;
     }
 
     // 世界标签按距离缩放，保持屏幕尺寸基本恒定
@@ -1233,6 +1248,9 @@ function buildEngine(container: HTMLDivElement): Engine {
     },
     setSpin: (on: boolean) => {
       spinWanted = on;
+    },
+    setRotate: (on: boolean) => {
+      rotateWanted = on;
     },
     readGeometry: () => {
       const inv = tiltGroup.quaternion.clone().invert();
@@ -1406,6 +1424,7 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   const [nu, setNu] = useState<number>(SEASONS[1].nu);
   const [view, setView] = useState<ViewKey>("orbit");
   const [spinning, setSpinning] = useState(false);
+  const [rotating, setRotating] = useState(true);
 
   useEffect(() => {
     const container = mountRef.current;
@@ -1555,6 +1574,11 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     engineRef.current?.setSpin(spinning);
   }, [spinning]);
 
+  // 地球自转开关（默认开启，演示用 60°/秒；公转演示不影响自转）
+  useEffect(() => {
+    engineRef.current?.setRotate(rotating);
+  }, [rotating]);
+
   // 公转位置变化（公转演示运行期间由引擎自行推进，避免回写造成抖动）
   useEffect(() => {
     if (spinning) {
@@ -1700,6 +1724,13 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
             onClick={() => setSpinning((v) => !v)}
           >
             {spinning ? "公转演示：运行中" : "公转演示：已暂停"}
+          </button>
+          <button
+            type="button"
+            className={rotating ? "spin-btn is-on" : "spin-btn"}
+            onClick={() => setRotating((v) => !v)}
+          >
+            {rotating ? "地球自转：运行中" : "地球自转：已暂停"}
           </button>
           <p className="season-note">{seasonNote}</p>
         </section>
