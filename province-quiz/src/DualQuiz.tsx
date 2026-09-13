@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import provinceData from "./data/provinces.json";
 import { PROVINCE_HINTS } from "./hints";
 
@@ -39,9 +39,13 @@ function silhouetteViewBox(feature: Feature): string {
 
 const TOTAL_QUESTIONS = 10;
 const CORRECT_POINTS = 10;
+/** 有人答对后，停留多久再切下一题。 */
+const ADVANCE_DELAY_MS = 900;
+/** 双方都答错后，多停一会儿方便看清正确答案。 */
+const VOID_DELAY_MS = 1600;
 
 export default function DualQuiz({ onBack }: DualQuizProps) {
-  const [queue, setQueue] = useState(() =>
+  const [queue] = useState(() =>
     shuffle(FEATURES).slice(0, TOTAL_QUESTIONS)
   );
   const [index, setIndex] = useState(0);
@@ -51,6 +55,45 @@ export default function DualQuiz({ onBack }: DualQuizProps) {
   const [rightWrong, setRightWrong] = useState(false);
   const [winnerName, setWinnerName] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
+  // 本题是否已结算（有人答对 / 双方都答错），防止定时器被重复挂上导致跳题。
+  const settledRef = useRef(false);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+      }
+    },
+    []
+  );
+
+  /**
+   * 结算本题并推进到下一题。答对与“双方都答错”两条路径都走这里，
+   * 否则双方都答错时题号不动，游戏会永久卡住。
+   */
+  function settleQuestion(delay: number) {
+    if (settledRef.current) {
+      return;
+    }
+    settledRef.current = true;
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+    }
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      settledRef.current = false;
+      const next = index + 1;
+      if (next >= queue.length) {
+        setFinished(true);
+        return;
+      }
+      setIndex(next);
+      setLeftWrong(false);
+      setRightWrong(false);
+      setWinnerName(null);
+    }, delay);
+  }
 
   const target = queue[index];
   const options = useMemo(
@@ -70,7 +113,7 @@ export default function DualQuiz({ onBack }: DualQuizProps) {
   const hints = target ? PROVINCE_HINTS[target.name] ?? [] : [];
 
   function answer(side: "left" | "right", name: string) {
-    if (!target || finished) {
+    if (!target || finished || settledRef.current) {
       return;
     }
     if (side === "left" && leftWrong) {
@@ -80,10 +123,15 @@ export default function DualQuiz({ onBack }: DualQuizProps) {
       return;
     }
     if (name !== target.name) {
+      // 对方是否已经先答错：若已答错，本方这一下就是本题的最后一次机会。
+      const otherAlreadyWrong = side === "left" ? rightWrong : leftWrong;
       if (side === "left") {
         setLeftWrong(true);
       } else {
         setRightWrong(true);
+      }
+      if (otherAlreadyWrong) {
+        settleQuestion(VOID_DELAY_MS);
       }
       return;
     }
@@ -93,17 +141,7 @@ export default function DualQuiz({ onBack }: DualQuizProps) {
       setRightScore((value) => value + CORRECT_POINTS);
     }
     setWinnerName(side === "left" ? "左侧" : "右侧");
-    window.setTimeout(() => {
-      const next = index + 1;
-      if (next >= queue.length) {
-        setFinished(true);
-        return;
-      }
-      setIndex(next);
-      setLeftWrong(false);
-      setRightWrong(false);
-      setWinnerName(null);
-    }, 900);
+    settleQuestion(ADVANCE_DELAY_MS);
   }
 
   if (finished || !target) {
@@ -145,7 +183,9 @@ export default function DualQuiz({ onBack }: DualQuizProps) {
       {winnerName ? (
         <p className="pk-message">{winnerName} 答对 +{CORRECT_POINTS}</p>
       ) : leftWrong && rightWrong ? (
-        <p className="pk-message">双方均答错，本题作废</p>
+        <p className="pk-message">
+          双方均答错，本题作废 · 正确答案：<b>{target.name}</b>
+        </p>
       ) : leftWrong ? (
         <p className="pk-message">左侧答错锁定，右侧请作答</p>
       ) : rightWrong ? (
