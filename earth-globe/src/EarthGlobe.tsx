@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import Knob, { type KnobTick } from "./Knob";
 
 export interface PlayerInfo {
   studentId: number;
@@ -11,11 +12,14 @@ export interface PlayerInfo {
 
 export interface LayerState {
   texture: boolean;
+  white: boolean;
   grid: boolean;
   equator: boolean;
   tropics: boolean;
   polar: boolean;
   meridian: boolean;
+  climate: boolean;
+  timezone: boolean;
   axis: boolean;
   stars: boolean;
   orbit: boolean;
@@ -36,6 +40,13 @@ type ViewKey = "orbit" | "top" | "earth";
 const DEG = Math.PI / 180;
 const EARTH_TILT = 23.44;
 const LINE_RADIUS = 1.004;
+/** 五带分界纬度（= 回归线与极圈），与地轴倾角一致 */
+const ZONE_TROPIC = EARTH_TILT;
+const ZONE_POLAR = 90 - EARTH_TILT;
+/** 时区宽度（度） */
+const TZ_WIDTH = 15;
+/** 叠加球壳半径：略大于球面，保证罩在地表之上又不与线条/太阳直射带打架 */
+const OVERLAY_RADIUS = 1.014;
 
 /* ---------------- 日心（公转）模型常数 ---------------- */
 /** 公转轨道半长轴（显示单位） */
@@ -86,6 +97,11 @@ const COLORS = {
   sunRayCore: 0xff5f2e,
   subsolar: 0xff8c3a,
   zone: 0xffc23d,
+  calTropical: 0xff6b3d,
+  calTemperate: 0x4ddc7a,
+  calFrigid: 0x59b8ff,
+  tzA: 0x5a86ff,
+  tzB: 0xf0b840,
   orbit: 0x9fb6d8,
   perihelion: 0x5fd8ff,
   aphelion: 0x8fa6ff,
@@ -216,7 +232,7 @@ function makeThinCircle(
     new THREE.LineBasicMaterial({
       color: COLORS.grid,
       transparent: true,
-      opacity: 0.22
+      opacity: 0.3
     })
   );
   if (kind === "meridian") {
@@ -266,6 +282,50 @@ function makeLabelSprite(
 function disposeSprite(sprite: THREE.Sprite) {
   sprite.material.map?.dispose();
   sprite.material.dispose();
+}
+
+/**
+ * 可反复改写的文字精灵（画布与贴图复用，只重绘内容），
+ * 用于地方时这种每帧都可能变化的标签，避免频繁创建/销毁贴图。
+ */
+function makeDynamicLabel(
+  color: string,
+  fontPx = 44,
+  worldScale = 0.115
+): { sprite: THREE.Sprite; draw: (text: string) => void } {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(fontPx * 7.2);
+  canvas.height = Math.ceil(fontPx * 1.9);
+  const fontSize = `900 ${fontPx}px 'Microsoft YaHei', 'PingFang SC', sans-serif`;
+  let last = "";
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: texture, transparent: true })
+  );
+  sprite.scale.set(worldScale * (canvas.width / canvas.height), worldScale, 1);
+  const draw = (text: string) => {
+    if (text === last) {
+      return;
+    }
+    last = text;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = fontSize;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = fontPx * 0.2;
+    ctx.strokeStyle = "rgba(8,14,26,0.94)";
+    ctx.lineJoin = "round";
+    ctx.strokeText(text, canvas.width / 2, canvas.height / 2);
+    ctx.fillStyle = color;
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    texture.needsUpdate = true;
+  };
+  return { sprite, draw };
 }
 
 /** 太阳光晕精灵（径向渐变的加色混合）。 */
@@ -435,6 +495,52 @@ const RAY_OFFSETS: [number, number][] = RAY_PLANE_OFFSETS.map(
   (v) => [0, v] as [number, number]
 );
 
+/* ---------------- 地方时 / 时区 ---------------- */
+
+export interface VisibilityState {
+  grid: boolean;
+  equator: boolean;
+  climate: boolean;
+  timezone: boolean;
+  white: boolean;
+  hasTex: boolean;
+}
+
+export interface ClockPayload {  /** 自转角（0~360），供自转旋钮的指针使用 */
+  spinAngle: number;
+  /** 太阳直射经线（地理经度，-180~180）：该经线的地方时恰好为正午 12:00 */
+  subsolarLon: number;
+  /** 点击标记处的地方时（小时，0~24）；未标记时为 null */
+  markerHours: number | null;
+}
+
+/** 由太阳直射经线求任意经线的地方时（小时，0~24）：每向东 15° 地方时早 1 小时 */
+function localHoursAt(lon: number, subsolarLon: number): number {
+  const h = 12 + (lon - subsolarLon) / 15;
+  return ((h % 24) + 24) % 24;
+}
+
+/** 小时数 → "HH:MM" */
+function formatClock(hours: number): string {
+  const total = ((Math.round(hours * 60) % 1440) + 1440) % 1440;
+  const hh = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+/** 时区序号：全球按经度每 15° 划分，返回 -12 ~ 12 */
+function zoneIndexOf(lon: number): number {
+  return Math.round(lon / TZ_WIDTH);
+}
+
+function formatZone(lon: number): string {
+  const z = zoneIndexOf(lon);
+  if (z === 0) {
+    return "中时区";
+  }
+  return `${z > 0 ? "东" : "西"}${Math.abs(z)}区`;
+}
+
 /* ---------------- 引擎 ---------------- */
 
 interface WorldLabel {
@@ -452,6 +558,8 @@ interface Engine {
   tiltGroup: THREE.Group;
   earthMesh: THREE.Mesh;
   earthMaterial: THREE.ShaderMaterial;
+  /** 五带 / 时区叠加球壳的材质（两个图层共用一套着色器，各自开关） */
+  overlayMaterial: THREE.ShaderMaterial;
   gridGroup: THREE.Group;
   equatorGroup: THREE.Group;
   tropicsGroup: THREE.Group;
@@ -471,8 +579,19 @@ interface Engine {
   earthTexture: THREE.Texture | null;
   autoRotateWanted: boolean;
   setOrbitNu: (nuDeg: number) => void;
+  /** 直接设置自转角（度），供自转旋钮使用 */
+  setSpinAngle: (deg: number) => void;
+  readSpinAngle: () => number;
+  /** 旋钮拖动期间暂停自动自转，松手后恢复 */
+  setSpinDragging: (active: boolean) => void;
+  /** 地表素材：影像开关 + 纯白模式（两者互斥，纯白优先） */
+  applySurface: (options: { texture: boolean; white: boolean }) => void;
   readDeclination: () => number;
   readNu: () => number;
+  /** 太阳直射经线（地理经度，单位度）：该经线地方时为正午 12:00 */
+  readSubsolarLon: () => number;
+  onSpinChange: ((deg: number) => void) | null;
+  onClock: ((payload: ClockPayload) => void) | null;
   setView: (key: ViewKey) => void;
   setSpin: (on: boolean) => void;
   setRotate: (on: boolean) => void;
@@ -495,9 +614,19 @@ interface Engine {
   };
   onNuChange: ((nu: number) => void) | null;
   onViewChange: ((key: ViewKey) => void) | null;
+  /** 开发自检：图层开关最终有没有落到场景上 */
+  readVisibility: () => VisibilityState;
   dispose: () => void;
   placeMarker: (lat: number, lon: number) => void;
   clearMarker: () => void;
+  /** 开发自检：标记点是否真的进了场景、投影到屏幕的什么位置 */
+  readMarkerDebug: () => {
+    children: number;
+    worldPos: [number, number, number];
+    screen: { x: number; y: number };
+    earthScreen: { x: number; y: number };
+    latLon: MarkerInfo | null;
+  };
   focusLatLon: (lat: number, lon: number, distance?: number) => void;
 }
 
@@ -546,6 +675,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     uniforms: {
       dayMap: { value: null },
       uHasTex: { value: 0 },
+      uWhite: { value: 0 },
       uDayColor: { value: new THREE.Color(0x2a4d7f) },
       uSunDir: { value: new THREE.Vector3(1, 0, 0) }
     },
@@ -561,6 +691,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     fragmentShader: `
       uniform sampler2D dayMap;
       uniform float uHasTex;
+      uniform float uWhite;
       uniform vec3 uDayColor;
       uniform vec3 uSunDir;
       varying vec2 vUv;
@@ -568,14 +699,104 @@ function buildEngine(container: HTMLDivElement): Engine {
       void main() {
         float d = dot(normalize(vNormalW), normalize(uSunDir));
         float dayAmt = smoothstep(-0.10, 0.10, d);
-        vec3 day = uHasTex > 0.5 ? texture2D(dayMap, vUv).rgb : uDayColor.rgb;
-        vec3 night = day * 0.10 + vec3(0.010, 0.024, 0.055);
+        // 纯白模式优先：不贴影像，用纯白球面呈现，昼夜明暗与晨昏线依然保留，
+        // 便于在球面上手绘晨昏线、标注点位。
+        vec3 day = uWhite > 0.5
+          ? vec3(1.0)
+          : (uHasTex > 0.5 ? texture2D(dayMap, vUv).rgb : uDayColor.rgb);
+        vec3 night = uWhite > 0.5
+          ? vec3(0.13, 0.15, 0.20)
+          : day * 0.10 + vec3(0.010, 0.024, 0.055);
         gl_FragColor = vec4(mix(night, day, dayAmt), 1.0);
       }
     `
   });
   const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), earthMaterial);
   spinGroup.add(earthMesh);
+
+  /* ---- 叠加球壳：五带 / 全球时区（半透明，单独开关） ----
+     独立成一层而不是并进地球着色器，好处是两处：① 不被昼夜明暗压暗，夜里也能看清；
+     ② 半透明叠加不会盖住地表影像与经纬线。球壳比地表大一点点，只画朝向镜头的那半面。 */
+  const overlayMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uClimate: { value: 0 },
+      uTz: { value: 0 }
+    },
+    vertexShader: `
+      varying vec3 vLocal;
+      void main() {
+        vLocal = normalize(position);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uClimate;
+      uniform float uTz;
+      varying vec3 vLocal;
+
+      const float TROPIC = 23.44;
+      const float POLAR = 66.56;
+
+      void main() {
+        float lat = degrees(asin(clamp(vLocal.y, -1.0, 1.0)));
+        float lon = degrees(atan(-vLocal.z, vLocal.x));
+        float alat = abs(lat);
+
+        // 用 over 叠加，保证五带与时区同时打开时不会互相"吃掉"
+        vec4 o = vec4(0.0);
+
+        if (uClimate > 0.5) {
+          vec4 c;
+          if (alat <= TROPIC) {
+            c = vec4(1.00, 0.42, 0.24, 0.22);   // 热带
+          } else if (alat <= POLAR) {
+            c = vec4(0.26, 0.86, 0.46, 0.17);   // 温带
+          } else {
+            c = vec4(0.34, 0.70, 1.00, 0.28);   // 寒带
+          }
+          // 分界线（南北回归线 23.5°、南北极圈 66.5°）
+          if (min(abs(alat - TROPIC), abs(alat - POLAR)) < 0.6) {
+            c = vec4(1.0, 0.96, 0.76, 0.7);
+          }
+          o = vec4(c.rgb * c.a + o.rgb * (1.0 - c.a), c.a + o.a * (1.0 - c.a));
+        }
+
+        if (uTz > 0.5) {
+          // k 以 15° 为一个单位，整数处即时区界线
+          float k = (lon + 180.0) / 15.0;
+          float band = mod(floor(k), 2.0);
+          vec3 rgb = band > 0.5 ? vec3(0.98, 0.80, 0.36) : vec3(0.34, 0.58, 1.00);
+          float a = 0.17;
+          float db = min(fract(k), 1.0 - fract(k));
+          if (db < 0.042) {
+            rgb = vec3(1.0, 0.97, 0.80);
+            a = 0.68;
+          }
+          o = vec4(rgb * a + o.rgb * (1.0 - a), a + o.a * (1.0 - a));
+        }
+
+        if (o.a < 0.004) {
+          discard;
+        }
+        gl_FragColor = o;
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.FrontSide,
+    // 上面用「over」把两层合成后，o.rgb 已经是按 alpha 预乘的颜色，
+    // 因此必须用预乘混合（One / 1−srcAlpha），否则标准混合会再乘一次 alpha，
+    // 半透明色带会被压成 alpha²（0.2 → 0.04）几乎看不见。
+    blending: THREE.CustomBlending,
+    blendEquation: THREE.AddEquation,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor
+  });
+  const overlayMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(OVERLAY_RADIUS, 96, 64),
+    overlayMaterial
+  );
+  spinGroup.add(overlayMesh);
 
   // 地球所属的“环境”节点：与地球同位置，但不随地球自转轴倾斜（晨昏线、光线都在世界方向下定义）
   const envGroup = new THREE.Group();
@@ -614,12 +835,28 @@ function buildEngine(container: HTMLDivElement): Engine {
   meridianGroup.add(labelAt(42, 180, "180°", "#b39cff", 1.07));
   spinGroup.add(meridianGroup);
 
+  /* ---- 经纬网（每 15° 一格，赤道与本初子午线另有专属图层，这里跳过） ---- */
   const gridGroup = new THREE.Group();
-  for (const lat of [30, -30, 60, -60]) {
+  for (let lat = -75; lat <= 75; lat += 15) {
+    if (lat === 0) {
+      continue;
+    }
     gridGroup.add(makeThinCircle(lat, "parallel"));
   }
-  for (let lon = 0; lon < 180; lon += 30) {
+  for (let lon = 15; lon < 180; lon += 15) {
     gridGroup.add(makeThinCircle(lon, "meridian"));
+  }
+  // 度数标注：30°/60° 纬线与 90°E / 90°W 经线（比专用线条的标注小一号，避免抢视觉）
+  const gridLabel = (lat: number, lon: number, text: string) => {
+    const sprite = makeLabelSprite(text, "#a9bedd", 32, 0.072);
+    sprite.position.copy(localFromLatLon(lat, lon).multiplyScalar(1.045));
+    return sprite;
+  };
+  for (const lat of [30, 60, -30, -60]) {
+    gridGroup.add(gridLabel(lat, labelLon, `${Math.abs(lat)}°${lat > 0 ? "N" : "S"}`));
+  }
+  for (const lon of [90, -90]) {
+    gridGroup.add(gridLabel(12, lon, `${Math.abs(lon)}°${lon > 0 ? "E" : "W"}`));
   }
   spinGroup.add(gridGroup);
 
@@ -879,6 +1116,11 @@ function buildEngine(container: HTMLDivElement): Engine {
   const markerGroup = new THREE.Group();
   spinGroup.add(markerGroup);
 
+  /** 当前标记点的地理坐标（null 表示未标记） */
+  let markerLatLon: MarkerInfo | null = null;
+  /** 标记点旁的「地方时」浮动标签 */
+  let markerClock: { sprite: THREE.Sprite; draw: (text: string) => void } | null = null;
+
   function clearMarker() {
     markerGroup.traverse((child) => {
       if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
@@ -887,13 +1129,18 @@ function buildEngine(container: HTMLDivElement): Engine {
         if (material instanceof THREE.Material) {
           material.dispose();
         }
+      } else if (child instanceof THREE.Sprite) {
+        disposeSprite(child);
       }
     });
     markerGroup.clear();
+    markerClock = null;
+    markerLatLon = null;
   }
 
   function placeMarker(lat: number, lon: number) {
     clearMarker();
+    markerLatLon = { lat, lon };
     const direction = localFromLatLon(lat, lon);
     const foot = direction.clone().multiplyScalar(1.006);
     const top = direction.clone().multiplyScalar(1.26);
@@ -917,6 +1164,12 @@ function buildEngine(container: HTMLDivElement): Engine {
     );
     footDot.position.copy(foot);
     markerGroup.add(footDot);
+
+    // 该点的地方时：随自转/公转实时改写
+    markerClock = makeDynamicLabel("#ffd76a", 42, 0.1);
+    markerClock.sprite.position.copy(direction.clone().multiplyScalar(1.5));
+    markerClock.draw(`地方时 ${formatClock(localHoursAt(lon, subsolarLon))}`);
+    markerGroup.add(markerClock.sprite);
   }
 
   /* ---- 公转状态 ---- */
@@ -925,6 +1178,13 @@ function buildEngine(container: HTMLDivElement): Engine {
   let spinWanted = false;
   let rotateWanted = true;
   let spinAngle = 0;
+  /** 自转旋钮拖动中：暂时停掉自动自转，避免和手动转动互相打架 */
+  let spinDragging = false;
+  /** 太阳直射经线（地理经度）：该经线地方时为正午 12:00 */
+  let subsolarLon = 0;
+  const spinWorldQuat = new THREE.Quaternion();
+  const spinWorldQuatInv = new THREE.Quaternion();
+  const sunInSpinFrame = new THREE.Vector3();
   const earthPos = new THREE.Vector3();
   const sunDir = new THREE.Vector3();
   const tmpV = new THREE.Vector3();
@@ -937,6 +1197,8 @@ function buildEngine(container: HTMLDivElement): Engine {
   const viewState: { current: ViewKey } = { current: "orbit" };
   let onNuChange: ((value: number) => void) | null = null;
   let onViewChange: ((key: ViewKey) => void) | null = null;
+  let onSpinChange: ((deg: number) => void) | null = null;
+  let onClock: ((payload: ClockPayload) => void) | null = null;
 
   function radiusLine(): THREE.Line | null {
     const found = orbitGroup.children.find(
@@ -954,6 +1216,19 @@ function buildEngine(container: HTMLDivElement): Engine {
     attr.setXYZ(0, 0, 0, 0);
     attr.setXYZ(1, earthPos.x, earthPos.y, earthPos.z);
     attr.needsUpdate = true;
+  }
+
+  /**
+   * 反算太阳直射经线：把「地球 → 太阳」方向变换到地球的地理坐标系（贴图所在的自转坐标系），
+   * 所得经度就是太阳直射经线。该经线上太阳正当天顶、地方时恰为 12:00，
+   * 其余各条经线的地方时都以它为基准 —— 这是第 5 项「点击显示地方时」的计算核心。
+   */
+  function updateSubsolarLon() {
+    // earthAnchor 只有位移没有旋转，故 spinGroup 的世界姿态 = tiltGroup × spinGroup
+    spinWorldQuat.copy(tiltGroup.quaternion).multiply(spinGroup.quaternion);
+    spinWorldQuatInv.copy(spinWorldQuat).invert();
+    sunInSpinFrame.copy(sunDir).applyQuaternion(spinWorldQuatInv);
+    subsolarLon = Math.atan2(-sunInSpinFrame.z, sunInSpinFrame.x) / DEG;
   }
 
   function updateRays() {
@@ -1129,17 +1404,35 @@ function buildEngine(container: HTMLDivElement): Engine {
 
     if (spinWanted) {
       setOrbitNu(nu + dt * SPIN_SPEED);
-      if (now - lastNotify > 140) {
-        lastNotify = now;
-        onNuChange?.(nu);
-      }
     }
 
     // 地球自转：始终围绕地轴（tiltGroup 本地 Y 轴）连续旋转，
     // 不论是否在公转演示中。这样画面里能持续看到白天/黑夜的滚动。
-    if (rotateWanted) {
+    // 自转旋钮拖动期间暂停自动推进，松手后自动接着转。
+    if (rotateWanted && !spinDragging) {
       spinAngle += dt * ROTATION_SPEED;
       spinGroup.rotation.y = spinAngle * DEG;
+    }
+
+    // 太阳直射经线：地方时的基准，每帧重算
+    updateSubsolarLon();
+
+    // 节流回传（约 7 次/秒）：自转角、直射经线、标记点地方时。
+    // 用节流而不是每帧 setState，避免高频重渲染拖慢 WebGL 场景。
+    if (now - lastNotify > 140) {
+      lastNotify = now;
+      const spinDeg = ((spinAngle % 360) + 360) % 360;
+      const markerHours = markerLatLon
+        ? localHoursAt(markerLatLon.lon, subsolarLon)
+        : null;
+      if (spinWanted) {
+        onNuChange?.(nu);
+      }
+      onSpinChange?.(spinDeg);
+      if (markerClock && markerHours !== null) {
+        markerClock.draw(`地方时 ${formatClock(markerHours)}`);
+      }
+      onClock?.({ spinAngle: spinDeg, subsolarLon, markerHours });
     }
 
     // 世界标签按距离缩放，保持屏幕尺寸基本恒定
@@ -1199,12 +1492,23 @@ function buildEngine(container: HTMLDivElement): Engine {
         }
       }
     });
-    earthMaterial.uniforms.dayMap.value?.dispose();
+    earthTexture?.dispose();
     earthMaterial.dispose();
+    overlayMaterial.dispose();
     renderer.dispose();
     if (renderer.domElement.parentElement === container) {
       container.removeChild(renderer.domElement);
     }
+  }
+
+  /* ---- 地表素材：影像 / 纯白（纯白优先，两者互斥） ---- */
+  let earthTexture: THREE.Texture | null = null;
+  const surfaceState = { texture: true, white: false };
+  function applySurface(): void {
+    const hasTex = surfaceState.texture && !surfaceState.white && earthTexture ? 1 : 0;
+    earthMaterial.uniforms.uHasTex.value = hasTex;
+    earthMaterial.uniforms.dayMap.value = hasTex ? earthTexture : null;
+    earthMaterial.uniforms.uWhite.value = surfaceState.white ? 1 : 0;
   }
 
   const engine: Engine = {
@@ -1216,6 +1520,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     tiltGroup,
     earthMesh,
     earthMaterial,
+    overlayMaterial,
     gridGroup,
     equatorGroup,
     tropicsGroup,
@@ -1235,8 +1540,23 @@ function buildEngine(container: HTMLDivElement): Engine {
     earthTexture: null,
     autoRotateWanted: true,
     setOrbitNu,
+    setSpinAngle: (deg: number) => {
+      spinAngle = deg;
+      spinGroup.rotation.y = spinAngle * DEG;
+      updateSubsolarLon();
+    },
+    readSpinAngle: () => ((spinAngle % 360) + 360) % 360,
+    setSpinDragging: (active: boolean) => {
+      spinDragging = active;
+    },
+    applySurface: (options: { texture: boolean; white: boolean }) => {
+      surfaceState.texture = options.texture;
+      surfaceState.white = options.white;
+      applySurface();
+    },
     readDeclination: () => declination,
     readNu: () => nu,
+    readSubsolarLon: () => subsolarLon,
     setView: (key: ViewKey) => {
       if (key === "orbit") {
         applyOrbitView();
@@ -1303,9 +1623,41 @@ function buildEngine(container: HTMLDivElement): Engine {
     },
     onNuChange: null,
     onViewChange: null,
+    onSpinChange: null,
+    onClock: null,
     dispose,
     placeMarker,
     clearMarker,
+    readMarkerDebug: () => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const toScreen = (v: THREE.Vector3) => {
+        const n = v.clone().project(camera);
+        return {
+          x: +((n.x * 0.5 + 0.5) * rect.width).toFixed(1),
+          y: +((-n.y * 0.5 + 0.5) * rect.height).toFixed(1)
+        };
+      };
+      const head = markerGroup.children[0];
+      const wp = new THREE.Vector3();
+      if (head) {
+        head.getWorldPosition(wp);
+      }
+      return {
+        children: markerGroup.children.length,
+        worldPos: [+wp.x.toFixed(3), +wp.y.toFixed(3), +wp.z.toFixed(3)],
+        screen: toScreen(wp),
+        earthScreen: toScreen(earthPos),
+        latLon: markerLatLon ? { ...markerLatLon } : null
+      };
+    },
+    readVisibility: () => ({
+      grid: gridGroup.visible,
+      equator: equatorGroup.visible,
+      climate: overlayMaterial.uniforms.uClimate.value === 1,
+      timezone: overlayMaterial.uniforms.uTz.value === 1,
+      white: earthMaterial.uniforms.uWhite.value === 1,
+      hasTex: earthMaterial.uniforms.uHasTex.value === 1
+    }),
     focusLatLon: (lat: number, lon: number, distance = 3) => {
       viewState.current = "earth";
       const dir = localFromLatLon(lat, lon).applyQuaternion(tiltGroup.quaternion).normalize();
@@ -1328,6 +1680,18 @@ function buildEngine(container: HTMLDivElement): Engine {
       onViewChange = fn;
     }
   });
+  Object.defineProperty(engine, "onSpinChange", {
+    get: () => onSpinChange,
+    set: (fn: ((deg: number) => void) | null) => {
+      onSpinChange = fn;
+    }
+  });
+  Object.defineProperty(engine, "onClock", {
+    get: () => onClock,
+    set: (fn: ((payload: ClockPayload) => void) | null) => {
+      onClock = fn;
+    }
+  });
 
   // 纹理异步加载（失败时保持深蓝球体，线条教学仍可用）。
   new THREE.TextureLoader().load(
@@ -1335,9 +1699,10 @@ function buildEngine(container: HTMLDivElement): Engine {
     (texture) => {
       texture.colorSpace = THREE.NoColorSpace;
       texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      earthTexture = texture;
       engine.earthTexture = texture;
-      earthMaterial.uniforms.dayMap.value = texture;
-      earthMaterial.uniforms.uHasTex.value = 1;
+      // 贴图是异步到达的，这里必须按当前「影像 / 纯白」状态重新决定是否启用
+      applySurface();
     },
     undefined,
     () => {
@@ -1375,21 +1740,68 @@ function formatDecl(decl: number): string {
   return `${decl > 0 ? "北纬" : "南纬"} ${Math.abs(decl).toFixed(1)}°`;
 }
 
-const LAYER_DEFS: { key: keyof LayerState; label: string; color: string }[] = [
-  { key: "texture", label: "地球影像", color: "#3f6b4f" },
-  { key: "grid", label: "经纬网（30°）", color: "#ffffff" },
-  { key: "equator", label: "赤道 0°", color: "#ff3b30" },
-  { key: "tropics", label: "南北回归线 23.5°", color: "#ffa502" },
-  { key: "polar", label: "南北极圈 66.5°", color: "#2ee6ff" },
-  { key: "meridian", label: "本初子午线 0°", color: "#8f6bff" },
-  { key: "axis", label: "地轴", color: "#f2e8d5" },
-  { key: "orbit", label: "公转轨道·近远日点", color: "#9fb6d8" },
-  { key: "terminator", label: "晨昏线（昼夜分界）", color: "#ffd34d" },
-  { key: "sunDisplay", label: "太阳", color: "#ffdf6b" },
-  { key: "rays", label: "平行太阳光", color: "#ffc23d" },
-  { key: "subsolar", label: "太阳直射点", color: "#ff8c3a" },
-  { key: "zone", label: "太阳直射带（回归线间）", color: "#ffc23d" },
-  { key: "stars", label: "星空背景", color: "#8ea2c9" }
+/** 经度 → "120°E" 这种紧凑写法（用于时区中央经线） */
+function formatMeridian(lon: number): string {
+  const v = ((lon % 360) + 360) % 360;
+  const w = v > 180 ? 360 - v : v;
+  const dir = w === 0 || w === 180 ? "" : v < 180 ? "E" : "W";
+  return `${w % 1 === 0 ? w.toFixed(0) : w.toFixed(1)}°${dir}`;
+}
+
+/** 公转旋钮的四条刻度：二分二至在轨道上的真实位置 */
+const SEASON_TICKS: KnobTick[] = SEASONS.map((item, index) => ({
+  value: item.nu,
+  label: ["春", "夏", "秋", "冬"][index],
+  color: "#c98a1e",
+  strong: true
+}));
+
+/** 自转旋钮的辅助刻度 */
+const SPIN_TICKS: KnobTick[] = [0, 90, 180, 270].map((value) => ({
+  value,
+  color: "#7d8899"
+}));
+
+interface LayerDef {
+  key: keyof LayerState;
+  label: string;
+  color: string;
+}
+
+/** 图层按用途分组，避免十几个开关堆成一坨不好找 */
+const LAYER_GROUPS: { title: string; items: LayerDef[] }[] = [
+  {
+    title: "地球表面",
+    items: [
+      { key: "texture", label: "地球影像", color: "#3f6b4f" },
+      { key: "white", label: "纯白地球（不贴影像）", color: "#ffffff" },
+      { key: "climate", label: "五带（热·温·寒）", color: "#ff6b3d" },
+      { key: "timezone", label: "全球时区（24 个）", color: "#5a86ff" },
+      { key: "terminator", label: "晨昏线（昼夜分界）", color: "#ffd34d" },
+      { key: "subsolar", label: "太阳直射点", color: "#ff8c3a" },
+      { key: "zone", label: "太阳直射带（回归线间）", color: "#ffc23d" }
+    ]
+  },
+  {
+    title: "线网",
+    items: [
+      { key: "grid", label: "经纬网（每 15°）", color: "#ffffff" },
+      { key: "equator", label: "赤道 0°", color: "#ff3b30" },
+      { key: "tropics", label: "南北回归线 23.5°", color: "#ffa502" },
+      { key: "polar", label: "南北极圈 66.5°", color: "#2ee6ff" },
+      { key: "meridian", label: "本初子午线 0°", color: "#8f6bff" },
+      { key: "axis", label: "地轴", color: "#f2e8d5" }
+    ]
+  },
+  {
+    title: "太阳与公转",
+    items: [
+      { key: "orbit", label: "公转轨道·近远日点", color: "#9fb6d8" },
+      { key: "sunDisplay", label: "太阳", color: "#ffdf6b" },
+      { key: "rays", label: "平行太阳光", color: "#ffc23d" },
+      { key: "stars", label: "星空背景", color: "#8ea2c9" }
+    ]
+  }
 ];
 
 const VIEW_DEFS: { key: ViewKey; label: string }[] = [
@@ -1405,11 +1817,14 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
 
   const [layers, setLayers] = useState<LayerState>({
     texture: true,
+    white: false,
     grid: true,
     equator: true,
     tropics: true,
     polar: false,
     meridian: true,
+    climate: false,
+    timezone: false,
     axis: true,
     stars: true,
     orbit: true,
@@ -1425,6 +1840,15 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   const [view, setView] = useState<ViewKey>("orbit");
   const [spinning, setSpinning] = useState(false);
   const [rotating, setRotating] = useState(true);
+  const [spinDeg, setSpinDeg] = useState(0);
+  /** 自转旋钮拖动中的即时值（优先于引擎回传值，保证指针跟手） */
+  const [spinDragValue, setSpinDragValue] = useState<number | null>(null);
+  /** 引擎回传的时钟信息：直射经线 + 标记点地方时 */
+  const [clock, setClock] = useState<ClockPayload>({
+    spinAngle: 0,
+    subsolarLon: 0,
+    markerHours: null
+  });
 
   useEffect(() => {
     const container = mountRef.current;
@@ -1435,6 +1859,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     engineRef.current = engine;
     engine.onNuChange = (value: number) => setNu(value);
     engine.onViewChange = (key: ViewKey) => setView(key);
+    engine.onSpinChange = (deg: number) => setSpinDeg(deg);
+    engine.onClock = (payload: ClockPayload) => setClock(payload);
 
     // 点击球面读取经纬度（与拖拽区分：位移 < 6px 视为点击）。
     let downX = 0;
@@ -1500,6 +1926,17 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       }),
       readGeometry: () => engine.readGeometry(),
       readSubsolarLabelBox: () => engine.readSubsolarLabelBox(),
+      setSpin: (deg: number) => engine.setSpinAngle(deg),
+      readClock: () => ({
+        subsolarLon: engine.readSubsolarLon(),
+        spinDeg: engine.readSpinAngle()
+      }),
+      readMarkerHours: (lat: number, lon: number) =>
+        localHoursAt(lon, engine.readSubsolarLon()),
+      readMarkerDebug: () => engine.readMarkerDebug(),
+      readVisibility: () => engine.readVisibility(),
+      setLayers: (patch: Partial<LayerState>) =>
+        setLayers((prev) => ({ ...prev, ...patch })),
       view: (key: ViewKey) => {
         if (key === "earth") {
           engine.controls.autoRotate = false;
@@ -1540,13 +1977,11 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     engine.rayGroup.visible = layers.rays;
     engine.subsolarGroup.visible = layers.subsolar;
     engine.zoneGroup.visible = layers.zone;
-    const hasTex = layers.texture && engine.earthTexture ? 1 : 0;
-    if (engine.earthMaterial.uniforms.uHasTex.value !== hasTex) {
-      engine.earthMaterial.uniforms.uHasTex.value = hasTex;
-      engine.earthMaterial.uniforms.dayMap.value = layers.texture
-        ? engine.earthTexture
-        : null;
-    }
+    // 五带 / 时区叠加球壳
+    engine.overlayMaterial.uniforms.uClimate.value = layers.climate ? 1 : 0;
+    engine.overlayMaterial.uniforms.uTz.value = layers.timezone ? 1 : 0;
+    // 地表素材：纯白优先于影像（两者同时勾选时以纯白为准）
+    engine.applySurface({ texture: layers.texture, white: layers.white });
   }, [layers]);
 
   // 公转轨道与地球标签只在公转视角显示（特写时轨道会横穿地球、标签会遮挡画面）
@@ -1588,7 +2023,17 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   }, [nu, spinning]);
 
   function toggleLayer(key: keyof LayerState) {
-    setLayers((prev) => ({ ...prev, [key]: !prev[key] }));
+    setLayers((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      // 「地球影像」与「纯白地球」互斥：勾选其一会自动取消另一个，避免同时亮着却看不出效果
+      if (key === "white" && next.white) {
+        next.texture = false;
+      }
+      if (key === "texture" && next.texture) {
+        next.white = false;
+      }
+      return next;
+    });
   }
 
   function applySeason(key: SeasonKey) {
@@ -1649,33 +2094,67 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   const distanceAu = 1 - ORBIT_E * Math.cos(nu * DEG);
   const nearAphelion = distanceAu > 1;
 
+  /* ---- 地方时 / 区时 ---- */
+  // 太阳直射经线上地方时为 12:00，其余经线按「每向东 15° 早 1 小时」推算。
+  const markerHours = clock.markerHours;
+  const markerClockText = markerHours === null ? "--:--" : formatClock(markerHours);
+  const markerZone = marker ? zoneIndexOf(marker.lon) : 0;
+  // 区时 = 该时区中央经线上的地方时；与地方时的差值恒为 (中央经线 − 该地经度)/15 小时
+  const zoneHours = ((12 + markerZone - clock.subsolarLon / 15) % 24 + 24) % 24;
+  const localMinusZone =
+    marker === null ? 0 : ((marker.lon - markerZone * TZ_WIDTH) / TZ_WIDTH) * 60;
+  const nearestSeasonLabel =
+    SEASONS.find((item) => item.key === nearestKey)?.label ?? "";
+  const nearestSeasonText =
+    nearestD < 1.0 ? `正处${nearestSeasonLabel}` : `临近${nearestSeasonLabel}`;
+  const spinKnobValue = spinDragValue === null ? spinDeg : spinDragValue;
+
   return (
     <div className="globe-app">
       <div className="globe-canvas" ref={mountRef} />
 
       <header className="globe-title">
         <h1>寰宇地球仪</h1>
-        <span>公转轨道 · 昼夜四季交互演示</span>
+        <span>公转四季 · 昼夜五带 · 时区与地方时</span>
       </header>
 
       <aside className="globe-panel">
         <section>
           <h2>图层</h2>
-          <ul className="layer-list">
-            {LAYER_DEFS.map((item) => (
-              <li key={item.key}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={layers[item.key]}
-                    onChange={() => toggleLayer(item.key)}
-                  />
-                  <span className="layer-chip" style={{ background: item.color }} />
-                  <span className="layer-label">{item.label}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          {LAYER_GROUPS.map((group) => (
+            <div className="layer-group" key={group.title}>
+              <div className="layer-group-title">{group.title}</div>
+              <ul className="layer-list">
+                {group.items.map((item) => (
+                  <li key={item.key}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={layers[item.key]}
+                        onChange={() => toggleLayer(item.key)}
+                      />
+                      <span className="layer-chip" style={{ background: item.color }} />
+                      <span className="layer-label">{item.label}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <div className="zone-legend">
+            <span>
+              <i style={{ background: "#ff6b3d" }} />
+              热带
+            </span>
+            <span>
+              <i style={{ background: "#4ddc7a" }} />
+              温带
+            </span>
+            <span>
+              <i style={{ background: "#59b8ff" }} />
+              寒带
+            </span>
+          </div>
         </section>
 
         <section>
@@ -1693,21 +2172,35 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
               </button>
             ))}
           </div>
-          <label className="decl-slider">
-            <span>公转位置</span>
-            <input
-              type="range"
-              min={0}
-              max={360}
-              step={0.5}
+          <div className="knob-row">
+            <Knob
               value={nu}
-              onChange={(event) => {
+              size={124}
+              accent="#e0a83c"
+              ticks={SEASON_TICKS}
+              ariaLabel="公转位置旋钮"
+              onDrag={(deg) => {
                 setSpinning(false);
-                setNu(Number(event.target.value));
+                setNu(deg);
               }}
             />
-            <strong>{nu.toFixed(0)}°</strong>
-          </label>
+            <div className="knob-meta">
+              <span className="knob-name">公转位置</span>
+              <strong className="knob-value">{nu.toFixed(0)}°</strong>
+              <span className="knob-sub">{nearestSeasonText}</span>
+              <button
+                type="button"
+                className={spinning ? "spin-btn is-on" : "spin-btn"}
+                onClick={() => setSpinning((v) => !v)}
+              >
+                {spinning ? "演示中" : "自动公转"}
+              </button>
+            </div>
+          </div>
+          <p className="knob-hint">
+            按住圆盘旋钮转动即可自由调整公转位置，刻度为二分二至（春夏秋冬）。
+          </p>
+
           <div className="readout-row">
             <span>太阳直射点</span>
             <strong>{formatDecl(declination)}</strong>
@@ -1718,25 +2211,56 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
               {distanceAu.toFixed(3)} AU{nearAphelion ? "（偏远）" : "（偏近）"}
             </strong>
           </div>
-          <button
-            type="button"
-            className={spinning ? "spin-btn is-on" : "spin-btn"}
-            onClick={() => setSpinning((v) => !v)}
-          >
-            {spinning ? "公转演示：运行中" : "公转演示：已暂停"}
-          </button>
-          <button
-            type="button"
-            className={rotating ? "spin-btn is-on" : "spin-btn"}
-            onClick={() => setRotating((v) => !v)}
-          >
-            {rotating ? "地球自转：运行中" : "地球自转：已暂停"}
-          </button>
           <p className="season-note">{seasonNote}</p>
         </section>
 
         <section>
-          <h2>坐标读取</h2>
+          <h2>自转与地方时</h2>
+          <div className="knob-row">
+            <Knob
+              value={spinKnobValue}
+              size={124}
+              accent="#3f8cff"
+              wrap={false}
+              ticks={SPIN_TICKS}
+              ariaLabel="地球自转旋钮"
+              onDrag={(deg) => {
+                setSpinDragValue(deg);
+                engineRef.current?.setSpinAngle(deg);
+              }}
+              onDragStart={() => engineRef.current?.setSpinDragging(true)}
+              onDragEnd={() => {
+                engineRef.current?.setSpinDragging(false);
+                setSpinDragValue(null);
+              }}
+            />
+            <div className="knob-meta">
+              <span className="knob-name">地球自转</span>
+              <strong className="knob-value">{Math.round(spinDeg)}°</strong>
+              <span className="knob-sub">可一圈圈连续转动</span>
+              <button
+                type="button"
+                className={rotating ? "spin-btn is-on" : "spin-btn"}
+                onClick={() => setRotating((v) => !v)}
+              >
+                {rotating ? "自转中" : "已暂停"}
+              </button>
+            </div>
+          </div>
+          <p className="knob-hint">
+            拖动旋钮可手动转动地球，松手后若「自转中」会继续自动转。
+          </p>
+          <div className="readout-row">
+            <span>太阳直射经线</span>
+            <strong>{formatLon(clock.subsolarLon)}</strong>
+          </div>
+          <p className="teach-note">
+            太阳直射经线的地方时恒为 <b>12:00</b>；每向东 15°，地方时早 1 小时。
+          </p>
+        </section>
+
+        <section>
+          <h2>坐标读取 · 地方时</h2>
           {marker ? (
             <div className="coord-card">
               <div className="coord-row">{formatLat(marker.lat)}</div>
@@ -1744,15 +2268,30 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
               <div className="coord-decimal">
                 {marker.lat.toFixed(2)}°, {marker.lon.toFixed(2)}°
               </div>
+              <div className="coord-time">
+                地方时 <strong>{markerClockText}</strong>
+              </div>
+              <div className="coord-meta">
+                {formatZone(marker.lon)}（中央经线 {formatMeridian(markerZone * TZ_WIDTH)}）
+                · 区时 {formatClock(zoneHours)}
+              </div>
+              <div className="coord-meta">
+                与区时相差 {localMinusZone >= 0 ? "+" : "−"}
+                {Math.abs(Math.round(localMinusZone))} 分钟
+              </div>
               <button type="button" className="coord-clear" onClick={clearMarkerClick}>
                 清除标记
               </button>
             </div>
           ) : (
             <p className="coord-empty">
-              切到「地球特写」后点击球面任意位置，即可读取该点的经纬度。
+              切到「地球特写」后点击球面任意位置，即可读取该点经纬度与当地地方时。
             </p>
           )}
+          <p className="teach-note">
+            <b>地方时</b>：太阳位于该地正上方时为正午 12:00，随地球自转持续变化。
+            由于地球自西向东转，<b>东边比西边先看到日出</b>，每向东 15° 地方时早 1 小时。
+          </p>
         </section>
 
         <section>
@@ -1803,7 +2342,7 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       </aside>
 
       <footer className="globe-hint">
-        拖动旋转 · 滚轮缩放 · 俯视轨道看四个节气位置 · 切「地球特写」点击球面读经纬度
+        拖动旋转 · 滚轮缩放 · 旋钮调自转与公转 · 切「地球特写」点击球面读经纬度与地方时
       </footer>
     </div>
   );

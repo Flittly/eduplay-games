@@ -89,7 +89,7 @@ input {
   top: 16px;
   right: 16px;
   bottom: 60px;
-  width: 252px;
+  width: 272px;
   background: var(--paper);
   color: var(--ink);
   border: 3px solid #2b2620;
@@ -148,6 +148,106 @@ input {
   font-weight: 800;
 }
 
+/* 图层分组 */
+.layer-group + .layer-group {
+  margin-top: 10px;
+}
+
+.layer-group-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  color: rgba(43, 38, 32, 0.55);
+  margin-bottom: 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(43, 38, 32, 0.18);
+}
+
+/* 五带图例 */
+.zone-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 9px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #4a4033;
+}
+
+.zone-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.zone-legend i {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid #2b2620;
+}
+
+/* 旋钮 */
+.knob-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 6px;
+}
+
+.knob-dial {
+  flex: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.knob-dial.is-dragging {
+  cursor: grabbing;
+}
+
+.knob-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.knob-name {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  color: var(--brown);
+}
+
+.knob-value {
+  font-size: 22px;
+  line-height: 1.1;
+  color: #8a5a12;
+}
+
+.knob-sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b6154;
+}
+
+.knob-meta .spin-btn {
+  margin-top: 4px;
+  width: auto;
+  padding: 5px 12px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.knob-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  font-weight: 700;
+  color: rgba(43, 38, 32, 0.66);
+}
+
 /* 坐标读取 */
 .coord-card {
   background: #fdf8ec;
@@ -170,6 +270,30 @@ input {
   font-size: 11px;
   color: rgba(43, 38, 32, 0.65);
   font-weight: 700;
+}
+
+.coord-time {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 2px dashed rgba(43, 38, 32, 0.3);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #4a4033;
+}
+
+.coord-time strong {
+  font-size: 22px;
+  color: #a3160b;
+  letter-spacing: 0.04em;
+}
+
+.coord-meta {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.6;
+  font-weight: 700;
+  color: rgba(43, 38, 32, 0.7);
 }
 
 .coord-clear {
@@ -256,33 +380,6 @@ input {
 
 .season-btn.is-active small {
   color: #5c3d08;
-}
-
-/* 直射点纬度滑杆 */
-.decl-slider {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0 8px;
-  font-size: 12px;
-  font-weight: 900;
-  color: #2b2620;
-}
-
-.decl-slider span {
-  flex-shrink: 0;
-}
-
-.decl-slider input[type="range"] {
-  flex: 1;
-  accent-color: #e0a83c;
-}
-
-.decl-slider strong {
-  flex-shrink: 0;
-  min-width: 62px;
-  text-align: right;
-  color: #8a5a12;
 }
 
 /* 季节说明 */
@@ -392,7 +489,7 @@ input {
 /* ---------- 窄屏 ---------- */
 @media (max-width: 760px) {
   .globe-panel {
-    width: 210px;
+    width: 236px;
     top: auto;
     bottom: 56px;
     max-height: 52vh;
