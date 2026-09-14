@@ -455,7 +455,7 @@ export default function App({ roster }: { roster: PlayerInfo[] }) {
           <span className="lq-logo">地</span>
           <div>
             <strong>地貌人格测试</strong>
-            <em>15 道题，看看你的性格像地球上哪一种地貌</em>
+            <em>20 道题，看看你的性格像地球上哪一种地貌</em>
           </div>
         </div>
         <div className="lq-header-right">
@@ -469,7 +469,8 @@ export default function App({ roster }: { roster: PlayerInfo[] }) {
           <h2 className="intro-title">你的性格，是哪一片大地？</h2>
           <p className="intro-sub">
             我们把人比作地貌，不是随口比喻——地貌的五个属性，恰好对应人格的五个侧面：
-            它有多热、有多高、有多硬、有多动、有多润。答完 15 道题，你会得到一条专属的人格曲线，
+            它有多热、有多高、有多硬、有多动、有多润。20 道题都从真实的地理情境出发——
+            气候带、河流、溶洞、冰川、高原、时区、板块……答完你会得到一条专属的人格曲线，
             再拿它去和 {data.landforms.length} 处真实地貌一一比对，最接近的那一处，就是你。
           </p>
 

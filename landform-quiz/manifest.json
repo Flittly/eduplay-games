@@ -1,7 +1,7 @@
 {
   "gameCode": "landform_quiz",
   "name": "地貌人格测试",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
@@ -9,5 +9,5 @@
   "entry": "web/index.html",
   "cover": "web/cover.svg",
   "backendPlugin": null,
-  "description": "答 15 道题，测出你的性格像地球上哪一种地貌。把温度、起伏、质地、动态、水意五个地貌属性映射到人格的五个侧面，在国内 40 处、国外 40 处共 80 处真实地貌中找出最接近你的一处，配真实照片与合规微缩地图，另附可筛选的全地貌图鉴。"
+  "description": "答 20 道题，测出你的性格像地球上哪一种地貌。把温度、起伏、质地、动态、水意五个地貌属性映射到人格的五个侧面，在国内 40 处、国外 40 处共 80 处真实地貌中找出最接近你的一处，配真实照片与合规微缩地图，另附可筛选的全地貌图鉴。"
 }

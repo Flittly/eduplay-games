@@ -1,7 +1,7 @@
 /** 制作者信息 —— 唯一来源，页面页脚与「导出结果长图」都从这里取，避免两处不一致 */
 export const BRAND = {
   game: "地貌人格测试",
-  tagline: "15 道题，看看你的性格像地球上哪一种地貌",
+  tagline: "20 道题，看看你的性格像地球上哪一种地貌",
   maker: "奇偶瓜肥实验室",
   /** 二维码（由用户提供的小红书名片裁切而来，见 scripts/make_qr_asset.py） */
   qr: "./assets/brand/qr.png",

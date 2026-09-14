@@ -6,7 +6,7 @@ import type { PlayerInfo } from "./types";
 import "./styles.css";
 
 const gameCode = "landform_quiz";
-const version = "1.2.0";
+const version = "1.3.0";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {
