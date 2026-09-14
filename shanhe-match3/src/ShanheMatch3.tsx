@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   computeCovered,
-  findHintGroup,
+  findHintInfo,
   generateLayout,
   getProvince,
+  KIND_LABEL,
   LEVELS,
   TILE_KINDS
 } from "./gameData";
@@ -37,21 +38,35 @@ const SCORE_PER_GROUP = 10;
 const HINT_COST = 5;
 const UNDO_COST = 2;
 const WIN_BONUS = 20;
+/** 悔棋历史栈上限，避免长关卡无限增长 */
+const HISTORY_LIMIT = 40;
 
 const TILE_W = 74;
 const TILE_H = 88;
 const CELL_W = 37;
 const CELL_H = 44;
 
-const KIND_LABEL: Record<TileKind, string> = {
-  shape: "轮廓",
-  abbr: "简称",
-  capital: "省会"
-};
-
 const ARCHIVE_KEY = "shanhe_match3:mistakes:v1";
 
 type Archive = Record<string, Record<string, number>>;
+
+/** 一步操作前的完整局面，供悔棋精确回退 */
+interface Snapshot {
+  board: Tile[];
+  tray: Tile[];
+  cleared: string[];
+  score: number;
+}
+
+/** 消除成功后的记忆弹窗；若这一手同时结束本局，把结算延后到关弹窗时执行 */
+interface MatchCard {
+  provinceId: string;
+  outcome: {
+    won: boolean;
+    score: number;
+    cleared: string[];
+  } | null;
+}
 
 function loadArchive(): Archive {
   try {
@@ -139,6 +154,7 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
   const [cleared, setCleared] = useState<string[]>([]);
   const [hinted, setHinted] = useState<string[]>([]);
   const [hintHighlight, setHintHighlight] = useState<number[]>([]);
+  const [hintMessage, setHintMessage] = useState<string | null>(null);
   const [hintsLeft, setHintsLeft] = useState(MAX_HINTS);
   const [undosLeft, setUndosLeft] = useState(MAX_UNDOS);
   const [score, setScore] = useState(0);
@@ -147,18 +163,21 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
     "idle"
   );
   const [trayBump, setTrayBump] = useState(0);
+  const [history, setHistory] = useState<Snapshot[]>([]);
+  const [matchCard, setMatchCard] = useState<MatchCard | null>(null);
 
   const covered = useMemo(() => computeCovered(board), [board]);
 
   useEffect(() => {
-    if (status !== "playing") {
+    // 记忆弹窗打开时暂停计时：读三要素卡片不该被计入用时
+    if (status !== "playing" || matchCard) {
       return;
     }
     const timer = window.setInterval(() => {
       setSeconds((value) => value + 1);
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [status]);
+  }, [matchCard, status]);
 
   const startLevel = useCallback((def: LevelDef) => {
     setLevel(def);
@@ -167,11 +186,14 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
     setCleared([]);
     setHinted([]);
     setHintHighlight([]);
+    setHintMessage(null);
     setHintsLeft(MAX_HINTS);
     setUndosLeft(MAX_UNDOS);
     setScore(0);
     setSeconds(0);
     setStatus("playing");
+    setHistory([]);
+    setMatchCard(null);
   }, []);
 
   const endRound = useCallback(
@@ -206,12 +228,13 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
 
   const pickTile = useCallback(
     (tile: Tile) => {
-      if (status !== "playing" || covered.has(tile.uid)) {
+      if (status !== "playing" || matchCard || covered.has(tile.uid)) {
         return;
       }
       const nextBoard = board.filter((item) => item.uid !== tile.uid);
       const nextTray = [...tray, tile];
       setHintHighlight([]);
+      setHintMessage(null);
 
       const kinds = new Set(
         nextTray
@@ -221,6 +244,13 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
       const complete = TILE_KINDS.every((kind) => kinds.has(kind));
 
       if (!complete) {
+        // 记下这一手之前的局面，悔棋时精确回到这里
+        setHistory((prev) => {
+          const next = [...prev, { board, tray, cleared, score }];
+          return next.length > HISTORY_LIMIT
+            ? next.slice(next.length - HISTORY_LIMIT)
+            : next;
+        });
         setBoard(nextBoard);
         setTray(nextTray);
         if (nextTray.length >= TRAY_SIZE) {
@@ -228,6 +258,11 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
         }
         return;
       }
+
+      // 消除成功 = 本局检查点：这一组已计分、也弹过记忆卡，
+      // 悔棋不能再把它变回卡槽/牌面（否则卡槽瞬间被塞满，消除计数与评分也被推翻）。
+      // 所以清空历史栈 —— 悔棋只能回退「这次消除之后」的操作。
+      setHistory([]);
 
       const finalTray = nextTray.filter(
         (item) => item.provinceId !== tile.provinceId
@@ -240,43 +275,69 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
       setCleared(nextCleared);
       setTrayBump(Date.now());
 
-      if (nextBoard.length === 0 && finalTray.length === 0) {
-        endRound(true, nextScore, nextCleared);
-      } else if (nextBoard.length === 0) {
-        // 牌堆已空但卡槽还有凑不齐的组合，无法继续
-        endRound(false, nextScore, nextCleared);
-      }
+      // 消除成功 → 弹窗把三要素再重复一遍（帮助学生记忆）。
+      // 若这一手同时把本局打完，把结算推迟到弹窗关闭之后，学生仍能看到最后一组。
+      const boardEmpty = nextBoard.length === 0;
+      setMatchCard({
+        provinceId: tile.provinceId,
+        outcome: boardEmpty
+          ? { won: finalTray.length === 0, score: nextScore, cleared: nextCleared }
+          : null
+      });
     },
-    [board, cleared, covered, endRound, score, status, tray]
+    [board, cleared, covered, matchCard, score, status, tray]
   );
 
+  const dismissMatchCard = useCallback(() => {
+    const card = matchCard;
+    setMatchCard(null);
+    if (card?.outcome) {
+      endRound(card.outcome.won, card.outcome.score, card.outcome.cleared);
+    }
+  }, [endRound, matchCard]);
+
   const handleHint = useCallback(() => {
-    if (status !== "playing" || hintsLeft <= 0) {
+    if (status !== "playing" || matchCard || hintsLeft <= 0) {
       return;
     }
-    const group = findHintGroup(board, tray);
-    if (!group) {
+    const info = findHintInfo(board, tray, TRAY_SIZE);
+    if (!info) {
       return;
     }
-    setHintHighlight(group.tileUids);
+    setHintHighlight(info.tileUids);
+    setHintMessage(info.message);
     setHintsLeft((value) => value - 1);
     setScore((value) => Math.max(0, value - HINT_COST));
     setHinted((prev) =>
-      prev.includes(group.provinceId) ? prev : [...prev, group.provinceId]
+      prev.includes(info.provinceId) ? prev : [...prev, info.provinceId]
     );
-  }, [board, hintsLeft, status, tray]);
+  }, [board, hintsLeft, matchCard, status, tray]);
 
   const handleUndo = useCallback(() => {
-    if (status !== "playing" || undosLeft <= 0 || tray.length === 0) {
+    if (
+      status !== "playing" ||
+      matchCard ||
+      undosLeft <= 0 ||
+      history.length === 0
+    ) {
       return;
     }
-    const last = tray[tray.length - 1];
-    setBoard((prev) => [...prev, last]);
-    setTray((prev) => prev.slice(0, -1));
+    const prev = history[history.length - 1];
+    // 双保险：任何会让「已消除的组复活」的快照都不执行 —— 消除是检查点
+    if (prev.cleared.length !== cleared.length) {
+      setHistory([]);
+      return;
+    }
+    setHistory((stack) => stack.slice(0, -1));
+    setBoard(prev.board);
+    setTray(prev.tray);
+    setCleared(prev.cleared);
+    // 先回到上一手之前的分值，再扣掉本次悔棋的代价
+    setScore(Math.max(0, prev.score - UNDO_COST));
     setUndosLeft((value) => value - 1);
-    setScore((value) => Math.max(0, value - UNDO_COST));
     setHintHighlight([]);
-  }, [status, tray, undosLeft]);
+    setHintMessage(null);
+  }, [cleared.length, history, matchCard, status, undosLeft]);
 
   const finishSession = useCallback(() => {
     if (records.length > 0) {
@@ -287,6 +348,10 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
     setLevel(null);
     setBoard([]);
     setTray([]);
+    setHistory([]);
+    setMatchCard(null);
+    setHintHighlight([]);
+    setHintMessage(null);
   }, [onSessionEnd, records]);
 
   if (!player) {
@@ -361,6 +426,18 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
   const boardWidth = level.cols * CELL_W + TILE_W;
   const boardHeight = level.rows * CELL_H + TILE_H;
   const remainingGroups = level.provinceIds.length - cleared.length;
+  const matchProvince = matchCard ? getProvince(matchCard.provinceId) : null;
+
+  // 消除即检查点：刚消除完、手上没有可悔的棋时，把「按钮为什么是灰的」说清楚
+  const undoLockedByCheckpoint =
+    status === "playing" &&
+    !matchCard &&
+    !hintMessage &&
+    history.length === 0 &&
+    cleared.length > 0 &&
+    undosLeft > 0;
+  const lastClearedName =
+    cleared.length > 0 ? getProvince(cleared[cleared.length - 1]).name : null;
 
   return (
     <div className="game">
@@ -391,16 +468,26 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
           <button
             className="control-btn"
             onClick={handleHint}
-            disabled={hintsLeft <= 0 || status !== "playing"}
+            disabled={hintsLeft <= 0 || status !== "playing" || Boolean(matchCard)}
           >
             提示 ×{hintsLeft}
           </button>
           <button
             className="control-btn is-secondary"
             onClick={handleUndo}
-            disabled={undosLeft <= 0 || tray.length === 0 || status !== "playing"}
+            disabled={
+              undosLeft <= 0 ||
+              history.length === 0 ||
+              status !== "playing" ||
+              Boolean(matchCard)
+            }
+            title={
+              history.length === 0
+                ? "已消除的组合是检查点、不可悔棋；点一张牌之后才有可退回的棋"
+                : "悔棋：把上一张牌退回它原来的位置（每次 -2 分）"
+            }
           >
-            撤回 ×{undosLeft}
+            悔棋 ×{undosLeft}
           </button>
         </div>
       </header>
@@ -443,6 +530,24 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
           </div>
         </div>
 
+        <div
+          className={`hint-bar${hintMessage ? " is-on" : ""}${
+            undoLockedByCheckpoint ? " is-note" : ""
+          }`}
+        >
+          <span className="hint-bar-label">
+            {undoLockedByCheckpoint ? "检查点" : "提示"}
+          </span>
+          <p className="hint-bar-text">
+            {hintMessage ??
+              (undoLockedByCheckpoint
+                ? `刚消除的【${
+                    lastClearedName ?? "这一组"
+                  }】已计分，这一组不会因悔棋回来；再点一张牌才有可悔的棋。`
+                : "卡槽里凑齐同省【轮廓 + 简称 + 省会】即消除；僵局时点右上角「提示」看还差什么，点错可用「悔棋」退回上一张牌。")}
+          </p>
+        </div>
+
         <div className={`tray ${Date.now() - trayBump < 400 ? "is-bump" : ""}`}>
           <span className="tray-label">卡槽</span>
           <div className="tray-slots">
@@ -459,6 +564,11 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
                   ]
                     .filter(Boolean)
                     .join(" ")}
+                  aria-label={
+                    tile
+                      ? `${getProvince(tile.provinceId).name}${KIND_LABEL[tile.kind]}`
+                      : `空卡槽${index + 1}`
+                  }
                 >
                   {tile ? <TileFace tile={tile} /> : null}
                 </div>
@@ -468,6 +578,46 @@ export default function ShanheMatch3({ roster, onComplete, onSessionEnd }: Props
           <span className="tray-rule">同省三要素自动消除 · 满 6 格无组合则失败</span>
         </div>
       </main>
+
+      {matchCard && matchProvince ? (
+        <div className="overlay-mask">
+          <div className="match-card">
+            <span className="match-card-badge">消除成功</span>
+            <h2>{matchProvince.name}</h2>
+            <div className="match-faces">
+              {TILE_KINDS.map((kind) => (
+                <div key={kind} className={`tray-slot match-face kind-${kind}`}>
+                  <TileFace
+                    tile={{
+                      uid: -1,
+                      provinceId: matchCard.provinceId,
+                      kind,
+                      c: 0,
+                      r: 0,
+                      layer: 0
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="match-card-line">轮廓 × 简称 × 省会 三要素已集齐，再记一遍</p>
+            <p className="match-card-memory">
+              {matchProvince.name} · 简称「{matchProvince.abbr}」 · 行政中心{" "}
+              {matchProvince.capital}
+            </p>
+            {matchCard.outcome ? (
+              <p className="match-card-outcome">
+                {matchCard.outcome.won
+                  ? "最后一组也消除了，点「继续」查看成绩。"
+                  : "牌堆已空，点「继续」查看本局结果。"}
+              </p>
+            ) : null}
+            <button className="primary" onClick={dismissMatchCard}>
+              记住了，继续
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {status === "won" || status === "failed" ? (
         <div className="overlay-mask">

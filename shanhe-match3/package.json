@@ -1,11 +1,12 @@
 {
   "name": "@eduplay/shanhe-match3",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build"
+    "build": "tsc --noEmit && vite build",
+    "test:data": "rolldown src/gameData.ts --format cjs --file scripts/gameData.test.cjs && node scripts/solvability.test.cjs && node scripts/hint.test.cjs"
   },
   "dependencies": {
     "react": "^19.2.8",

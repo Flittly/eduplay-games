@@ -4,6 +4,13 @@ export type TileKind = "shape" | "abbr" | "capital";
 
 export const TILE_KINDS: TileKind[] = ["shape", "abbr", "capital"];
 
+/** 三要素的中文名，全局唯一来源（UI 与提示文案都从这里取） */
+export const KIND_LABEL: Record<TileKind, string> = {
+  shape: "轮廓",
+  abbr: "简称",
+  capital: "省会"
+};
+
 export interface ProvinceInfo {
   id: string;
   name: string;
@@ -104,7 +111,7 @@ function overlaps(a: { c: number; r: number }, b: { c: number; r: number }): boo
 
 /**
  * 贪心模拟：永远优先拾取能让卡槽进度最大的可点牌。
- * 通过 = 用「合理策略」也能通关（不用提示/撤回）。供生成器优选与测试脚本复用。
+ * 通过 = 用「合理策略」也能通关（不用提示/悔棋）。供生成器优选与测试脚本复用。
  */
 export function greedySolvable(tiles: Tile[]): boolean {
   let board = tiles.slice();
@@ -198,7 +205,7 @@ export function referenceSolvable(order: Tile[]): boolean {
  * 生成保证可通关的堆叠布局（对外入口）：
  * 1. 构造式算法给出一条参考取牌路径，并用 referenceSolvable 逐步实测；
  * 2. 在通过实测的布局里，优先挑选「贪心策略也能通关」的布局（最多重试 40 次）；
- * 3. 兜底返回实测有解的布局（深关卡本就需要策略与提示/撤回配合）。
+ * 3. 兜底返回实测有解的布局（深关卡本就需要策略与提示/悔棋配合）。
  */
 export function generateLayout(level: LevelDef): Tile[] {
   let fallback: Tile[] | null = null;
@@ -336,49 +343,159 @@ export function computeCovered(tiles: Tile[]): Set<number> {
   return covered;
 }
 
-export interface HintGroup {
+export interface HintInfo {
+  /** 被提示的省份 */
   provinceId: string;
+  /** 卡槽里已经拿到的要素 */
+  present: TileKind[];
+  /** 还差的要素 */
+  missing: TileKind[];
+  /** 需要高亮的牌（牌面上该省的牌 + 卡槽里已有的同省牌） */
   tileUids: number[];
+  /** 还差一张且这张现在就能点：按提示点它即可直接消除 */
   ready: boolean;
+  /** 可直接给老师/学生看的一句中文提示 */
+  message: string;
 }
 
+interface Candidate {
+  provinceId: string;
+  present: TileKind[];
+  missing: TileKind[];
+  /** 还差且当前可点击的牌 */
+  freeMissing: Tile[];
+  /** 还差但被上层压住的牌 */
+  blockedMissing: Tile[];
+  score: number;
+}
+
+const joinKinds = (kinds: TileKind[]): string =>
+  kinds.map((kind) => KIND_LABEL[kind]).join("、");
+
 /**
- * 寻找一组提示：优先返回「剩余牌全部在卡槽或已可点击」的省份，
- * 否则返回可点击牌数最多的省份作为引导。
+ * 生成一条「还差什么」的提示。
+ *
+ * 优先级（分数从高到低）：
+ *   1. 卡槽里已有两张、只差最后一张，且那张现在就能点 → 直接告诉学生点哪张即可消除；
+ *   2. 只差最后一张但被压住 → 告诉他先清障；
+ *   3. 已有两要素 / 已有单张 → 报出还差哪几个要素，并尽量指出可点的牌；
+ *   4. 全新组合 → 引导一个可点击的牌，说明它属于哪个省。
+ * 卡槽只剩 1 格时（再放一张就失败）在最前面加告警。
  */
-export function findHintGroup(
+export function findHintInfo(
   boardTiles: Tile[],
-  trayTiles: Tile[]
-): HintGroup | null {
+  trayTiles: Tile[],
+  traySize = 6
+): HintInfo | null {
   const covered = computeCovered(boardTiles);
-  const involved = new Map<number, { tile: Tile; inTray: boolean }>();
-  for (const tile of boardTiles) {
-    involved.set(tile.uid, { tile, inTray: false });
-  }
+
+  const trayKinds = new Map<string, Set<TileKind>>();
   for (const tile of trayTiles) {
-    involved.set(tile.uid, { tile, inTray: true });
+    const set = trayKinds.get(tile.provinceId) ?? new Set<TileKind>();
+    set.add(tile.kind);
+    trayKinds.set(tile.provinceId, set);
   }
 
-  const byProvince = new Map<string, Array<{ tile: Tile; inTray: boolean }>>();
-  for (const entry of involved.values()) {
-    const list = byProvince.get(entry.tile.provinceId) ?? [];
-    list.push(entry);
-    byProvince.set(entry.tile.provinceId, list);
+  const boardByProvince = new Map<string, Tile[]>();
+  for (const tile of boardTiles) {
+    const list = boardByProvince.get(tile.provinceId) ?? [];
+    list.push(tile);
+    boardByProvince.set(tile.provinceId, list);
   }
 
-  let best: HintGroup | null = null;
-  let bestScore = -1;
-  for (const [provinceId, list] of byProvince) {
-    const tileUids = list.map((item) => item.tile.uid);
-    const accessible = list.filter(
-      (item) => item.inTray || !covered.has(item.tile.uid)
-    );
-    const ready = accessible.length === list.length;
-    const score = (ready ? 100 : 0) + accessible.length;
-    if (score > bestScore) {
-      bestScore = score;
-      best = { provinceId, tileUids, ready };
+  let best: Candidate | null = null;
+
+  for (const [provinceId, list] of boardByProvince) {
+    const have = trayKinds.get(provinceId) ?? new Set<TileKind>();
+    const present = TILE_KINDS.filter((kind) => have.has(kind));
+    const missing = TILE_KINDS.filter((kind) => !have.has(kind));
+    if (missing.length === 0) {
+      // 卡槽里三要素已齐（正常流程里取到第三张就会立刻消除），跳过
+      continue;
+    }
+    const missingTiles = list.filter((tile) => missing.includes(tile.kind));
+    const freeMissing = missingTiles.filter((tile) => !covered.has(tile.uid));
+    const blockedMissing = missingTiles.filter((tile) => covered.has(tile.uid));
+
+    // 越接近消除的省份分越高；同样接近时，能马上点到的更高
+    let score: number;
+    if (missing.length === 1) {
+      score = 1000 + freeMissing.length * 50;
+    } else if (missing.length === 2) {
+      score = 500 + freeMissing.length * 10;
+    } else {
+      score = 200 + freeMissing.length;
+    }
+
+    const candidate: Candidate = {
+      provinceId,
+      present,
+      missing,
+      freeMissing,
+      blockedMissing,
+      score
+    };
+    if (!best || candidate.score > best.score) {
+      best = candidate;
     }
   }
-  return best;
+
+  if (!best) {
+    return null;
+  }
+
+  const name = getProvince(best.provinceId).name;
+  const missingText = joinKinds(best.missing);
+  const presentText = joinKinds(best.present);
+  const ready = best.missing.length === 1 && best.freeMissing.length > 0;
+  let body: string;
+
+  if (best.present.length === 2) {
+    body = ready
+      ? `卡槽里已有【${name}】的${presentText}，只差「${missingText}」——高亮的这张就是，点它即可消除。`
+      : `卡槽里已有【${name}】的${presentText}，只差「${missingText}」，但那张牌现在被压住了，先取走压在上层的牌。`;
+  } else if (best.present.length === 1) {
+    body = `卡槽里已有【${name}】的${presentText}，还差 ${missingText} 各一张。`;
+    if (best.freeMissing.length > 0) {
+      body += "高亮的牌现在就能点。";
+    } else if (best.blockedMissing.length > 0) {
+      body += "还差的牌被压住了，先清掉上层。";
+    }
+  } else {
+    const firstFree = best.freeMissing[0];
+    if (firstFree) {
+      // 已高亮的那张不必再列进「再凑齐」，否则读起来自相矛盾
+      const rest = best.missing.filter((kind) => kind !== firstFree.kind);
+      body = `高亮这张「${KIND_LABEL[firstFree.kind]}」属于【${name}】，再凑齐同省的 ${joinKinds(
+        rest
+      )} 就能消除。`;
+    } else {
+      body = `牌堆里还有【${name}】的 ${missingText}，先把压在上层的牌取走。`;
+    }
+  }
+
+  const pressure =
+    trayTiles.length >= traySize - 1
+      ? `卡槽只剩 ${traySize - trayTiles.length} 格，再放一张就失败！`
+      : "";
+  const message = pressure ? `${pressure}${body}` : body;
+
+  // 高亮：可点的缺口牌 + 卡槽里已到手的同省牌；若缺口全被压住就高亮全部缺口牌
+  const highlightMissing =
+    best.freeMissing.length > 0 ? best.freeMissing : best.blockedMissing;
+  const tileUids = [
+    ...highlightMissing.map((tile) => tile.uid),
+    ...trayTiles
+      .filter((tile) => tile.provinceId === best.provinceId)
+      .map((tile) => tile.uid)
+  ];
+
+  return {
+    provinceId: best.provinceId,
+    present: best.present,
+    missing: best.missing,
+    tileUids,
+    ready,
+    message
+  };
 }
