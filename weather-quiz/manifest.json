@@ -1,0 +1,14 @@
+{
+  "gameCode": "weather_quiz",
+  "name": "气象要素识别",
+  "version": "1.0.0",
+  "minPlatformVersion": "0.1.0",
+  "maxPlatformVersion": "1.0.0",
+  "type": "iframe",
+  "sdkVersion": "1",
+  "entry": "web/index.html",
+  "cover": "web/cover.svg",
+  "backendPlugin": null,
+  "requiresRoster": true,
+  "description": "看图片认气象要素：100 道题分初中、高中两组，覆盖天气符号、真实气象照片、气温降水统计图与天气系统示意图，另有 88 条要素图鉴可随时查阅。"
+}

@@ -73,6 +73,25 @@
 同下标必同名 ⇒ 左侧押 0 号、若被锁定则右侧也押 0 号，必然复现"双方都答错"。
 然后断言每题题号都 +1、最后能进结果页。脚本见 `.workbuddy/tmp/pkverify/shot.js`。
 
+## 双人 PK 的固定结构：先「出战安排」，再对战（v1.0.0 起）
+
+平台下发的 roster 常常不止 2 人，而 PK 一次只能上 2 个。旧版 `DualQuiz` **根本不接 roster**，
+大屏只有"左侧玩家 / 右侧玩家"，而且第 3 个人起完全无从上场 —— 两个游戏都犯过。
+
+- **三阶段**：`arrange → battle → result`。`arrange` 页 = 左/右席各一个候选人按钮组
+  （全部学生都在里面）+ 下方「候场 N 人」有序列表。
+  换人规则：**点对面席上的人 = 两边对调**；**点候场的人 = 他上台、原席位的人退回候场队首**。
+- **负者不回流**（擂台制）：N 个人恰好打 N−1 场就全员上场；每场结果页给「下一位上台：某某」。
+- **全程用姓名**：两侧标题、抢答/锁定提示、顶部计分板、结算板。PK 页不要出现"左侧/右侧玩家"。
+- `roster.length < 2` 时补一位 `studentId: -2` 的「陪练同学」，体验模式（虚拟名单）也能试玩 PK。
+- 新游戏照抄 `weather-quiz/src/DualQuiz.tsx`（最完整），别从 `province-quiz` 的老版派生。
+
+**CSS 陷阱**：`.right-side .pk-options button` 是 (0,3,0)，会压过 `.pk-options button.is-answer`
+的 (0,2,0) ⇒「双方都答错时右席的正确答案标红」静默失效。标红规则必须写成
+`.pk-side .pk-options button.is-answer` (0,3,1)。
+
+**PK 回归脚本**：`.workbuddy/tmp/pkcheck/shot.js`，参数化 `PK_PORT` / `GAME_LABEL`，两个游戏各 25 条断言。
+
 ## 纯逻辑模块的 Node 测试写法（本仓库约定）
 
 - **本机没有 esbuild**，但 Vite 8 自带 **rolldown**：
@@ -105,3 +124,37 @@
 - **验证脚本的断言要从「期望行为」重写，不能照抄实现**：上一轮脚本里那条
   「悔棋把整组三张牌都退回来」把错行为固化成了守门人，不改断言就永远测不出这个 bug。
   打法：新断言先跑**旧产物**复现（9 条红）→ 再跑修复版（47 条全绿），两份 report 都归档。
+
+## 重建后同步验证目录：先停服务再清目录（否则旧 hash 被继续应答）
+
+`python -m http.server` 的 cwd 就是它服务的目录，**Windows 下删不掉被当作 cwd 的目录**：
+`rm -rf`（本机还会被 safe-delete 拦下，报 `genie-trash failed` + exit 1）和
+`shutil.rmtree(ignore_errors=True)` **都会静默失败**，`copytree` 只是盖上去 →
+旧的 `index-<旧hash>.js` 仍留在目录里、仍返回 200。本轮因此拿"新旧混装"目录跑过一轮。
+
+固定动作：`netstat -ano | grep <port>` 取 PID → `taskkill /PID <pid> /F` → 再 rmtree/重建 →
+重启服务 → **用「旧 hash 必须 404、新 hash 必须 200」证明服务端真换了产物**。
+清目录一律走 Python（`shutil.rmtree`），**不要用 `rm -rf`**。脚本：
+`.workbuddy/tmp/wqverify/sync.py`（照抄改路径即可）。
+
+## 全量素材体检：一次 `new Image()` 扫完所有引用
+
+游戏包的图片有两类静默故障——路径写错、SVG 因引号/编码问题成非法 XML（`onerror` 但页面不报错）。
+让页面自己 `fetch` 数据 JSON、把所有 `image` 一次性载一遍（`executeJavaScript` 会 await 返回的
+Promise，直接写 async IIFE），断言 `checked === 期望条数` 且 `failed` 为空。
+`weather-quiz` 用这招 3 秒扫完 188 个引用（100 题 + 88 图鉴），顺带证明了 `public/` 素材已进 `dist/web`。
+**先跑它，再跑流程回归**，能省掉后面一堆噪声。
+
+## 样式是否生效看 `getComputedStyle`，不看截图
+
+本机软渲染下 `capturePage()` 会给"**类名已生效、画面还是上一帧**"的图：断言读 DOM 拿到
+`class="is-answer"` 是绿的，截图里按钮却还是旧配色，看着像"新样式没生效"，差点去白改 CSS。
+只要结论依赖"某条 CSS 到底有没有生效"，就用 `getComputedStyle` 读
+`backgroundColor / color / opacity / textDecorationLine` 的数字；截图只用于整体观感。
+
+## 游戏清单（`gameCode` / 当前版本）
+
+`province_puzzle 0.3.7` · `shanhe_match3 1.0.1` · `province_quiz 1.0.0` · `geo_gomoku 0.2.0`
+· `earth_globe 1.4.5` · `solar_system 1.1.2` · `landform_quiz 1.3.0` · `weather_quiz 1.0.0`。
+上架脚本按游戏一份：`.workbuddy/tmp/publish_<name>.py`（`publish_weather.py` 多了 zip 结构自检：
+顶层只能是 `manifest.json` + `web/`，且 `entry`/`cover` 必须真在包里）。

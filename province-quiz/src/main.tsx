@@ -10,7 +10,7 @@ import type {
 import "./styles.css";
 
 const gameCode = "province_quiz";
-const version = "0.2.3";
+const version = "1.0.0";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {
@@ -175,6 +175,14 @@ function GameApp() {
       <div className="mode-picker">
         <h1>省级行政区识别</h1>
         <p>选择本局游戏模式</p>
+        <div className="lobby-roster">
+          <strong>本次参与学生（{roster.length} 人）</strong>
+          <ul>
+            {roster.map((player) => (
+              <li key={player.studentId}>{player.studentName}</li>
+            ))}
+          </ul>
+        </div>
         <div className="mode-cards">
           <button onClick={() => setMode("single")}>
             <strong>单人模式</strong>
@@ -190,7 +198,7 @@ function GameApp() {
   }
 
   if (mode === "dual") {
-    return <DualQuiz onBack={() => setMode("pick")} />;
+    return <DualQuiz roster={roster} onBack={() => setMode("pick")} />;
   }
 
   return (

@@ -1,23 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import provinceData from "./data/provinces.json";
-import { PROVINCE_HINTS } from "./hints";
-import type { PlayerInfo } from "./ProvinceQuiz";
-
-interface Feature {
-  id: string;
-  name: string;
-  centroid: [number, number];
-  bbox: [number, number, number, number];
-  d: string;
-}
-
-interface QuizData {
-  viewBox: [number, number, number, number];
-  features: Feature[];
-}
-
-const DATA = provinceData as unknown as QuizData;
-const FEATURES = DATA.features;
+import Media from "./Media";
+import type { LevelId, LevelInfo, PlayerInfo, Question } from "./types";
 
 /**
  * 双人 PK 的三个阶段：
@@ -31,6 +14,9 @@ const FEATURES = DATA.features;
  */
 interface DualQuizProps {
   roster: PlayerInfo[];
+  questions: Question[];
+  level: LevelId;
+  levelInfo: LevelInfo | null;
   onBack: () => void;
 }
 
@@ -43,18 +29,12 @@ function shuffle<T>(items: T[]): T[] {
   return arr;
 }
 
-function silhouetteViewBox(feature: Feature): string {
-  const [minX, minY, maxX, maxY] = feature.bbox;
-  const pad = Math.max(maxX - minX, maxY - minY) * 0.08 + 12;
-  return `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`;
-}
-
 const TOTAL_QUESTIONS = 10;
 const CORRECT_POINTS = 10;
 /** 有人答对后，停留多久再切下一题。 */
-const ADVANCE_DELAY_MS = 900;
-/** 双方都答错后，多停一会儿方便看清正确答案。 */
-const VOID_DELAY_MS = 1600;
+const ADVANCE_DELAY_MS = 1100;
+/** 双方都答错后，多停一会儿方便看清正确答案与解析。 */
+const VOID_DELAY_MS = 2400;
 
 /** 名单只有 1 人时补的陪练席，保证"游戏包丢进浏览器直接试玩"也能走通 PK。 */
 const SPARRING: PlayerInfo = {
@@ -65,7 +45,20 @@ const SPARRING: PlayerInfo = {
 
 type PkStage = "arrange" | "battle" | "result";
 
-export default function DualQuiz({ roster, onBack }: DualQuizProps) {
+/**
+ * 双人 PK。本题的「结算出口」只有一个 —— settleQuestion()，
+ * 答对、双方都答错两条路径都走它。
+ * 早期版本把推进下一题的定时器只写在答对分支里，而按钮的 disabled 又依赖
+ * "本方答错"，于是双方都答错时题号不动、按钮全禁，游戏永久卡死。
+ * 新增任何"能结束本题"的分支（超时、放弃…）时，都必须调 settleQuestion()。
+ */
+export default function DualQuiz({
+  roster,
+  questions,
+  level,
+  levelInfo,
+  onBack
+}: DualQuizProps) {
   // 名单不足 2 人时补一位陪练，否则 PK 根本开不了局。
   const seats = useMemo<PlayerInfo[]>(
     () => (roster.length >= 2 ? roster : [...roster, SPARRING]),
@@ -80,7 +73,7 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
   const [bench, setBench] = useState<number[]>([]);
   const [boutNo, setBoutNo] = useState(1);
 
-  const [queue, setQueue] = useState<Feature[]>([]);
+  const [queue, setQueue] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
   const [leftScore, setLeftScore] = useState(0);
   const [rightScore, setRightScore] = useState(0);
@@ -88,7 +81,7 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
   const [rightWrong, setRightWrong] = useState(false);
   const [winnerSide, setWinnerSide] = useState<"left" | "right" | null>(null);
   const [finished, setFinished] = useState(false);
-  // 本题是否已结算（有人答对 / 双方都答错），防止定时器被重复挂上导致跳题。
+  // 本题是否已结算，防止定时器被重复挂上导致跳题。
   const settledRef = useRef(false);
   const timerRef = useRef<number | null>(null);
 
@@ -109,14 +102,14 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
     setBoutNo(1);
   }, [seats]);
 
-  /** 抽题 + 清零比分。开新一场、再战一局都走这里。 */
+  /** 抽题 + 清零比分。切等级、开新一场、再战一局都走这里。 */
   function resetBout() {
     settledRef.current = false;
     if (timerRef.current !== null) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    setQueue(shuffle(FEATURES).slice(0, Math.min(TOTAL_QUESTIONS, FEATURES.length)));
+    setQueue(shuffle(questions).slice(0, Math.min(TOTAL_QUESTIONS, questions.length)));
     setIndex(0);
     setLeftScore(0);
     setRightScore(0);
@@ -128,7 +121,10 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
 
   useEffect(() => {
     resetBout();
-  }, []);
+    setStage("arrange");
+    // resetBout 只依赖 questions，不需要进依赖数组
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions, level]);
 
   useEffect(
     () => () => {
@@ -139,12 +135,7 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
     []
   );
 
-  /**
-   * 结算本题并推进到下一题。答对与“双方都答错”两条路径都走这里，
-   * 否则双方都答错时题号不动，游戏会永久卡住。
-   * 题号用函数式更新：早期版本读闭包里的 index 再 +1，一旦 delay 期间
-   * 因为 setLeftWrong 触发重渲染，读到的就是过期值。
-   */
+  /** 结算本题并推进到下一题；所有"本题结束"的分支都必须经过这里。 */
   function settleQuestion(delay: number) {
     if (settledRef.current) {
       return;
@@ -172,21 +163,11 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
 
   const target = queue[index] ?? null;
   const options = useMemo(
-    () =>
-      target
-        ? shuffle([
-            target.name,
-            ...shuffle(
-              FEATURES.filter((feature) => feature.name !== target.name)
-            )
-              .slice(0, 3)
-              .map((feature) => feature.name)
-          ])
-        : [],
+    () => (target ? shuffle([...target.options]) : []),
     [target]
   );
-  const hints = target ? PROVINCE_HINTS[target.name] ?? [] : [];
   // 本题已揭晓（有人答对，或双方都答错）—— 此时把正确项标出来。
+  // 作废后四个按钮全都处于 disabled，不单独标红的话学生根本看不出答案在哪。
   const revealed = Boolean(winnerSide) || (leftWrong && rightWrong);
 
   function answer(side: "left" | "right", name: string) {
@@ -199,7 +180,7 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
     if (side === "right" && rightWrong) {
       return;
     }
-    if (name !== target.name) {
+    if (name !== target.answer) {
       // 对方是否已经先答错：若已答错，本方这一下就是本题的最后一次机会。
       const otherAlreadyWrong = side === "left" ? rightWrong : leftWrong;
       if (side === "left") {
@@ -290,8 +271,10 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
             返回模式选择
           </button>
           <div>
-            <h2>双人 PK · 出战安排</h2>
-            <span>共 {seats.length} 名学生，点名字把他们放到左席或右席</span>
+            <h2>双人 PK · 出战安排{levelInfo ? " · " + levelInfo.name + "组" : ""}</h2>
+            <span>
+              共 {seats.length} 名学生，点名字把他们放到左席或右席
+            </span>
           </div>
           <div className="pk-score">
             <b>第 {boutNo} 场</b>
@@ -402,7 +385,9 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
             <b>{rightScore}</b>
           </div>
         </div>
-        <p className="pk-result-text">{winner ? `${winner.name} 获胜！` : "平局！"}</p>
+        <p className="pk-result-text">
+          {winner ? `${winner.name} 获胜！` : "平局！"}
+        </p>
 
         {challenger ? (
           <p className="pk-message is-note">
@@ -446,9 +431,9 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
           退出 PK
         </button>
         <div>
-          <h2>双人 PK</h2>
+          <h2>双人 PK{levelInfo ? " · " + levelInfo.name + "组" : ""}</h2>
           <span>
-            第 {boutNo} 场 · 第 {index + 1} / {queue.length} 题
+            第 {boutNo} 场 · 第 {index + 1} / {queue.length} 题 · {target.category}
           </span>
         </div>
         <div className="pk-score">
@@ -462,13 +447,13 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
       </header>
 
       {winnerSide ? (
-        <p className="pk-message">
+        <p className="pk-message is-ok">
           {winnerSide === "left" ? leftName : rightName} 答对 +{CORRECT_POINTS} ·
-          正确答案：<b>{target.name}</b>
+          正确答案：<b>{target.answer}</b>
         </p>
       ) : leftWrong && rightWrong ? (
-        <p className="pk-message">
-          双方均答错，本题作废 · 正确答案：<b>{target.name}</b>
+        <p className="pk-message is-void">
+          双方均答错，本题作废 · 正确答案：<b>{target.answer}</b>
         </p>
       ) : leftWrong ? (
         <p className="pk-message">
@@ -479,7 +464,7 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
           {rightName} 答错锁定，{leftName} 请作答
         </p>
       ) : (
-        <p className="pk-message">点击自己一侧的名称抢答</p>
+        <p className="pk-message">抢答：点自己一侧的正确答案</p>
       )}
 
       <div className="pk-board">
@@ -488,11 +473,11 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
             <span className="pk-side-tag">左</span>
             {leftPlayer?.studentName ?? "左侧玩家"}
           </h3>
-          <div className="pk-options pk-options-4">
+          <div className="pk-options">
             {options.map((name) => (
               <button
                 key={`left-${name}`}
-                className={revealed && name === target.name ? "is-answer" : ""}
+                className={revealed && name === target.answer ? "is-answer" : ""}
                 disabled={leftWrong || Boolean(winnerSide)}
                 onClick={() => answer("left", name)}
               >
@@ -502,24 +487,10 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
           </div>
         </div>
 
-        <div className="pk-map">
-          <svg
-            viewBox={silhouetteViewBox(target)}
-            role="img"
-            aria-label={`请识别 ${target.name}`}
-          >
-            <path d={target.d} fill="#d4a843" stroke="#1a1a1a" strokeWidth={3} />
-          </svg>
-          <p>这是哪个省级行政区？</p>
-          {hints.slice(0, 1).map((hint) => (
-            <small key={hint}>{hint}</small>
-          ))}
-          {revealed && (
-            <p className="pk-explain">
-              {target.name}
-              {hints.length > 0 ? " · " + hints[0] : ""}
-            </p>
-          )}
+        <div className="pk-media">
+          <Media src={target.image} alt={target.prompt} kind={target.kind} />
+          <p className="pk-prompt">{target.prompt}</p>
+          {revealed && <p className="pk-explain">{target.explain}</p>}
         </div>
 
         <div className="pk-side right-side">
@@ -527,11 +498,11 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
             <span className="pk-side-tag">右</span>
             {rightPlayer?.studentName ?? "右侧玩家"}
           </h3>
-          <div className="pk-options pk-options-4">
+          <div className="pk-options">
             {options.map((name) => (
               <button
                 key={`right-${name}`}
-                className={revealed && name === target.name ? "is-answer" : ""}
+                className={revealed && name === target.answer ? "is-answer" : ""}
                 disabled={rightWrong || Boolean(winnerSide)}
                 onClick={() => answer("right", name)}
               >

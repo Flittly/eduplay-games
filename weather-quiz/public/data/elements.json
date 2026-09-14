@@ -1,0 +1,711 @@
+{
+ "_README": {
+  "说明": "气象要素图鉴：与 public/assets/weather 下的素材一一对应。"
+ },
+ "elements": [
+  {
+   "id": "sunny",
+   "name": "晴",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "只有太阳没有云，云量不足天空的 3 成。",
+   "image": "assets/weather/sunny.svg"
+  },
+  {
+   "id": "partly",
+   "name": "多云",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "太阳的一部分被云遮住，云量占 3—8 成。",
+   "image": "assets/weather/partly.svg"
+  },
+  {
+   "id": "overcast",
+   "name": "阴",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "只有云没有太阳，云量占 9 成以上。",
+   "image": "assets/weather/overcast.svg"
+  },
+  {
+   "id": "rain1",
+   "name": "小雨",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下 1 个雨点；24 小时降水量不足 10 mm。",
+   "image": "assets/weather/rain1.svg"
+  },
+  {
+   "id": "rain2",
+   "name": "中雨",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下 2 个雨点；24 小时降水量 10～24.9 mm。",
+   "image": "assets/weather/rain2.svg"
+  },
+  {
+   "id": "rain3",
+   "name": "大雨",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下 3 个雨点；24 小时降水量 25～49.9 mm。",
+   "image": "assets/weather/rain3.svg"
+  },
+  {
+   "id": "rain4",
+   "name": "暴雨",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下 4 个雨点；24 小时降水量 50 mm 以上。",
+   "image": "assets/weather/rain4.svg"
+  },
+  {
+   "id": "shower",
+   "name": "阵雨",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "雨点画成斜线，表示时下时停的阵性降水。",
+   "image": "assets/weather/shower.svg"
+  },
+  {
+   "id": "thunder",
+   "name": "雷阵雨",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下除雨点外还有闪电，降水忽下忽停、强度变化大。",
+   "image": "assets/weather/thunder.svg"
+  },
+  {
+   "id": "snow1",
+   "name": "小雪",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下 1 片雪花；24 小时降雪量融化成水不足 2.5 mm。",
+   "image": "assets/weather/snow1.svg"
+  },
+  {
+   "id": "snow2",
+   "name": "中雪",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下 2 片雪花；24 小时降雪量融化成水 2.5～4.9 mm。",
+   "image": "assets/weather/snow2.svg"
+  },
+  {
+   "id": "snow3",
+   "name": "大雪",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下 3 片雪花；24 小时降雪量融化成水 5 mm 以上。",
+   "image": "assets/weather/snow3.svg"
+  },
+  {
+   "id": "sleet",
+   "name": "雨夹雪",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下同时有雨点和雪花，半融化的雪与雨同时下降。",
+   "image": "assets/weather/sleet.svg"
+  },
+  {
+   "id": "hail",
+   "name": "冰雹",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "云下画两个等边三角形，是坚硬的球状固态降水。",
+   "image": "assets/weather/hail.svg"
+  },
+  {
+   "id": "fog",
+   "name": "雾",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "几条弯曲的横杠；水平能见距离降到 1000 m 以下。",
+   "image": "assets/weather/fog.svg"
+  },
+  {
+   "id": "frost",
+   "name": "霜冻",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "像被冻住的盒子；气温低于 0℃，地面物体上出现白色冰晶。",
+   "image": "assets/weather/frost.svg"
+  },
+  {
+   "id": "sandstorm",
+   "name": "沙尘暴",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "字母 S 上加箭头；强风把沙尘吹起，能见度小于 1 km。",
+   "image": "assets/weather/sandstorm.svg"
+  },
+  {
+   "id": "typhoon",
+   "name": "台风",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "两条反向旋转的螺旋臂；热带海洋上的强烈气旋。",
+   "image": "assets/weather/typhoon.svg"
+  },
+  {
+   "id": "front_cold",
+   "name": "冷锋",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "蓝色线上带三角形，三角形指向冷气团前进方向。",
+   "image": "assets/weather/front_cold.svg"
+  },
+  {
+   "id": "front_warm",
+   "name": "暖锋",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "红色线上带半圆，半圆指向暖气团前进方向。",
+   "image": "assets/weather/front_warm.svg"
+  },
+  {
+   "id": "front_static",
+   "name": "准静止锋",
+   "category": "天气符号",
+   "level": "junior",
+   "summary": "三角形与半圆分列锋线两侧，冷暖空气势均力敌。",
+   "image": "assets/weather/front_static.svg"
+  },
+  {
+   "id": "wind_n4",
+   "name": "北风 4 级",
+   "category": "风向与风力",
+   "level": "junior",
+   "summary": "风杆指向北，2 道风尾表示 4 级风。",
+   "image": "assets/weather/wind_n4.svg"
+  },
+  {
+   "id": "wind_e6",
+   "name": "东风 6 级",
+   "category": "风向与风力",
+   "level": "junior",
+   "summary": "风杆指向东，3 道风尾表示 6 级风。",
+   "image": "assets/weather/wind_e6.svg"
+  },
+  {
+   "id": "wind_sw8",
+   "name": "西南风 8 级",
+   "category": "风向与风力",
+   "level": "junior",
+   "summary": "风杆指向西南，一面风旗表示 8 级风。",
+   "image": "assets/weather/wind_sw8.svg"
+  },
+  {
+   "id": "wind_n2",
+   "name": "北风 2 级",
+   "category": "风向与风力",
+   "level": "junior",
+   "summary": "风杆指向北，1 道风尾表示 2 级风。",
+   "image": "assets/weather/wind_n2.svg"
+  },
+  {
+   "id": "clima_rainforest",
+   "name": "热带雨林气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "全年高温多雨，各月气温 25～28℃，年降水量 2000 mm 以上。",
+   "image": "assets/weather/clima_rainforest.svg"
+  },
+  {
+   "id": "clima_savanna",
+   "name": "热带草原气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "全年高温，干湿两季分明，湿季降水集中。",
+   "image": "assets/weather/clima_savanna.svg"
+  },
+  {
+   "id": "clima_desert",
+   "name": "热带沙漠气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "全年高温干旱，降水稀少，气温年较差大。",
+   "image": "assets/weather/clima_desert.svg"
+  },
+  {
+   "id": "clima_tropical_monsoon",
+   "name": "热带季风气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "全年高温，旱雨两季分明，雨季降水集中且量大。",
+   "image": "assets/weather/clima_tropical_monsoon.svg"
+  },
+  {
+   "id": "clima_subtropical_monsoon",
+   "name": "亚热带季风气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "夏季高温多雨、冬季温和少雨，最冷月气温在 0℃ 以上。",
+   "image": "assets/weather/clima_subtropical_monsoon.svg"
+  },
+  {
+   "id": "clima_mediterranean",
+   "name": "地中海气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "夏季炎热干燥、冬季温和多雨，雨热不同期。",
+   "image": "assets/weather/clima_mediterranean.svg"
+  },
+  {
+   "id": "clima_temperate_monsoon",
+   "name": "温带季风气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "夏季高温多雨、冬季寒冷干燥，最冷月气温在 0℃ 以下。",
+   "image": "assets/weather/clima_temperate_monsoon.svg"
+  },
+  {
+   "id": "clima_temperate_oceanic",
+   "name": "温带海洋性气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "终年温和湿润，气温年较差小，降水季节分配均匀。",
+   "image": "assets/weather/clima_temperate_oceanic.svg"
+  },
+  {
+   "id": "clima_temperate_continental",
+   "name": "温带大陆性气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "冬冷夏热、气温年较差大，降水少而集中。",
+   "image": "assets/weather/clima_temperate_continental.svg"
+  },
+  {
+   "id": "clima_highland",
+   "name": "高原山地气候",
+   "category": "气候类型判读",
+   "level": "junior",
+   "summary": "气温随海拔升高而降低，全年气温较低，降水集中夏季。",
+   "image": "assets/weather/clima_highland.svg"
+  },
+  {
+   "id": "front_cold_section",
+   "name": "冷锋剖面",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "冷气团主动楔入暖气团下方，锋面坡度大，多积雨云与阵性降水。",
+   "image": "assets/weather/front_cold_section.svg"
+  },
+  {
+   "id": "front_warm_section",
+   "name": "暖锋剖面",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "暖气团主动爬升到冷气团之上，锋面坡度缓，多连续性降水。",
+   "image": "assets/weather/front_warm_section.svg"
+  },
+  {
+   "id": "front_static_section",
+   "name": "准静止锋剖面",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "冷暖气团势均力敌，锋面来回摆动，阴雨连绵。",
+   "image": "assets/weather/front_static_section.svg"
+  },
+  {
+   "id": "front_occluded_section",
+   "name": "锢囚锋剖面",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "冷锋追上暖锋，暖气团被抬离地面升到高空。",
+   "image": "assets/weather/front_occluded_section.svg"
+  },
+  {
+   "id": "cold_front_weather_curve",
+   "name": "冷锋过境天气变化",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "冷锋过境后气温下降、气压升高，天气转晴。",
+   "image": "assets/weather/cold_front_weather_curve.svg"
+  },
+  {
+   "id": "cyclone_nh",
+   "name": "气旋（北半球低压）",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "中心气压低，气流逆时针辐合上升，多阴雨天气。",
+   "image": "assets/weather/cyclone_nh.svg"
+  },
+  {
+   "id": "anticyclone_nh",
+   "name": "反气旋（北半球高压）",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "中心气压高，气流顺时针辐散下沉，多晴朗干燥天气。",
+   "image": "assets/weather/anticyclone_nh.svg"
+  },
+  {
+   "id": "front_cyclone_plan",
+   "name": "锋面气旋",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "低压中心西侧伸出冷锋、东侧伸出暖锋，锋面附近多降水。",
+   "image": "assets/weather/front_cyclone_plan.svg"
+  },
+  {
+   "id": "ridge",
+   "name": "高压脊",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "等压线由高压中心向外凸出，脊线附近气流下沉，天气晴好。",
+   "image": "assets/weather/ridge.svg"
+  },
+  {
+   "id": "trough",
+   "name": "低压槽",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "等压线向低压中心凹进，槽线附近气流辐合上升，多阴雨。",
+   "image": "assets/weather/trough.svg"
+  },
+  {
+   "id": "typhoon_structure",
+   "name": "台风结构",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "外围大风区、旋涡风雨区、台风眼三部分，台风眼内天气晴朗。",
+   "image": "assets/weather/typhoon_structure.svg"
+  },
+  {
+   "id": "meiyu_band",
+   "name": "我国锋面雨带推移",
+   "category": "天气系统",
+   "level": "senior",
+   "summary": "4—5 月雨带在华南，6 月江淮梅雨，7—8 月推到华北东北。",
+   "image": "assets/weather/meiyu_band.svg"
+  },
+  {
+   "id": "heat_process",
+   "name": "大气受热过程",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "太阳短波辐射→地面增温→地面长波辐射→大气吸收→大气逆辐射。",
+   "image": "assets/weather/heat_process.svg"
+  },
+  {
+   "id": "weakening",
+   "name": "大气对太阳辐射的削弱作用",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "吸收（臭氧吸收紫外线）、反射（云层）、散射（空气分子散射蓝紫光）。",
+   "image": "assets/weather/weakening.svg"
+  },
+  {
+   "id": "greenhouse",
+   "name": "大气保温作用的应用",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "玻璃温室与人造烟幕都通过增强大气逆辐射来保温。",
+   "image": "assets/weather/greenhouse.svg"
+  },
+  {
+   "id": "thermal_circulation",
+   "name": "热力环流",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "地面冷热不均引起空气垂直运动，进而形成同一水平面上的气压差与环流。",
+   "image": "assets/weather/thermal_circulation.svg"
+  },
+  {
+   "id": "sea_breeze",
+   "name": "海风（白天）",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "白天陆地气温高，近地面风由海洋吹向陆地。",
+   "image": "assets/weather/sea_breeze.svg"
+  },
+  {
+   "id": "land_breeze",
+   "name": "陆风（夜晚）",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "夜晚陆地气温低，近地面风由陆地吹向海洋。",
+   "image": "assets/weather/land_breeze.svg"
+  },
+  {
+   "id": "valley_breeze",
+   "name": "谷风（白天）",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "白天山坡受热快，空气沿坡上升，风由谷底吹向山坡。",
+   "image": "assets/weather/valley_breeze.svg"
+  },
+  {
+   "id": "mountain_breeze",
+   "name": "山风（夜晚）",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "夜晚山坡冷却快，冷空气沿坡下沉，风由山坡吹向谷底。",
+   "image": "assets/weather/mountain_breeze.svg"
+  },
+  {
+   "id": "urban_heat",
+   "name": "城市热岛环流",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "城市气温高于郊区，近地面风由郊区吹向城市。",
+   "image": "assets/weather/urban_heat.svg"
+  },
+  {
+   "id": "inversion",
+   "name": "逆温现象",
+   "category": "大气受热与热力环流",
+   "level": "senior",
+   "summary": "气温随高度升高而形成的稳定层结，抑制对流、污染物不易扩散。",
+   "image": "assets/weather/inversion.svg"
+  },
+  {
+   "id": "three_cells",
+   "name": "三圈环流",
+   "category": "大气环流与季风",
+   "level": "senior",
+   "summary": "低纬、中纬、高纬三个环流圈，形成全球气压带。",
+   "image": "assets/weather/three_cells.svg"
+  },
+  {
+   "id": "pressure_belts",
+   "name": "全球气压带与风带",
+   "category": "大气环流与季风",
+   "level": "senior",
+   "summary": "七个气压带、六个风带的分布与风向。",
+   "image": "assets/weather/pressure_belts.svg"
+  },
+  {
+   "id": "pressure_shift",
+   "name": "气压带风带的季节移动",
+   "category": "大气环流与季风",
+   "level": "senior",
+   "summary": "移动方向与太阳直射点一致，夏季北移、冬季南移。",
+   "image": "assets/weather/pressure_shift.svg"
+  },
+  {
+   "id": "monsoon_summer",
+   "name": "东亚夏季风",
+   "category": "大气环流与季风",
+   "level": "senior",
+   "summary": "夏季大陆形成印度低压，东亚盛行东南季风，温暖湿润。",
+   "image": "assets/weather/monsoon_summer.svg"
+  },
+  {
+   "id": "monsoon_winter",
+   "name": "东亚冬季风",
+   "category": "大气环流与季风",
+   "level": "senior",
+   "summary": "冬季大陆形成西伯利亚高压，东亚盛行西北季风，寒冷干燥。",
+   "image": "assets/weather/monsoon_winter.svg"
+  },
+  {
+   "id": "south_asia_monsoon",
+   "name": "南亚夏季风",
+   "category": "大气环流与季风",
+   "level": "senior",
+   "summary": "东南信风越过赤道后向右偏转形成西南季风。",
+   "image": "assets/weather/south_asia_monsoon.svg"
+  },
+  {
+   "id": "isobar_parallel",
+   "name": "等压线判读风向",
+   "category": "等压线等温线",
+   "level": "senior",
+   "summary": "水平气压梯度力垂直于等压线由高压指向低压，北半球风向向右偏。",
+   "image": "assets/weather/isobar_parallel.svg"
+  },
+  {
+   "id": "isobar_density",
+   "name": "等压线疏密与风力",
+   "category": "等压线等温线",
+   "level": "senior",
+   "summary": "等压线越密集，气压梯度越大，风力越大。",
+   "image": "assets/weather/isobar_density.svg"
+  },
+  {
+   "id": "isotherm_hemi",
+   "name": "等温线判断南北半球",
+   "category": "等压线等温线",
+   "level": "senior",
+   "summary": "等温线数值自北向南递减为南半球，自南向北递减为北半球。",
+   "image": "assets/weather/isotherm_hemi.svg"
+  },
+  {
+   "id": "isotherm_bend",
+   "name": "等温线的海陆弯曲",
+   "category": "等压线等温线",
+   "level": "senior",
+   "summary": "一陆南、七陆北：1 月陆地等温线向南凸，7 月向北凸。",
+   "image": "assets/weather/isotherm_bend.svg"
+  },
+  {
+   "id": "isotherm_terrain",
+   "name": "等温线的地形闭合",
+   "category": "等压线等温线",
+   "level": "senior",
+   "summary": "等温线闭合且中心气温低为山地，中心气温高为盆地。",
+   "image": "assets/weather/isotherm_terrain.svg"
+  },
+  {
+   "id": "photo_lightning",
+   "name": "雷电（雷暴）",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "积雨云中电荷积累后强烈放电，同时伴随雷声与阵性降水。",
+   "image": "assets/weather/photo_lightning.jpg"
+  },
+  {
+   "id": "photo_rainbow",
+   "name": "彩虹",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "阳光经空气中的小水滴折射、反射后分解为七色光。",
+   "image": "assets/weather/photo_rainbow.jpg"
+  },
+  {
+   "id": "photo_fog",
+   "name": "雾（实景）",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "近地面空气中悬浮大量小水滴，能见度低于 1 km。",
+   "image": "assets/weather/photo_fog.jpg"
+  },
+  {
+   "id": "photo_frost",
+   "name": "霜（实景）",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "夜间地面辐射降温到 0℃ 以下，水汽在地物上凝华成白色冰晶。",
+   "image": "assets/weather/photo_frost.jpg"
+  },
+  {
+   "id": "photo_dew",
+   "name": "露（实景）",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "夜间水汽在地物表面凝结成小水滴，气温仍在 0℃ 以上。",
+   "image": "assets/weather/photo_dew.jpg"
+  },
+  {
+   "id": "photo_hail",
+   "name": "冰雹（实景）",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "积雨云中强烈上升气流使冰粒反复升降、层层结冰长大。",
+   "image": "assets/weather/photo_hail.jpg"
+  },
+  {
+   "id": "photo_sandstorm",
+   "name": "沙尘暴（实景）",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "强风将地面尘沙吹起，空气混浊，能见度小于 1 km。",
+   "image": "assets/weather/photo_sandstorm.jpg"
+  },
+  {
+   "id": "photo_rime",
+   "name": "雾凇（实景）",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "雾滴在低于 0℃ 的树枝等物体上冻结形成的白色冰晶沉积物。",
+   "image": "assets/weather/photo_rime.jpg"
+  },
+  {
+   "id": "photo_halo",
+   "name": "日晕",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "阳光通过高空卷层云中的冰晶折射、反射形成的光环。",
+   "image": "assets/weather/photo_halo.jpg"
+  },
+  {
+   "id": "photo_sunset_cloud",
+   "name": "火烧云",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "日出日落时阳光穿过厚大气层，蓝紫光被散射，红橙光照亮云层。",
+   "image": "assets/weather/photo_sunset_cloud.jpg"
+  },
+  {
+   "id": "photo_cloud_sea",
+   "name": "云海",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "山区云顶低于山顶高度，从山顶俯瞰可见起伏的云雾海洋。",
+   "image": "assets/weather/photo_cloud_sea.jpg"
+  },
+  {
+   "id": "photo_snow_cover",
+   "name": "积雪（实景）",
+   "category": "天气现象",
+   "level": "junior",
+   "summary": "降落的雪花在低温地面上堆积形成，能反射太阳辐射。",
+   "image": "assets/weather/photo_snow_cover.jpg"
+  },
+  {
+   "id": "photo_typhoon_sat",
+   "name": "台风（卫星云图）",
+   "category": "天气现象",
+   "level": "senior",
+   "summary": "螺旋云带围绕清晰的台风眼，中心附近风雨最强。",
+   "image": "assets/weather/photo_typhoon_sat.jpg"
+  },
+  {
+   "id": "photo_urban_flood",
+   "name": "城市内涝（洪涝）",
+   "category": "气象灾害",
+   "level": "senior",
+   "summary": "短时间强降水造成低洼处积水，城市排水不畅时形成内涝。",
+   "image": "assets/weather/photo_urban_flood.jpg"
+  },
+  {
+   "id": "photo_drought",
+   "name": "干旱",
+   "category": "气象灾害",
+   "level": "senior",
+   "summary": "长期降水偏少、蒸发旺盛造成水分短缺，对农业危害最大。",
+   "image": "assets/weather/photo_drought.jpg"
+  },
+  {
+   "id": "photo_glaze_ice",
+   "name": "雨凇（冻雨）",
+   "category": "气象灾害",
+   "level": "senior",
+   "summary": "过冷却雨滴落到低于 0℃ 的地物上立即冻结成透明冰层。",
+   "image": "assets/weather/photo_glaze_ice.jpg"
+  },
+  {
+   "id": "photo_downpour",
+   "name": "暴雨（实景）",
+   "category": "气象灾害",
+   "level": "senior",
+   "summary": "24 小时降水量 50 mm 以上，短时强度大，易引发内涝与山洪。",
+   "image": "assets/weather/photo_downpour.jpg"
+  },
+  {
+   "id": "photo_tornado",
+   "name": "龙卷风",
+   "category": "气象灾害",
+   "level": "senior",
+   "summary": "从积雨云底部伸展到地面的强烈旋转涡旋，范围小、破坏力极强。",
+   "image": "assets/weather/photo_tornado.jpg"
+  },
+  {
+   "id": "photo_ice_flower",
+   "name": "冰花（窗霜）",
+   "category": "天气现象",
+   "level": "senior",
+   "summary": "室内水汽遇到低于 0℃ 的玻璃直接凝华成的冰晶花纹。",
+   "image": "assets/weather/photo_ice_flower.jpg"
+  },
+  {
+   "id": "photo_dust_haze",
+   "name": "沙尘天气",
+   "category": "气象灾害",
+   "level": "senior",
+   "summary": "强风吹起地面尘沙使空气混浊，按能见度分为沙尘暴、扬沙、浮尘。",
+   "image": "assets/weather/photo_dust_haze.jpg"
+  }
+ ]
+}

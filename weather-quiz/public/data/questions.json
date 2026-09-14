@@ -1,0 +1,2040 @@
+{
+ "_README": {
+  "说明": "气象要素识别题库。每题给出配图、题干、四个选项、提示与解析；选项由 scripts/build_bank.py 从同族候选池自动生成，请勿手工改动本文件。",
+  "等级": {
+   "junior": "初中",
+   "senior": "高中"
+  },
+  "kind": "symbol=天气符号/风向符号，chart=气候统计图，diagram=示意图，photo=真实照片"
+ },
+ "levels": [
+  {
+   "id": "junior",
+   "name": "初中",
+   "subtitle": "初中地理 · 天气与气候",
+   "scope": [
+    "常用天气符号（晴、多云、阴、各类降水、雾、霜冻、冰雹、沙尘暴、台风）",
+    "风向与风力的判读（风杆、风尾、风旗）",
+    "常见天气现象与气象要素：雷电、彩虹、雾、霜、露、雾凇、日晕、云海等",
+    "气温曲线和降水量柱状图的判读（世界主要气候类型）",
+    "等温线图的简单判读：南北半球、地形与海陆影响"
+   ]
+  },
+  {
+   "id": "senior",
+   "name": "高中",
+   "subtitle": "高中地理 · 大气与天气系统",
+   "scope": [
+    "锋面系统：冷锋、暖锋、准静止锋、锢囚锋及其天气变化",
+    "气压系统：气旋、反气旋、高压脊、低压槽、锋面气旋、台风结构",
+    "大气受热过程：太阳短波辐射、地面辐射、大气逆辐射与保温作用",
+    "热力环流及其应用：海陆风、山谷风、城市热岛环流、逆温",
+    "大气环流：三圈环流、气压带风带及其季节移动、东亚与南亚季风",
+    "等压线与等温线的判读：风向、风力、低压槽中的锋面",
+    "常见气象灾害：台风、洪涝、干旱、寒潮雨凇、沙尘、龙卷风"
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": "j-sym-01",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/sunny.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "晴",
+   "hints": [
+    "符号里只画了太阳，没有云",
+    "云量不足天空的 3 成称为晴，表示天气晴朗、阳光充足"
+   ],
+   "explain": "晴：天空无云或仅有零星云层，云量不足天空的 3 成。",
+   "options": [
+    "多云",
+    "小雨",
+    "阴",
+    "晴"
+   ]
+  },
+  {
+   "id": "j-sym-02",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/partly.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "多云",
+   "hints": [
+    "太阳被云遮住了一部分",
+    "云量占 3—8 成，既能见到太阳又能见到较多的云"
+   ],
+   "explain": "多云：天空云量占 3—8 成，太阳时隐时现。",
+   "options": [
+    "多云",
+    "晴",
+    "阴",
+    "小雨"
+   ]
+  },
+  {
+   "id": "j-sym-03",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/overcast.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "阴",
+   "hints": [
+    "符号里只有云，看不到太阳",
+    "云量占 9 成以上，天空阴暗"
+   ],
+   "explain": "阴：云量占天空的 9 成以上，阳光很少能透过云层。",
+   "options": [
+    "晴",
+    "多云",
+    "阴",
+    "小雪"
+   ]
+  },
+  {
+   "id": "j-sym-04",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/rain1.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "小雨",
+   "hints": [
+    "数一数云下的雨点：只有 1 个",
+    "雨点越多雨越大：1 个点是小雨，2 个点中雨，3 个点大雨，4 个点暴雨"
+   ],
+   "explain": "小雨：云下 1 个雨点，24 小时降水量不足 10 mm。",
+   "options": [
+    "中雨",
+    "暴雨",
+    "小雨",
+    "大雨"
+   ]
+  },
+  {
+   "id": "j-sym-05",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/rain2.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "中雨",
+   "hints": [
+    "云下画了 2 个雨点",
+    "按雨点个数判断：2 个雨点对应中雨"
+   ],
+   "explain": "中雨：云下 2 个雨点，24 小时降水量 10～24.9 mm。",
+   "options": [
+    "大雨",
+    "小雨",
+    "中雨",
+    "暴雨"
+   ]
+  },
+  {
+   "id": "j-sym-06",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/rain3.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "大雨",
+   "hints": [
+    "云下画了 3 个雨点",
+    "按雨点个数判断：3 个雨点对应大雨"
+   ],
+   "explain": "大雨：云下 3 个雨点，24 小时降水量 25～49.9 mm。",
+   "options": [
+    "小雨",
+    "大雨",
+    "暴雨",
+    "中雨"
+   ]
+  },
+  {
+   "id": "j-sym-07",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/rain4.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "暴雨",
+   "hints": [
+    "云下画了 4 个雨点，是降水符号里雨点最多的一个",
+    "24 小时降水量达到或超过 50 mm 称为暴雨"
+   ],
+   "explain": "暴雨：云下 4 个雨点，24 小时降水量 50 mm 以上，短时强度大。",
+   "options": [
+    "大雨",
+    "中雨",
+    "暴雨",
+    "小雨"
+   ]
+  },
+  {
+   "id": "j-sym-08",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/thunder.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "雷阵雨",
+   "hints": [
+    "云下除了雨点，还有一个折线画出的闪电",
+    "它表示忽下忽停、伴有电闪雷鸣的阵性降水"
+   ],
+   "explain": "雷阵雨：云下有闪电和雨点，降水忽下忽停、强度变化大。",
+   "options": [
+    "雷阵雨",
+    "阵雨",
+    "暴雨",
+    "大雨"
+   ]
+  },
+  {
+   "id": "j-sym-09",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/snow1.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "小雪",
+   "hints": [
+    "云下画了 1 片雪花",
+    "雪花片数越多雪越大：1 片小雪、2 片中雪、3 片大雪"
+   ],
+   "explain": "小雪：云下 1 片雪花，24 小时降雪量融化成水不足 2.5 mm。",
+   "options": [
+    "中雪",
+    "大雪",
+    "小雪",
+    "雨夹雪"
+   ]
+  },
+  {
+   "id": "j-sym-10",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/snow2.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "中雪",
+   "hints": [
+    "云下画了 2 片雪花",
+    "按雪花片数判断：2 片雪花对应中雪"
+   ],
+   "explain": "中雪：云下 2 片雪花，24 小时降雪量融化成水 2.5～4.9 mm。",
+   "options": [
+    "大雪",
+    "小雪",
+    "雨夹雪",
+    "中雪"
+   ]
+  },
+  {
+   "id": "j-sym-11",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/snow3.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "大雪",
+   "hints": [
+    "云下画了 3 片雪花",
+    "按雪花片数判断：3 片雪花对应大雪"
+   ],
+   "explain": "大雪：云下 3 片雪花，24 小时降雪量融化成水 5 mm 以上。",
+   "options": [
+    "雨夹雪",
+    "中雪",
+    "小雪",
+    "大雪"
+   ]
+  },
+  {
+   "id": "j-sym-12",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/sleet.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "雨夹雪",
+   "hints": [
+    "云下同时画了雨点和雪花",
+    "高空是雪、近地面气温略高于 0℃，雪在暖空气层里融化了一部分"
+   ],
+   "explain": "雨夹雪：半融化的雪与雨同时下降，云下同时有雨点和雪花。",
+   "options": [
+    "小雪",
+    "雨夹雪",
+    "中雪",
+    "大雪"
+   ]
+  },
+  {
+   "id": "j-sym-13",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/hail.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "冰雹",
+   "hints": [
+    "云下画了两个等边三角形",
+    "它是坚硬的小冰球，出现在发展强烈的积雨云中"
+   ],
+   "explain": "冰雹：云中强烈上升气流使冰粒反复升降、层层结冰长大，是坚硬的固态降水。",
+   "options": [
+    "大雪",
+    "冰雹",
+    "暴雨",
+    "雷阵雨"
+   ]
+  },
+  {
+   "id": "j-sym-14",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/fog.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "雾",
+   "hints": [
+    "符号是几条弯曲的横杠，像空气中弥漫着水汽",
+    "它使水平能见距离降到 1000 m 以下"
+   ],
+   "explain": "雾：近地面空气中悬浮大量水滴或冰晶，水平能见距离小于 1000 m。",
+   "options": [
+    "雾",
+    "沙尘暴",
+    "小雨",
+    "阴"
+   ]
+  },
+  {
+   "id": "j-sym-15",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/frost.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "霜冻",
+   "hints": [
+    "符号像一个被冻住的盒子，上面长着霜晶",
+    "气温降到 0℃ 以下，地面物体上出现白色冰晶"
+   ],
+   "explain": "霜冻：气温低于 0℃ 时地面和物体表面的水汽凝华成白色冰晶，对农作物有害。",
+   "options": [
+    "冰雹",
+    "霜冻",
+    "雾",
+    "小雪"
+   ]
+  },
+  {
+   "id": "j-sym-16",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/sandstorm.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "沙尘暴",
+   "hints": [
+    "符号是在字母 S 上加了一个箭头",
+    "强风把地面沙尘吹起，空气很混浊，能见度小于 1 km"
+   ],
+   "explain": "沙尘暴：强风将地面尘沙吹起，空气十分混浊，水平能见度小于 1 km。",
+   "options": [
+    "浮尘",
+    "霜冻",
+    "扬沙",
+    "沙尘暴"
+   ]
+  },
+  {
+   "id": "j-sym-17",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/typhoon.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "台风",
+   "hints": [
+    "符号是两条反向旋转的螺旋臂",
+    "它形成于热带海洋，中心气压很低，带来狂风暴雨"
+   ],
+   "explain": "台风是发生在热带海洋上的强烈气旋，中心气压很低，带来狂风暴雨。",
+   "options": [
+    "台风",
+    "高压",
+    "冷锋",
+    "龙卷风"
+   ]
+  },
+  {
+   "id": "j-sym-18",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/front_cold.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "冷锋",
+   "hints": [
+    "蓝色线条上带着三角形，三角形指向锋面移动的方向",
+    "它表示冷气团主动向暖气团移动"
+   ],
+   "explain": "冷锋：冷气团主动向暖气团移动，锋面坡度陡，多带来大风降温和阵性降水。",
+   "options": [
+    "准静止锋",
+    "冷锋",
+    "低压槽",
+    "暖锋"
+   ]
+  },
+  {
+   "id": "j-sym-19",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/front_warm.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "暖锋",
+   "hints": [
+    "红色线条上带着半圆形，半圆指向锋面移动的方向",
+    "它表示暖气团主动向冷气团移动"
+   ],
+   "explain": "暖锋：暖气团主动向冷气团移动，锋面坡度缓，多带来连续性降水。",
+   "options": [
+    "冷锋",
+    "暖锋",
+    "高压脊",
+    "准静止锋"
+   ]
+  },
+  {
+   "id": "j-sym-20",
+   "level": "junior",
+   "category": "天气符号",
+   "image": "assets/weather/front_static.svg",
+   "kind": "symbol",
+   "prompt": "图中所示的天气符号表示",
+   "answer": "准静止锋",
+   "hints": [
+    "三角形和半圆分列在锋线两侧",
+    "冷暖空气势均力敌，锋面来回摆动"
+   ],
+   "explain": "准静止锋：冷暖气团势力相当，锋面来回摆动，天气多阴雨连绵。",
+   "options": [
+    "冷锋",
+    "暖锋",
+    "台风",
+    "准静止锋"
+   ]
+  },
+  {
+   "id": "j-wind-01",
+   "level": "junior",
+   "category": "风向与风力",
+   "image": "assets/weather/wind_n4.svg",
+   "kind": "symbol",
+   "prompt": "图中风杆指向正北方向，风杆上有 2 道风尾。该地此时的风向和风力是",
+   "answer": "北风 4 级",
+   "hints": [
+    "风杆指向风的来向，即风从哪里吹来；风杆指向北说明风从北边吹来",
+    "一道风尾表示 2 级风，2 道风尾就是 4 级"
+   ],
+   "explain": "风向指风的来向。风杆指向北，说明风从北方吹来，为北风；一道风尾 2 级，两道风尾 4 级。",
+   "options": [
+    "南风 4 级",
+    "北风 2 级",
+    "东风 4 级",
+    "北风 4 级"
+   ]
+  },
+  {
+   "id": "j-wind-02",
+   "level": "junior",
+   "category": "风向与风力",
+   "image": "assets/weather/wind_e6.svg",
+   "kind": "symbol",
+   "prompt": "图中风杆指向正东方向，风杆上有 3 道风尾。该地此时的风向和风力是",
+   "answer": "东风 6 级",
+   "hints": [
+    "风杆指向东方，说明风从东边吹来",
+    "3 道风尾表示风力为 3×2＝6 级"
+   ],
+   "explain": "风杆指向东，风从东方吹来为东风；3 道风尾表示 6 级风。",
+   "options": [
+    "东风 6 级",
+    "西风 6 级",
+    "东风 3 级",
+    "南风 6 级"
+   ]
+  },
+  {
+   "id": "j-wind-03",
+   "level": "junior",
+   "category": "风向与风力",
+   "image": "assets/weather/wind_sw8.svg",
+   "kind": "symbol",
+   "prompt": "图中风杆指向西南方向，风杆末端有一面三角形的风旗。该地此时的风向和风力是",
+   "answer": "西南风 8 级",
+   "hints": [
+    "一面三角形的风旗表示 8 级风",
+    "风杆指向西南，说明风从西南方向吹来"
+   ],
+   "explain": "一面风旗（三角形）表示 8 级风；风杆指向西南，风从西南方向吹来，为西南风。",
+   "options": [
+    "西南风 4 级",
+    "东北风 8 级",
+    "西南风 8 级",
+    "西南风 2 级"
+   ]
+  },
+  {
+   "id": "j-wind-04",
+   "level": "junior",
+   "category": "风向与风力",
+   "image": "assets/weather/wind_n2.svg",
+   "kind": "symbol",
+   "prompt": "图中风杆指向正北方向，风杆上有 1 道风尾。风向是指风的来向，该地此时的风向是",
+   "answer": "北风",
+   "hints": [
+    "风向是风“从哪里来”，而不是“吹向哪里”",
+    "风杆指向北，说明风从北方吹来"
+   ],
+   "explain": "风向指风的来向。风杆指向北，风从北方吹来，为北风（1 道风尾表示 2 级）。",
+   "options": [
+    "南风",
+    "东风",
+    "北风",
+    "西风"
+   ]
+  },
+  {
+   "id": "j-photo-01",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_lightning.jpg",
+   "kind": "photo",
+   "prompt": "照片中天空出现的天气现象是",
+   "answer": "雷电（雷暴）",
+   "hints": [
+    "云层中的正负电荷分离，发生强烈的放电，同时伴有雷声",
+    "它常与阵性降水、大风一起出现"
+   ],
+   "explain": "雷电是积雨云中电荷积累到一定程度后发生的放电现象，常伴随阵性降水和强风。",
+   "options": [
+    "雷电（雷暴）",
+    "沙尘暴",
+    "冰雹",
+    "龙卷风"
+   ]
+  },
+  {
+   "id": "j-photo-02",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_rainbow.jpg",
+   "kind": "photo",
+   "prompt": "照片中雨后天空出现的光学现象是",
+   "answer": "彩虹",
+   "hints": [
+    "阳光照射到空气中的小水滴，经过折射和反射被分解成七种颜色",
+    "它多出现在雨后太阳的相反方向"
+   ],
+   "explain": "彩虹：阳光射入水滴后发生折射和反射，被分解成七色光形成的，多在雨后出现在太阳的相反方向。",
+   "options": [
+    "彩虹",
+    "日晕",
+    "火烧云",
+    "雾凇"
+   ]
+  },
+  {
+   "id": "j-photo-03",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_fog.jpg",
+   "kind": "photo",
+   "prompt": "照片中公路上弥漫、使能见度明显下降的是",
+   "answer": "雾",
+   "hints": [
+    "它由大量悬浮在近地面空气中的小水滴或冰晶组成",
+    "水平能见距离降到 1000 m 以下"
+   ],
+   "explain": "雾是近地面空气中水汽凝结成的大量小水滴集合体，能见距离小于 1 km；霾则主要由干性污染物颗粒组成。",
+   "options": [
+    "浮尘",
+    "雾",
+    "霾",
+    "沙尘暴"
+   ]
+  },
+  {
+   "id": "j-photo-04",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_frost.jpg",
+   "kind": "photo",
+   "prompt": "照片中植物叶片表面覆盖的白色冰晶是",
+   "answer": "霜",
+   "hints": [
+    "夜间地面强烈辐射降温到 0℃ 以下",
+    "空气中的水汽直接在地物表面凝华成冰晶"
+   ],
+   "explain": "霜：夜间地面辐射冷却，气温降到 0℃ 以下时，水汽在地面物体上凝华形成的白色冰晶。",
+   "options": [
+    "露",
+    "雾凇",
+    "霜",
+    "冰雹"
+   ]
+  },
+  {
+   "id": "j-photo-05",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_dew.jpg",
+   "kind": "photo",
+   "prompt": "照片中清晨草叶尖端的小水珠是",
+   "answer": "露",
+   "hints": [
+    "夜间水汽在近地面物体上凝结成的小水滴",
+    "出现它时气温仍在 0℃ 以上"
+   ],
+   "explain": "露：夜间地面辐射降温，近地面水汽在地物表面凝结成小水滴；若气温低于 0℃ 则结成霜。",
+   "options": [
+    "露",
+    "霜",
+    "雾凇",
+    "雨"
+   ]
+  },
+  {
+   "id": "j-photo-06",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_hail.jpg",
+   "kind": "photo",
+   "prompt": "照片中小伙伴手里托着的固态降水是",
+   "answer": "冰雹",
+   "hints": [
+    "它是坚硬的小冰球，出现在发展强烈的积雨云中",
+    "云中强烈的上升气流使冰粒反复升降、层层结冰长大"
+   ],
+   "explain": "冰雹：积雨云中强烈上升气流使冰粒反复升降、层层结冰长大，落到地面时仍未融化的固态降水。",
+   "options": [
+    "雨夹雪",
+    "霜",
+    "冰雹",
+    "雪"
+   ]
+  },
+  {
+   "id": "j-photo-07",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_sandstorm.jpg",
+   "kind": "photo",
+   "prompt": "照片中从远处推来的土黄色“沙墙”所代表的天气是",
+   "answer": "沙尘暴",
+   "hints": [
+    "强风把地面的沙尘吹到空中，空气很混浊",
+    "水平能见度小于 1 km"
+   ],
+   "explain": "沙尘暴：强风将地面尘沙吹起，空气十分混浊，水平能见度小于 1 km。",
+   "options": [
+    "沙尘暴",
+    "雾",
+    "龙卷风",
+    "大雨"
+   ]
+  },
+  {
+   "id": "j-photo-08",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_rime.jpg",
+   "kind": "photo",
+   "prompt": "照片中树枝上挂满的白色冰晶是",
+   "answer": "雾凇",
+   "hints": [
+    "冬春季节在雾气中，雾滴在树枝等物体上冻结而成",
+    "人们也叫它“树挂”"
+   ],
+   "explain": "雾凇（树挂）：雾滴在低于 0℃ 的树枝等物体上冻结形成的白色冰晶沉积物。",
+   "options": [
+    "霜",
+    "雾凇",
+    "露",
+    "冰雹"
+   ]
+  },
+  {
+   "id": "j-photo-09",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_halo.jpg",
+   "kind": "photo",
+   "prompt": "照片中太阳周围出现的光环是",
+   "answer": "日晕",
+   "hints": [
+    "高空卷层云中的冰晶对阳光发生折射和反射",
+    "它的出现常预示着天气可能转坏"
+   ],
+   "explain": "日晕：阳光通过高空卷层云中的冰晶发生折射和反射形成的光环。",
+   "options": [
+    "日晕",
+    "彩虹",
+    "极光",
+    "火烧云"
+   ]
+  },
+  {
+   "id": "j-photo-10",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_sunset_cloud.jpg",
+   "kind": "photo",
+   "prompt": "照片中日出或日落时天空大片通红的云霞是",
+   "answer": "火烧云",
+   "hints": [
+    "阳光斜射穿过较厚的大气层，短波光被散射掉",
+    "只剩下红橙光照射云层"
+   ],
+   "explain": "火烧云：日出日落时阳光穿过更厚的大气层，蓝紫光被散射掉，留下红橙光照亮云层。",
+   "options": [
+    "火烧云",
+    "彩虹",
+    "雾凇",
+    "日晕"
+   ]
+  },
+  {
+   "id": "j-photo-11",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_cloud_sea.jpg",
+   "kind": "photo",
+   "prompt": "照片中从山顶往下看到的连绵“云浪”是",
+   "answer": "云海",
+   "hints": [
+    "在山区，云层或雾层的顶部低于山顶高度",
+    "站在山顶向下俯瞰就能看到一片起伏的云雾"
+   ],
+   "explain": "云海：在山区，云雾的顶部低于山顶高度时，从山顶俯瞰就能看到一片起伏的云雾海洋。",
+   "options": [
+    "沙尘暴",
+    "日晕",
+    "云海",
+    "雾"
+   ]
+  },
+  {
+   "id": "j-photo-12",
+   "level": "junior",
+   "category": "天气现象",
+   "image": "assets/weather/photo_snow_cover.jpg",
+   "kind": "photo",
+   "prompt": "照片中屋顶和地面上厚厚覆盖的白色物质是",
+   "answer": "积雪",
+   "hints": [
+    "从云中降落的雪花在地面上堆积起来",
+    "它对地面有一定的保温作用，还能反射太阳辐射"
+   ],
+   "explain": "积雪：降落的雪花在气温较低的地面上堆积形成，能反射太阳辐射、对地面有保温作用。",
+   "options": [
+    "霜",
+    "积雪",
+    "冰雹",
+    "雾凇"
+   ]
+  },
+  {
+   "id": "j-clima-01",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_rainforest.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "热带雨林气候",
+   "hints": [
+    "各月平均气温都在 25℃ 以上，全年高温",
+    "各月降水都很多，年降水量在 2000 mm 左右"
+   ],
+   "explain": "热带雨林气候：全年高温多雨，各月平均气温 25～28℃，年降水量 2000 mm 以上。",
+   "options": [
+    "热带雨林气候",
+    "热带季风气候",
+    "热带沙漠气候",
+    "热带草原气候"
+   ]
+  },
+  {
+   "id": "j-clima-02",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_savanna.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "热带草原气候",
+   "hints": [
+    "全年高温，降水明显分为干季和湿季",
+    "湿季集中在 6—9 月，年降水量约 750～1000 mm"
+   ],
+   "explain": "热带草原气候：全年高温，干湿两季分明，湿季降水集中。",
+   "options": [
+    "热带季风气候",
+    "热带沙漠气候",
+    "热带雨林气候",
+    "热带草原气候"
+   ]
+  },
+  {
+   "id": "j-clima-03",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_desert.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "热带沙漠气候",
+   "hints": [
+    "最热月气温可达 30℃ 以上，气温年较差大",
+    "各月降水都极少，几乎为零"
+   ],
+   "explain": "热带沙漠气候：全年高温干旱，降水稀少，气温年较差大。",
+   "options": [
+    "热带沙漠气候",
+    "热带雨林气候",
+    "热带季风气候",
+    "热带草原气候"
+   ]
+  },
+  {
+   "id": "j-clima-04",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_tropical_monsoon.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "热带季风气候",
+   "hints": [
+    "全年高温，降水高度集中，6—9 月降水量猛增到 400 mm 以上",
+    "全年降水量很大（超过 1500 mm），旱雨两季极其分明"
+   ],
+   "explain": "热带季风气候：全年高温，分旱雨两季，雨季降水集中且量大。",
+   "options": [
+    "热带季风气候",
+    "热带草原气候",
+    "热带沙漠气候",
+    "热带雨林气候"
+   ]
+  },
+  {
+   "id": "j-clima-05",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_subtropical_monsoon.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "亚热带季风气候",
+   "hints": [
+    "最冷月气温在 0℃ 以上（约 4℃），最热月接近 30℃",
+    "夏季降水多、冬季降水少，雨热同期"
+   ],
+   "explain": "亚热带季风气候：夏季高温多雨、冬季温和少雨，最冷月气温在 0℃ 以上。",
+   "options": [
+    "温带季风气候",
+    "温带海洋性气候",
+    "地中海气候",
+    "亚热带季风气候"
+   ]
+  },
+  {
+   "id": "j-clima-06",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_mediterranean.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "地中海气候",
+   "hints": [
+    "最热月气温 25℃ 左右，最冷月 8℃ 左右，全年温和",
+    "降水集中在冬季，夏季降水很少——雨热不同期"
+   ],
+   "explain": "地中海气候：夏季炎热干燥、冬季温和多雨，是唯一雨热不同期的气候类型。",
+   "options": [
+    "地中海气候",
+    "温带海洋性气候",
+    "亚热带季风气候",
+    "温带季风气候"
+   ]
+  },
+  {
+   "id": "j-clima-07",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_temperate_monsoon.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "温带季风气候",
+   "hints": [
+    "最冷月气温在 0℃ 以下（约 −4℃），说明属于温带",
+    "降水集中在 7、8 月，雨热同期"
+   ],
+   "explain": "温带季风气候：夏季高温多雨、冬季寒冷干燥，最冷月气温在 0℃ 以下。",
+   "options": [
+    "温带季风气候",
+    "地中海气候",
+    "温带海洋性气候",
+    "亚热带季风气候"
+   ]
+  },
+  {
+   "id": "j-clima-08",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_temperate_oceanic.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "温带海洋性气候",
+   "hints": [
+    "最冷月气温在 0℃ 以上，最热月只有 18℃ 左右，气温年较差很小",
+    "各月降水量都在 40～70 mm，全年降水均匀"
+   ],
+   "explain": "温带海洋性气候：终年温和湿润，气温年较差小，降水季节分配均匀。",
+   "options": [
+    "地中海气候",
+    "温带海洋性气候",
+    "温带季风气候",
+    "亚热带季风气候"
+   ]
+  },
+  {
+   "id": "j-clima-09",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_temperate_continental.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "温带大陆性气候",
+   "hints": [
+    "最冷月气温约 −9℃、最热月约 18℃，气温年较差很大",
+    "全年降水量较少（约 600 mm），且集中在夏季"
+   ],
+   "explain": "温带大陆性气候：冬冷夏热、气温年较差大，降水少而集中。",
+   "options": [
+    "亚寒带针叶林气候",
+    "温带季风气候",
+    "温带大陆性气候",
+    "温带海洋性气候"
+   ]
+  },
+  {
+   "id": "j-clima-10",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_highland.svg",
+   "kind": "chart",
+   "prompt": "读图判断该地的气候类型",
+   "answer": "高原山地气候",
+   "hints": [
+    "各月气温都不高，最热月只有 15℃ 左右，气温年较差小",
+    "降水集中在 6—9 月，气温低的原因是海拔高"
+   ],
+   "explain": "高原山地气候：气温随海拔升高而降低，全年气温较低，降水集中夏季。",
+   "options": [
+    "高原山地气候",
+    "温带大陆性气候",
+    "亚热带季风气候",
+    "地中海气候"
+   ]
+  },
+  {
+   "id": "j-clima-11",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_mediterranean.svg",
+   "kind": "chart",
+   "prompt": "根据图中气温曲线和降水量柱状图，该气候类型的特点是",
+   "answer": "夏季炎热干燥、冬季温和多雨",
+   "hints": [
+    "看 7 月：气温最高而降水最少",
+    "看 1 月：气温较低而降水较多"
+   ],
+   "explain": "该图为地中海气候：7 月气温最高但降水最少，1 月气温较低而降水较多，即夏季炎热干燥、冬季温和多雨。",
+   "options": [
+    "全年温和湿润",
+    "夏季高温多雨、冬季寒冷干燥",
+    "全年高温多雨",
+    "夏季炎热干燥、冬季温和多雨"
+   ]
+  },
+  {
+   "id": "j-clima-12",
+   "level": "junior",
+   "category": "气候类型判读",
+   "image": "assets/weather/clima_subtropical_monsoon.svg",
+   "kind": "chart",
+   "prompt": "图中气候类型为夏季高温多雨、冬季温和少雨。它形成的主要原因是",
+   "answer": "海陆热力性质差异",
+   "hints": [
+    "这种气候分布在大陆东岸，冬夏季风方向随季节明显变化",
+    "它与同纬度的地中海气候降水季节完全相反"
+   ],
+   "explain": "亚热带季风气候位于大陆东岸，因海陆热力性质差异形成季风环流，夏季风从海洋带来湿润气流，冬季风来自大陆、干燥少雨。",
+   "options": [
+    "受副热带高气压带和西风带交替控制",
+    "海陆热力性质差异",
+    "终年受赤道低气压带控制",
+    "终年受西风带控制"
+   ]
+  },
+  {
+   "id": "j-temp-01",
+   "level": "junior",
+   "category": "气温分布",
+   "image": "assets/weather/isotherm_hemi.svg",
+   "kind": "diagram",
+   "prompt": "甲、乙两图中，表示南半球的是",
+   "answer": "图乙",
+   "hints": [
+    "北半球越向北气温越低，南半球越向南气温越低",
+    "看等温线数值朝哪个方向递减"
+   ],
+   "explain": "等温线数值由北向南递减（北低南高）的为南半球。图乙越往南气温越高，说明越往北气温越低，为南半球。",
+   "options": [
+    "图甲",
+    "图乙",
+    "甲、乙都是南半球",
+    "甲、乙都是北半球"
+   ]
+  },
+  {
+   "id": "j-temp-02",
+   "level": "junior",
+   "category": "气温分布",
+   "image": "assets/weather/isotherm_terrain.svg",
+   "kind": "diagram",
+   "prompt": "图中等温线呈闭合曲线，中心气温比四周低。该地形最可能是",
+   "answer": "山地",
+   "hints": [
+    "海拔每升高 100 m，气温大约下降 0.6℃",
+    "中心气温低说明中心地势比较高"
+   ],
+   "explain": "等温线闭合且中心气温低，说明中心地势高于四周，为山地；若中心气温高于四周，则是盆地。",
+   "options": [
+    "盆地",
+    "河谷",
+    "平原",
+    "山地"
+   ]
+  },
+  {
+   "id": "s-front-01",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/front_cold_section.svg",
+   "kind": "diagram",
+   "prompt": "读图判断图示锋面的类型",
+   "answer": "冷锋",
+   "hints": [
+    "看两种气团谁在主动前进——图中冷气团正在向暖气团方向移动",
+    "冷气团像楔子一样楔入暖气团下方，锋面坡度大"
+   ],
+   "explain": "冷气团主动向暖气团移动，锋面坡度大（陡），暖气团被迫抬升，多形成积雨云和阵性降水，这类锋面叫冷锋。",
+   "options": [
+    "暖锋",
+    "准静止锋",
+    "锢囚锋",
+    "冷锋"
+   ]
+  },
+  {
+   "id": "s-front-02",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/front_warm_section.svg",
+   "kind": "diagram",
+   "prompt": "读图判断图示锋面的类型",
+   "answer": "暖锋",
+   "hints": [
+    "图中暖气团主动移向冷气团，并沿锋面缓慢爬升",
+    "锋面坡度小，云系为层状云，降水范围广、强度小"
+   ],
+   "explain": "暖气团主动爬升到冷气团之上，锋面坡度小（缓），形成层状云和连续性降水，这类锋面叫暖锋。",
+   "options": [
+    "冷锋",
+    "暖锋",
+    "准静止锋",
+    "锢囚锋"
+   ]
+  },
+  {
+   "id": "s-front-03",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/front_static_section.svg",
+   "kind": "diagram",
+   "prompt": "读图判断图示锋面的类型",
+   "answer": "准静止锋",
+   "hints": [
+    "图中锋面用虚线表示，说明它在原地来回摆动",
+    "冷暖气团势力相当，谁也推不动谁"
+   ],
+   "explain": "准静止锋：冷暖气团势力相当，锋面来回摆动，常造成阴雨连绵的天气，如江淮准静止锋带来的梅雨。",
+   "options": [
+    "暖锋",
+    "冷锋",
+    "准静止锋",
+    "锢囚锋"
+   ]
+  },
+  {
+   "id": "s-front-04",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/front_occluded_section.svg",
+   "kind": "diagram",
+   "prompt": "读图判断图示锋面的类型",
+   "answer": "锢囚锋",
+   "hints": [
+    "暖气团被抬升到了高空，地面上看不到暖气团",
+    "冷锋追上了暖锋，两种冷气团在地面相接"
+   ],
+   "explain": "锢囚锋：冷锋追上暖锋，暖气团被抬升到高空，地面上暖气团消失，常出现大范围降水和大风降温。",
+   "options": [
+    "暖锋",
+    "锢囚锋",
+    "冷锋",
+    "准静止锋"
+   ]
+  },
+  {
+   "id": "s-front-05",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/cold_front_weather_curve.svg",
+   "kind": "diagram",
+   "prompt": "图中表示某锋面过境前后气温和气压的变化。该锋面过境后，当地气温和气压的变化是",
+   "answer": "气温下降、气压升高",
+   "hints": [
+    "红色曲线代表气温（读左侧刻度），紫色曲线代表气压",
+    "锋面过境后，气温曲线向下、气压曲线向上"
+   ],
+   "explain": "冷锋过境后，当地受冷气团控制，气温下降、气压升高，天气转晴。",
+   "options": [
+    "气温升高、气压降低",
+    "气温升高、气压升高",
+    "气温下降、气压升高",
+    "气温下降、气压降低"
+   ]
+  },
+  {
+   "id": "s-front-06",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/front_cold_section.svg",
+   "kind": "diagram",
+   "prompt": "图中冷锋的降水主要出现在",
+   "answer": "锋后（冷气团一侧）",
+   "hints": [
+    "暖气团被迫抬升，水汽凝结形成的云雨位于锋线的后方",
+    "也就是与锋面移动方向相反的那一侧"
+   ],
+   "explain": "冷锋降水多出现在锋后（冷气团一侧）：暖气团被抬升后凝结成积雨云，云雨区落在锋面之后的冷气团上方。",
+   "options": [
+    "锋后（冷气团一侧）",
+    "锋前和锋后都有",
+    "锋线正上方",
+    "锋前（暖气团一侧）"
+   ]
+  },
+  {
+   "id": "s-front-07",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/front_warm_section.svg",
+   "kind": "diagram",
+   "prompt": "图中暖锋的降水主要出现在",
+   "answer": "锋前（冷气团一侧）",
+   "hints": [
+    "暖气团沿锋面缓慢爬升，云系在锋面之上向前伸展",
+    "雨区落在锋面移动方向的前方"
+   ],
+   "explain": "暖锋降水多出现在锋前（冷气团一侧）：暖气团爬升形成的层状云向前伸展，雨区落在锋面之前的冷气团上空。",
+   "options": [
+    "锋线正上方",
+    "锋前（冷气团一侧）",
+    "锋前和锋后都有",
+    "锋后（暖气团一侧）"
+   ]
+  },
+  {
+   "id": "s-front-08",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/cyclone_nh.svg",
+   "kind": "diagram",
+   "prompt": "图中等压线呈闭合状，中心气压比四周低，气流由四周向中心辐合。该天气系统是",
+   "answer": "气旋（低压）",
+   "hints": [
+    "中心气压低于四周，属于低气压中心",
+    "北半球低压中心的气流呈逆时针方向向中心辐合"
+   ],
+   "explain": "该天气系统中心气压低、气流由四周向中心辐合上升，称为气旋（低压）。",
+   "options": [
+    "反气旋（高压）",
+    "高压脊",
+    "气旋（低压）",
+    "低压槽"
+   ]
+  },
+  {
+   "id": "s-front-09",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/anticyclone_nh.svg",
+   "kind": "diagram",
+   "prompt": "图中等压线呈闭合状，中心气压比四周高，气流由中心向四周辐散。该天气系统是",
+   "answer": "反气旋（高压）",
+   "hints": [
+    "中心气压高于四周，属于高气压中心",
+    "北半球高压中心的气流呈顺时针方向向外辐散"
+   ],
+   "explain": "该天气系统中心气压高、气流由中心向外辐散下沉，称为反气旋（高压）。",
+   "options": [
+    "气旋（低压）",
+    "反气旋（高压）",
+    "高压脊",
+    "低压槽"
+   ]
+  },
+  {
+   "id": "s-front-10",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/cyclone_nh.svg",
+   "kind": "diagram",
+   "prompt": "图中天气系统控制下的天气特点是",
+   "answer": "多阴雨天气",
+   "hints": [
+    "中心气流以上升运动为主",
+    "空气上升过程中温度降低，水汽容易凝结成云致雨"
+   ],
+   "explain": "气旋中心气流辐合上升，水汽凝结成云，多阴雨天气；夏秋季节我国东南沿海的台风就是强烈发展的气旋。",
+   "options": [
+    "连续性降水",
+    "晴朗干燥",
+    "大风降温",
+    "多阴雨天气"
+   ]
+  },
+  {
+   "id": "s-front-11",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/anticyclone_nh.svg",
+   "kind": "diagram",
+   "prompt": "图中天气系统控制下的天气特点是",
+   "answer": "多晴朗干燥天气",
+   "hints": [
+    "中心气流以下沉运动为主",
+    "空气下沉过程中温度升高，水汽不易凝结"
+   ],
+   "explain": "反气旋中心气流下沉，水汽不易凝结，多晴朗干燥天气；我国北方秋季“秋高气爽”就是反气旋控制下的天气。",
+   "options": [
+    "多阴雨天气",
+    "暴雨频发",
+    "多晴朗干燥天气",
+    "阴雨连绵"
+   ]
+  },
+  {
+   "id": "s-front-12",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/front_cyclone_plan.svg",
+   "kind": "diagram",
+   "prompt": "图中三角与半圆分别代表两种锋面。位于低压中心西侧（左侧）的锋面是",
+   "answer": "冷锋",
+   "hints": [
+    "带三角的是冷锋的符号，带半圆的是暖锋的符号",
+    "顺着低压中心向外看，向左下方（西南）伸展的那条带着三角形"
+   ],
+   "explain": "锋面气旋中，低压中心西侧伸出的锋面带三角符号，是冷锋；东侧（右侧）伸出的带半圆符号，是暖锋。",
+   "options": [
+    "冷锋",
+    "准静止锋",
+    "暖锋",
+    "锢囚锋"
+   ]
+  },
+  {
+   "id": "s-front-13",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/ridge.svg",
+   "kind": "diagram",
+   "prompt": "读图判断这种等压线分布形式的名称（等压线由高压中心向外凸出）",
+   "answer": "高压脊",
+   "hints": [
+    "等压线向气压较高的方向凸出，凸出部分像山脊一样向外延伸",
+    "脊线附近气流下沉，天气晴好"
+   ],
+   "explain": "高压脊：等压线由高压中心向外凸出，脊线附近气流下沉，天气多晴朗。",
+   "options": [
+    "高压脊",
+    "气旋",
+    "反气旋",
+    "低压槽"
+   ]
+  },
+  {
+   "id": "s-front-14",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/trough.svg",
+   "kind": "diagram",
+   "prompt": "读图判断这种等压线分布形式的名称（等压线向低压中心凹进）",
+   "answer": "低压槽",
+   "hints": [
+    "等压线向气压较低的方向凹进去，凹入部分像山谷一样向内延伸",
+    "槽线附近气流辐合上升，多阴雨；锋面气旋的锋面就出现在低压槽中"
+   ],
+   "explain": "低压槽：等压线向低压中心凹进，槽线附近气流辐合上升，多阴雨天气。",
+   "options": [
+    "低压槽",
+    "气旋",
+    "反气旋",
+    "高压脊"
+   ]
+  },
+  {
+   "id": "s-front-15",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/typhoon_structure.svg",
+   "kind": "diagram",
+   "prompt": "图中箭头表示气流旋转方向。台风中心（台风眼）处的天气特点是",
+   "answer": "风平浪静、天气晴朗",
+   "hints": [
+    "台风眼是气旋中心气流下沉的区域",
+    "空气下沉，水汽不易凝结成云"
+   ],
+   "explain": "台风眼处气流下沉，云消雨散，风力微弱、天气晴朗；而台风眼周围的旋涡风雨区风雨最强。",
+   "options": [
+    "风平浪静、天气晴朗",
+    "阴雨连绵",
+    "狂风暴雨",
+    "大风降温"
+   ]
+  },
+  {
+   "id": "s-front-16",
+   "level": "senior",
+   "category": "天气系统",
+   "image": "assets/weather/meiyu_band.svg",
+   "kind": "diagram",
+   "prompt": "图中表示我国东部锋面雨带的推移。6 月，雨带停留在长江中下游地区，此时形成的连续阴雨天气称为",
+   "answer": "梅雨",
+   "hints": [
+    "此时江淮地区受准静止锋控制，阴雨天气可持续约一个月",
+    "因为正值江南梅子黄熟的时节而得名"
+   ],
+   "explain": "6 月，江淮准静止锋停留在长江中下游地区，造成连绵阴雨；此时正值梅子黄熟，故称梅雨。",
+   "options": [
+    "梅雨",
+    "华西秋雨",
+    "寒潮",
+    "伏旱"
+   ]
+  },
+  {
+   "id": "s-heat-01",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/heat_process.svg",
+   "kind": "diagram",
+   "prompt": "图中表示大气受热过程。近地面大气主要的直接热源是",
+   "answer": "地面辐射",
+   "hints": [
+    "太阳辐射是短波辐射，大部分能透过大气到达地面",
+    "地面吸收太阳辐射后增温，再以长波辐射的形式向上传递热量"
+   ],
+   "explain": "近地面大气主要的直接热源是地面辐射（长波辐射）。大气对太阳短波辐射吸收很少，所以太阳不是近地面大气的直接热源。",
+   "options": [
+    "地面辐射",
+    "大气逆辐射",
+    "大气辐射",
+    "太阳辐射"
+   ]
+  },
+  {
+   "id": "s-heat-02",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/heat_process.svg",
+   "kind": "diagram",
+   "prompt": "图中表示大气受热过程。大气逆辐射的方向是",
+   "answer": "由大气射向地面",
+   "hints": [
+    "“逆”字表示它的方向与地面辐射相反",
+    "它把热量还给地面，对地面起保温作用"
+   ],
+   "explain": "大气逆辐射方向与地面辐射相反，由大气射向地面，把热量还给地面，对地面起保温作用。",
+   "options": [
+    "由大气射向地面",
+    "由地面射向大气",
+    "由太阳射向地面",
+    "由大气射向宇宙空间"
+   ]
+  },
+  {
+   "id": "s-heat-03",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/heat_process.svg",
+   "kind": "diagram",
+   "prompt": "图中表示大气受热过程。晴朗的夜晚比多云的夜晚气温低，主要原因是",
+   "answer": "云量少，大气逆辐射弱",
+   "hints": [
+    "云层能强烈吸收地面辐射，并增强大气逆辐射",
+    "晴天夜间云量少、水汽少，大气的保温作用弱"
+   ],
+   "explain": "晴朗夜晚云量少，大气逆辐射弱、保温作用差，地面热量散失快，因此气温比多云夜晚低。",
+   "options": [
+    "太阳辐射强，气温高",
+    "云量少，大气逆辐射弱",
+    "大气对太阳辐射的削弱作用强",
+    "地面辐射弱，气温低"
+   ]
+  },
+  {
+   "id": "s-heat-04",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/greenhouse.svg",
+   "kind": "diagram",
+   "prompt": "图中为玻璃温室与人造烟幕。冬季用它们防御霜冻，共同的原理是",
+   "answer": "增强大气逆辐射",
+   "hints": [
+    "太阳短波辐射能穿过玻璃，地面长波辐射却不易散失",
+    "人造烟幕能增加大气中的水汽和尘埃，使大气逆辐射增强"
+   ],
+   "explain": "玻璃温室和人造烟幕都减少了地面热量向外的散失、增强了大气逆辐射，从而提高近地面气温、减轻霜冻。",
+   "options": [
+    "增强大气对太阳辐射的削弱作用",
+    "减弱地面辐射",
+    "增强太阳辐射",
+    "增强大气逆辐射"
+   ]
+  },
+  {
+   "id": "s-heat-05",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/thermal_circulation.svg",
+   "kind": "diagram",
+   "prompt": "图中表示热力环流。形成热力环流的根本原因是",
+   "answer": "地面冷热不均",
+   "hints": [
+    "地面受热不均使空气产生垂直运动",
+    "空气上升或下沉后，同一水平面上产生气压差，空气才由高压流向低压"
+   ],
+   "explain": "热力环流的根本原因是地面冷热不均：受热处空气上升、冷却处空气下沉，进而在同一水平面上产生气压差，空气由高压流向低压形成环流。",
+   "options": [
+    "气压带风带的季节移动",
+    "地面冷热不均",
+    "海陆位置差异",
+    "地转偏向力"
+   ]
+  },
+  {
+   "id": "s-heat-06",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/thermal_circulation.svg",
+   "kind": "diagram",
+   "prompt": "图中表示热力环流。近地面空气的水平运动方向是",
+   "answer": "由冷却处流向受热处",
+   "hints": [
+    "受热处空气上升，近地面形成低气压",
+    "冷却处空气下沉，近地面形成高气压；空气由高压流向低压"
+   ],
+   "explain": "受热处空气上升，近地面形成低压；冷却处空气下沉，近地面形成高压。近地面空气由冷却处（高压）流向受热处（低压）。",
+   "options": [
+    "由冷却处流向受热处",
+    "由近地面流向高空",
+    "由高空流向近地面",
+    "由受热处流向冷却处"
+   ]
+  },
+  {
+   "id": "s-heat-07",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/sea_breeze.svg",
+   "kind": "diagram",
+   "prompt": "图中表示海滨地区白天的空气运动。此时近地面的风向是",
+   "answer": "由海洋吹向陆地",
+   "hints": [
+    "白天陆地比海洋增温快，陆地气温高于海洋",
+    "陆地空气上升形成低压，海洋空气下沉形成高压"
+   ],
+   "explain": "白天陆地增温快、气温高，空气上升形成低压；海洋气温低、空气下沉形成高压。近地面风由海洋吹向陆地，称为海风。",
+   "options": [
+    "由高空吹向近地面",
+    "由陆地吹向海洋",
+    "沿海岸线平行流动",
+    "由海洋吹向陆地"
+   ]
+  },
+  {
+   "id": "s-heat-08",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/land_breeze.svg",
+   "kind": "diagram",
+   "prompt": "图中表示海滨地区夜晚的空气运动。此时近地面的风向是",
+   "answer": "由陆地吹向海洋",
+   "hints": [
+    "夜晚陆地比海洋降温快，陆地气温低于海洋",
+    "陆地空气下沉形成高压，海洋空气上升形成低压"
+   ],
+   "explain": "夜晚陆地降温快、气温低，空气下沉形成高压；海洋气温相对较高、空气上升形成低压。近地面风由陆地吹向海洋，称为陆风。",
+   "options": [
+    "由海洋吹向陆地",
+    "由陆地吹向海洋",
+    "由高空吹向近地面",
+    "沿海岸线平行流动"
+   ]
+  },
+  {
+   "id": "s-heat-09",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/mountain_breeze.svg",
+   "kind": "diagram",
+   "prompt": "图中表示山谷地区夜晚的空气运动。此时空气沿山坡的运动方向是",
+   "answer": "沿山坡下沉，风由山坡吹向谷底",
+   "hints": [
+    "夜晚山坡降温快，冷空气密度大、比较重",
+    "冷而重的空气沿山坡向下滑动"
+   ],
+   "explain": "夜晚山坡冷却快，冷空气沿坡下沉、由山坡吹向谷底，形成山风。",
+   "options": [
+    "先上升后下沉",
+    "几乎静止不动",
+    "沿山坡下沉，风由山坡吹向谷底",
+    "沿山坡上升，风由谷底吹向山坡"
+   ]
+  },
+  {
+   "id": "s-heat-10",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/urban_heat.svg",
+   "kind": "diagram",
+   "prompt": "图中表示城市热岛环流。为减轻城市大气污染，有污染的工厂应布局在",
+   "answer": "热岛环流之外",
+   "hints": [
+    "近地面风由郊区吹向城市，会把近地面的污染物带进城区",
+    "把污染源放在这个环流范围之外，污染物就不会被带进城区"
+   ],
+   "explain": "热岛环流近地面风由郊区吹向城市，若把有污染的工厂布局在环流之内，污染物会被带入城区；因此应布局在热岛环流之外。",
+   "options": [
+    "城市正上方的近地面",
+    "热岛环流之外",
+    "城市中心",
+    "热岛环流之内的近地面附近"
+   ]
+  },
+  {
+   "id": "s-heat-11",
+   "level": "senior",
+   "category": "大气受热与热力环流",
+   "image": "assets/weather/inversion.svg",
+   "kind": "diagram",
+   "prompt": "图中实线为当晚实测气温垂直变化。逆温现象出现时，会造成",
+   "answer": "抑制空气对流，污染物不易扩散",
+   "hints": [
+    "逆温层内气温随高度升高，形成上暖下冷的层结",
+    "这种层结很稳定，空气难以产生垂直对流"
+   ],
+   "explain": "逆温层内上暖下冷，大气层结稳定，抑制空气对流，污染物和水汽不易扩散，容易出现雾霾天气。",
+   "options": [
+    "抑制空气对流，污染物不易扩散",
+    "使近地面气温升高、对流增强",
+    "增强空气对流，利于污染物扩散",
+    "使大气逆辐射减弱"
+   ]
+  },
+  {
+   "id": "s-circ-01",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/three_cells.svg",
+   "kind": "diagram",
+   "prompt": "图中表示三圈环流。在副热带高气压带所在纬度附近，空气的垂直运动方向是",
+   "answer": "下沉",
+   "hints": [
+    "该气压带是高空来的气流在 30° 纬度附近堆积形成的",
+    "顺着图中的箭头看，30° 附近的气流自上而下"
+   ],
+   "explain": "副热带高气压带是高空来自赤道上空的气流在 30° 纬度附近堆积下沉形成的，空气下沉，近地面形成高气压。",
+   "options": [
+    "水平向极地流动",
+    "上升",
+    "下沉",
+    "水平向赤道流动"
+   ]
+  },
+  {
+   "id": "s-circ-02",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/three_cells.svg",
+   "kind": "diagram",
+   "prompt": "图中表示三圈环流。空气以上升运动为主的气压带，其控制地区的天气特点是",
+   "answer": "多阴雨天气",
+   "hints": [
+    "图中赤道附近和 60° 纬度附近的气流都是上升的",
+    "空气上升，温度降低，水汽容易凝结"
+   ],
+   "explain": "赤道低气压带和副极地低气压带都是上升气流，空气上升降温、水汽凝结，多阴雨天气。",
+   "options": [
+    "多风沙天气",
+    "气温日较差大",
+    "多阴雨天气",
+    "多晴朗干燥天气"
+   ]
+  },
+  {
+   "id": "s-circ-03",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/pressure_belts.svg",
+   "kind": "diagram",
+   "prompt": "图中为全球气压带与风带分布。北半球盛行西风带的风向是",
+   "answer": "西南风",
+   "hints": [
+    "气流由副热带高气压带吹向副极地低气压带，即由较低纬度吹向较高纬度",
+    "北半球的风受地转偏向力影响向右偏转"
+   ],
+   "explain": "北半球盛行西风带的气流由 30°N 的副热带高气压带流向 60°N 的副极地低气压带，受地转偏向力向右偏转，成为西南风。",
+   "options": [
+    "东南风",
+    "西北风",
+    "东北风",
+    "西南风"
+   ]
+  },
+  {
+   "id": "s-circ-04",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/pressure_belts.svg",
+   "kind": "diagram",
+   "prompt": "图中为全球气压带与风带分布。南半球极地东风带的风向是",
+   "answer": "东南风",
+   "hints": [
+    "气流由极地高气压带（90°S）吹向副极地低气压带（60°S）",
+    "南半球的风受地转偏向力影响向左偏转"
+   ],
+   "explain": "南半球极地东风带的气流由 90°S 的极地高气压带流向 60°S 的副极地低气压带，受地转偏向力向左偏转，成为东南风。",
+   "options": [
+    "西南风",
+    "西北风",
+    "东北风",
+    "东南风"
+   ]
+  },
+  {
+   "id": "s-circ-05",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/pressure_belts.svg",
+   "kind": "diagram",
+   "prompt": "图中为全球气压带与风带分布。60°N 附近形成的气压带是",
+   "answer": "副极地低气压带",
+   "hints": [
+    "这里是盛行西风与极地东风相遇、暖空气被迫抬升的地带",
+    "气流上升，近地面形成低气压"
+   ],
+   "explain": "60°N 附近，来自低纬的暖而轻的西风与来自极地的冷而重的东风相遇，暖空气被迫抬升，近地面形成副极地低气压带。",
+   "options": [
+    "极地高气压带",
+    "副极地低气压带",
+    "赤道低气压带",
+    "副热带高气压带"
+   ]
+  },
+  {
+   "id": "s-circ-06",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/pressure_shift.svg",
+   "kind": "diagram",
+   "prompt": "图中为气压带、风带季节移动示意。夏季（7 月前后），气压带和风带的位置相对赤道是",
+   "answer": "偏北",
+   "hints": [
+    "气压带、风带的移动方向与太阳直射点的移动方向一致",
+    "夏季太阳直射北半球"
+   ],
+   "explain": "气压带、风带的移动方向与太阳直射点一致。夏季太阳直射北半球，气压带、风带随之北移（偏北）；冬季则南移。",
+   "options": [
+    "先北移后南移",
+    "偏南",
+    "不动",
+    "偏北"
+   ]
+  },
+  {
+   "id": "s-circ-07",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/monsoon_summer.svg",
+   "kind": "diagram",
+   "prompt": "图中为东亚季风示意。夏季，东亚地区近地面的盛行风向是",
+   "answer": "东南风",
+   "hints": [
+    "夏季亚洲大陆升温快、形成低压，海洋上气压相对较高",
+    "近地面风由海洋吹向大陆，从东南方向吹来"
+   ],
+   "explain": "夏季亚洲大陆形成印度低压，太平洋上是夏威夷高压，近地面风由海洋吹向大陆，东亚盛行东南季风，温暖湿润。",
+   "options": [
+    "西北风",
+    "东北风",
+    "西南风",
+    "东南风"
+   ]
+  },
+  {
+   "id": "s-circ-08",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/monsoon_winter.svg",
+   "kind": "diagram",
+   "prompt": "图中为东亚季风示意。冬季，东亚地区近地面的盛行风向是",
+   "answer": "西北风",
+   "hints": [
+    "冬季亚洲大陆降温快、形成高压，海洋上气压相对较低",
+    "近地面风由大陆吹向海洋，从西北方向吹来"
+   ],
+   "explain": "冬季亚洲大陆形成西伯利亚高压，海洋上形成阿留申低压，近地面风由大陆吹向海洋，东亚盛行西北季风，寒冷干燥。",
+   "options": [
+    "东南风",
+    "西北风",
+    "东北风",
+    "西南风"
+   ]
+  },
+  {
+   "id": "s-circ-09",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/south_asia_monsoon.svg",
+   "kind": "diagram",
+   "prompt": "图中为南亚季风示意。夏季，南亚地区近地面的盛行风向是",
+   "answer": "西南风",
+   "hints": [
+    "夏季气压带、风带北移，南半球的东南信风越过赤道",
+    "越过赤道后受地转偏向力影响向右偏转"
+   ],
+   "explain": "夏季气压带、风带北移，南半球的东南信风越过赤道后向右偏转，形成西南季风，给南亚带来大量降水。",
+   "options": [
+    "东北风",
+    "西南风",
+    "西北风",
+    "东南风"
+   ]
+  },
+  {
+   "id": "s-circ-10",
+   "level": "senior",
+   "category": "大气环流与季风",
+   "image": "assets/weather/pressure_belts.svg",
+   "kind": "diagram",
+   "prompt": "图中为全球气压带与风带分布。常年受赤道低气压带控制的地区，气候特点是",
+   "answer": "全年高温多雨",
+   "hints": [
+    "该气压带全年盛行上升气流",
+    "上升气流容易成云致雨，且该地带全年高温"
+   ],
+   "explain": "赤道低气压带全年盛行上升气流，多对流雨，形成全年高温多雨的热带雨林气候。",
+   "options": [
+    "全年炎热干燥",
+    "全年高温多雨",
+    "夏季炎热干燥、冬季温和多雨",
+    "冬冷夏热、降水稀少"
+   ]
+  },
+  {
+   "id": "s-iso-01",
+   "level": "senior",
+   "category": "等压线等温线",
+   "image": "assets/weather/isobar_parallel.svg",
+   "kind": "diagram",
+   "prompt": "图中为北半球近地面等压线分布。A 点的风向（风的来向）是",
+   "answer": "西北风",
+   "hints": [
+    "虚线箭头是水平气压梯度力，方向垂直于等压线、由高压指向低压",
+    "北半球近地面风向在水平气压梯度力的基础上向右偏转 30°～45°；风向指风的来向"
+   ],
+   "explain": "A 点的水平气压梯度力由高压指向低压（向东），北半球近地面风向右偏转 30°～45°，实际风由西北吹向东南，所以风向为西北风。",
+   "options": [
+    "东南风",
+    "西南风",
+    "西北风",
+    "东北风"
+   ]
+  },
+  {
+   "id": "s-iso-02",
+   "level": "senior",
+   "category": "等压线等温线",
+   "image": "assets/weather/isobar_density.svg",
+   "kind": "diagram",
+   "prompt": "甲、乙两图中等压线的疏密不同。两图所示地区风力较大的是",
+   "answer": "图甲",
+   "hints": [
+    "等压线越密集，说明单位距离内的气压差越大",
+    "气压梯度越大，水平气压梯度力越大，风力也就越大"
+   ],
+   "explain": "图甲等压线密集，气压梯度大、水平气压梯度力大，因此风力较大；图乙等压线稀疏，风力较小。",
+   "options": [
+    "图乙",
+    "图甲",
+    "无法判断",
+    "两图风力相同"
+   ]
+  },
+  {
+   "id": "s-iso-03",
+   "level": "senior",
+   "category": "等压线等温线",
+   "image": "assets/weather/isotherm_hemi.svg",
+   "kind": "diagram",
+   "prompt": "甲、乙两图中，表示南半球的是",
+   "answer": "图乙",
+   "hints": [
+    "北半球越向北气温越低，南半球越向南气温越低",
+    "看等温线数值朝哪个方向递减"
+   ],
+   "explain": "等温线数值由北向南递减（北低南高）的为南半球。图乙越往南气温越高，说明越往北气温越低，为南半球。",
+   "options": [
+    "图甲",
+    "甲、乙都是北半球",
+    "甲、乙都是南半球",
+    "图乙"
+   ]
+  },
+  {
+   "id": "s-iso-04",
+   "level": "senior",
+   "category": "等压线等温线",
+   "image": "assets/weather/isotherm_bend.svg",
+   "kind": "diagram",
+   "prompt": "图中为北半球海陆等温线分布示意。7 月（夏季），陆地上的等温线",
+   "answer": "向北（高纬）凸出",
+   "hints": [
+    "7 月陆地增温比海洋快，陆地气温高于同纬度的海洋",
+    "气温高的地方，等温线向高纬度方向凸出"
+   ],
+   "explain": "7 月陆地气温高于同纬度海洋，等温线向高纬（北）凸出；1 月相反，陆地等温线向低纬（南）凸出，即“一陆南、七陆北”。",
+   "options": [
+    "向南（低纬）凸出",
+    "向北（高纬）凸出",
+    "与海洋上的弯曲方向一致",
+    "不弯曲，呈水平分布"
+   ]
+  },
+  {
+   "id": "s-iso-05",
+   "level": "senior",
+   "category": "等压线等温线",
+   "image": "assets/weather/isotherm_terrain.svg",
+   "kind": "diagram",
+   "prompt": "图中等温线呈闭合曲线，且中心气温低于四周。该地形最可能是",
+   "answer": "山地",
+   "hints": [
+    "海拔越高，气温越低，大约每升高 100 m 气温下降 0.6℃",
+    "中心气温低说明中心地势高于四周"
+   ],
+   "explain": "等温线闭合且中心气温低，说明中心地势高于四周，为山地；反之若中心气温高于四周，则是盆地。",
+   "options": [
+    "河谷",
+    "平原",
+    "盆地",
+    "山地"
+   ]
+  },
+  {
+   "id": "s-photo-01",
+   "level": "senior",
+   "category": "气象灾害",
+   "image": "assets/weather/photo_typhoon_sat.jpg",
+   "kind": "photo",
+   "prompt": "这张气象卫星云图显示的天气系统是",
+   "answer": "台风",
+   "hints": [
+    "云系呈螺旋状，中心有一个清晰的“眼”",
+    "它形成于热带海洋，中心气压很低，带来狂风暴雨"
+   ],
+   "explain": "台风（热带气旋）在卫星云图上表现为大范围螺旋云带围绕一个清晰的台风眼，中心附近风雨最强。",
+   "options": [
+    "台风",
+    "高压",
+    "沙尘暴",
+    "冷锋"
+   ]
+  },
+  {
+   "id": "s-photo-02",
+   "level": "senior",
+   "category": "气象灾害",
+   "image": "assets/weather/photo_urban_flood.jpg",
+   "kind": "photo",
+   "prompt": "照片中城镇街道被雨水淹没，这种气象灾害是",
+   "answer": "洪涝",
+   "hints": [
+    "它由短时间内的强降水造成，地势低洼处积水严重",
+    "常与暴雨、台风等天气系统相伴发生"
+   ],
+   "explain": "洪涝多由暴雨或连续性降水造成，城市排水不畅时形成内涝；我国东部季风区夏秋季节多发。",
+   "options": [
+    "洪涝",
+    "沙尘暴",
+    "干旱",
+    "寒潮"
+   ]
+  },
+  {
+   "id": "s-photo-03",
+   "level": "senior",
+   "category": "气象灾害",
+   "image": "assets/weather/photo_drought.jpg",
+   "kind": "photo",
+   "prompt": "照片中土地干裂、水面大幅退缩的景象反映的气象灾害是",
+   "answer": "干旱",
+   "hints": [
+    "长期降水偏少、蒸发旺盛，土壤水分严重不足",
+    "它对农业生产影响最大，会造成作物减产甚至绝收"
+   ],
+   "explain": "干旱：长期降水偏少、蒸发旺盛造成水分短缺，是我国影响范围最广、对农业危害最大的气象灾害之一。",
+   "options": [
+    "洪涝",
+    "寒潮",
+    "干旱",
+    "霜冻"
+   ]
+  },
+  {
+   "id": "s-photo-04",
+   "level": "senior",
+   "category": "气象灾害",
+   "image": "assets/weather/photo_glaze_ice.jpg",
+   "kind": "photo",
+   "prompt": "照片中道路、电线、树枝上覆盖了一层透明坚硬的冰壳，这种现象是",
+   "answer": "雨凇",
+   "hints": [
+    "它由过冷却的雨滴（冻雨）落到低于 0℃ 的物体表面冻结而成",
+    "冰层透明、质地坚硬，常压断电线、影响交通"
+   ],
+   "explain": "雨凇（冻雨）：过冷却雨滴落到低于 0℃ 的地物上立即冻结成透明冰层，常造成电线覆冰、路面结冰。",
+   "options": [
+    "雨凇",
+    "雪",
+    "霜",
+    "雾凇"
+   ]
+  },
+  {
+   "id": "s-photo-05",
+   "level": "senior",
+   "category": "气象灾害",
+   "image": "assets/weather/photo_downpour.jpg",
+   "kind": "photo",
+   "prompt": "照片中雨势很猛、行人撑起雨伞的天气是",
+   "answer": "暴雨",
+   "hints": [
+    "24 小时降水量达到或超过 50 mm 就属于这一类",
+    "在天气符号里，它在云下画有 4 个雨点"
+   ],
+   "explain": "暴雨：24 小时降水量 50 mm 以上，短时强度大，容易引发城市内涝、山洪等灾害。",
+   "options": [
+    "小雨",
+    "中雨",
+    "阵雨",
+    "暴雨"
+   ]
+  },
+  {
+   "id": "s-photo-06",
+   "level": "senior",
+   "category": "气象灾害",
+   "image": "assets/weather/photo_tornado.jpg",
+   "kind": "photo",
+   "prompt": "照片中从云底垂下、呈漏斗状的强涡旋是",
+   "answer": "龙卷风",
+   "hints": [
+    "它是从积雨云底部伸展到地面的强烈旋转气流",
+    "水平范围很小，但破坏力极强"
+   ],
+   "explain": "龙卷风：从积雨云底部伸展到地面的强烈旋转涡旋，水平范围小、持续时间短，但风速极大、破坏力极强。",
+   "options": [
+    "龙卷风",
+    "沙尘暴",
+    "冷锋",
+    "台风"
+   ]
+  },
+  {
+   "id": "s-photo-07",
+   "level": "senior",
+   "category": "气象灾害",
+   "image": "assets/weather/photo_ice_flower.jpg",
+   "kind": "photo",
+   "prompt": "冬天室内玻璃窗内表面出现的这种冰晶花纹是",
+   "answer": "冰花（窗霜）",
+   "hints": [
+    "室内水汽遇到温度低于 0℃ 的玻璃，直接凝华成冰晶",
+    "形状像羽毛、树枝，与窗外气温低有关"
+   ],
+   "explain": "冰花（窗霜）：室内空气中的水汽遇到温度低于 0℃ 的玻璃，直接在玻璃表面凝华成冰晶，形成羽毛状、树枝状花纹。",
+   "options": [
+    "冰花（窗霜）",
+    "雾凇",
+    "露",
+    "雨凇"
+   ]
+  },
+  {
+   "id": "s-photo-08",
+   "level": "senior",
+   "category": "气象灾害",
+   "image": "assets/weather/photo_dust_haze.jpg",
+   "kind": "photo",
+   "prompt": "照片中天空呈土黄色、能见度明显下降，这属于",
+   "answer": "沙尘天气",
+   "hints": [
+    "空气中悬浮着大量来自地面的沙尘颗粒",
+    "它的成因是强风把地面尘沙吹起，与雾霾的成因不同"
+   ],
+   "explain": "沙尘天气是强风把地面尘沙吹到空中形成的，按能见度由低到高分为沙尘暴、扬沙、浮尘；与主要由污染物颗粒形成的霾不同。",
+   "options": [
+    "晴好天气",
+    "雾霾天气",
+    "沙尘天气",
+    "阴雨天气"
+   ]
+  }
+ ]
+}
