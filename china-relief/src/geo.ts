@@ -54,6 +54,42 @@ export function zToLat(z: number): number {
   return CHINA_DEM.lat1 - ((z + SPAN_Z / 2) * WORLD_UNIT_KM) / KM_PER_DEG;
 }
 
+/**
+ * 取景框在画布里的摆放（等比铺满、四周留 4% 呼吸位）。
+ *
+ * **画布与「影像底图瓦片层」必须共用这一个函数**：瓦片是 DOM 元素、地形是
+ * 画布像素，两边各算一套浮点数迟早会错开半个像素，那时影像和等高线就会
+ * 各说各话 —— 而这类错位从画面上看只会像"图有点糊"，很难归因。
+ */
+export const MAP_FIT = 0.96;
+
+export interface MapLayout {
+  mapScale: number;
+  mapX: number;
+  mapY: number;
+}
+
+export function mapLayout(w: number, h: number): MapLayout {
+  const mapScale = Math.min(w / SPAN_X, h / SPAN_Z) * MAP_FIT;
+  return {
+    mapScale,
+    mapX: (w - SPAN_X * mapScale) / 2,
+    mapY: (h - SPAN_Z * mapScale) / 2
+  };
+}
+
+/** 经纬度 → 画布内像素坐标（左上为原点） */
+export function lonLatToCanvas(
+  lon: number,
+  lat: number,
+  layout: MapLayout
+): { x: number; y: number } {
+  return {
+    x: layout.mapX + (lonToX(lon) + SPAN_X / 2) * layout.mapScale,
+    y: layout.mapY + (latToZ(lat) + SPAN_Z / 2) * layout.mapScale
+  };
+}
+
 /** 经纬度 → 最近的栅格下标（会夹到边界内） */
 export function gridIndex(lon: number, lat: number): { i: number; j: number } {
   const i = Math.round(((lon - CHINA_DEM.lon0) / (CHINA_DEM.lon1 - CHINA_DEM.lon0)) * (GRID_W - 1));

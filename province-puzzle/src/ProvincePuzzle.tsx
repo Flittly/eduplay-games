@@ -61,6 +61,20 @@ const FEATURES = MAP.features;
 const VB_WIDTH = MAP.viewBox[2];
 const VB_HEIGHT = MAP.viewBox[3];
 const MIN_SNAP = 30;
+
+/**
+ * 「小到需要特殊照顾」的边界框尺寸（视图单位）。
+ *
+ * 为什么要有这条线：托盘卡片的 svg **固定 37 px 高**，而 `stroke-width: 1.2` 是
+ * **viewBox 单位**、会跟着要素一起缩放 —— 于是要素越小，描边相对越粗：
+ * 澳门那 8.6 × 13 px 的形状配了 6.5 px 的描边（等于被描边糊死），
+ * 香港 28 px 的形状配 2.8 px（海岸线也糊掉），而新疆 0.35 px 几乎看不见。
+ * 洞里的地形再细，这么一描也白描，所以小要素改用**不随缩放走的细描边**（见 styles.css）。
+ *
+ * 实测只有澳门（2）和香港（12.2）落在这条线以下，下一个是上海（27）——
+ * 也就是说这条规则**实际上只作用于港澳**，改它们不会顺带改别的行政区。
+ */
+const TINY_BBOX = 22;
 const RULES_STORAGE_KEY = "eduplay.province-puzzle.rules.v1";
 
 const DEFAULT_RULES: ScoreRules = {
@@ -571,6 +585,7 @@ export default function ProvincePuzzle({
                 return null;
               }
               const isSource = dragging?.id === id;
+              const tiny = bboxSize(feature) < TINY_BBOX;
               const [minX, minY, maxX, maxY] = feature.bbox;
               const pad = Math.max(maxX - minX, maxY - minY) * 0.08 + 2;
               return (
@@ -579,6 +594,7 @@ export default function ProvincePuzzle({
                   type="button"
                   className={[
                     "tray-card",
+                    tiny ? "is-tiny" : "",
                     phase !== "running" ? "is-disabled" : "",
                     isSource ? "is-source" : ""
                   ]
@@ -636,7 +652,7 @@ export default function ProvincePuzzle({
                 if (!placed.has(feature.id)) {
                   return null;
                 }
-                const tiny = bboxSize(feature) < 22;
+                const tiny = bboxSize(feature) < TINY_BBOX;
                 return (
                   <g key={feature.id}>
                     <path

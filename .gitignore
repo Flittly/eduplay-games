@@ -11,4 +11,4 @@ dist/
 *.log
 **/*.log
 
-.workbuddy/tmp/
+.workbuddy/

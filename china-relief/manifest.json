@@ -1,7 +1,7 @@
 {
   "gameCode": "china_relief",
   "name": "山河塑形·中国地形",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
@@ -9,6 +9,6 @@
   "entry": "web/index.html",
   "cover": "web/cover.svg",
   "backendPlugin": null,
-  "requiresRoster": false,
-  "description": "把四大高原、四大盆地、三大平原和 27 条山脉的卡片拖到中国地图上正确的位置，放对的地方会按真实高程塑出分层设色，放错会弹回并说清偏到了哪里。每放对一块就弹出它的实景照片与成因讲解，全部归位后中国地势三级阶梯自己长出来。"
+  "requiresRoster": true,
+  "description": "全班共用一张中国地图接力塑形：把四大高原、四大盆地、三大平原和 27 条山脉的卡片拖到正确位置，放对就按真实高程隆起并弹出实景讲解，每人各记各的分，可随时点名换人。可分为全部、只练高原、只练盆地、只练平原、只练山脉五种范围做针对性训练；起始地图可选空白或随机预置约六成（低难度，每次开局重新随机）；地形可按归属描出同色系轮廓并可一键开关。底图能在分层设色、地势晕渲、天地图遥感影像之间切换。"
 }

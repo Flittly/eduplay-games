@@ -322,6 +322,22 @@ input:focus {
   stroke-linejoin: miter;
 }
 
+/*
+ * 小要素（实测只有港澳）用**不随缩放走**的细描边。
+ *
+ * 原来的 `stroke-width: 1.2` 是 viewBox 单位：卡片 svg 固定 37 px 高，
+ * 要素越小，1.2 单位换算到屏幕上就越粗 —— 澳门那 8.6 × 13 px 的形状描边有 6.5 px，
+ * 整个被描边糊成一个实心块，海岸线细节全部看不出来。
+ * 加上 `vector-effect: non-scaling-stroke` 之后 stroke-width 按**屏幕像素**解释，
+ * 港澳的细海岸线才真的能看见。
+ *
+ * 阈值见 ProvincePuzzle.tsx 的 TINY_BBOX：只有澳门(2)、香港(12.2) 在它以下。
+ */
+.tray-card.is-tiny svg path {
+  stroke-width: 1.1;
+  vector-effect: non-scaling-stroke;
+}
+
 .tray-card span {
   max-width: 100%;
   overflow: hidden;

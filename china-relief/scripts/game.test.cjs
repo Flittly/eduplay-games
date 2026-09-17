@@ -503,7 +503,502 @@ check("落偏提示：已经很近时不报公里，只说「再挪一点点」"
     /很接近/.test(game.distanceHint(109.0, 33.0, ANCHOR)),
   `${game.distanceHint(108.55, 33.9, ANCHOR)} / ${game.distanceHint(109.0, 33.0, ANCHOR)}`);
 
+/* ===================== 8) 多人接力会话（v1.1.0） ===================== */
+
+const S = require("./_session.cjs");
+
+const THREE = [
+  { studentId: 101, studentName: "甲" },
+  { studentId: 102, studentName: "乙" },
+  { studentId: 103, studentName: "丙" }
+];
+
+check("createSession：每人一份独立记分状态（互不影响）", (() => {
+  const s = S.createSession(THREE, "relay");
+  return (
+    s.order.length === 3 &&
+    s.rounds[101].score === 0 &&
+    s.rounds[102].score === 0 &&
+    s.rounds[101] !== s.rounds[102] &&
+    s.seconds[103] === 0
+  );
+})(), "");
+
+check("轮流模式：放对一张 → 加分给当前答题人，并自动换下一位", (() => {
+  let s = S.createSession(THREE, "relay");
+  const out = S.commitCorrect(s, "x1", "area");
+  return (
+    out.studentId === 101 &&
+    out.gained === 20 &&
+    out.session.rounds[101].score === 20 &&
+    out.session.rounds[102].score === 0 &&
+    S.currentId(out.session) === 102
+  );
+})(), "");
+
+check("轮流模式：走到名单末尾会绕回第一位（而不是卡住）", (() => {
+  let s = S.createSession(THREE, "relay");
+  s = S.commitCorrect(s, "a", "area").session;
+  s = S.commitCorrect(s, "b", "area").session;
+  const third = S.currentId(s);
+  s = S.commitCorrect(s, "c", "area").session;
+  return third === 103 && S.currentId(s) === 101;
+})(), "甲→乙→丙→甲");
+
+check("指定答题人模式：放对**不**换人（老师不点就一直是他）", (() => {
+  let s = S.createSession(THREE, "pick");
+  s = S.commitCorrect(s, "a", "area").session;
+  s = S.commitCorrect(s, "b", "line").session;
+  return S.currentId(s) === 101 && s.rounds[101].score === 32;
+})(), "");
+
+check("**两种模式放错都不换人**（否则「答错＝把难题丢给下一位」会成为最优解）", (() => {
+  const relay = S.commitWrong(S.createSession(THREE, "relay"));
+  const pick = S.commitWrong(S.createSession(THREE, "pick"));
+  return (
+    S.currentId(relay) === 101 &&
+    S.currentId(pick) === 101 &&
+    relay.rounds[101].score === 0 &&
+    relay.rounds[101].wrongCount === 1
+  );
+})(), "");
+
+check("共用一张地图：别人放过的卡放不了（gained=0 且状态不变）", (() => {
+  let s = S.createSession(THREE, "relay");
+  s = S.commitCorrect(s, "dup", "area").session;
+  const before = s.rounds[102].score;
+  const out = S.commitCorrect(s, "dup", "area");
+  return out.gained === 0 && out.session === s && S.isPlaced(s, "dup") && out.session.rounds[102].score === before;
+})(), "");
+
+check("commitCorrect 幂等：同一条目连发两次只加一次分", (() => {
+  let s = S.createSession(THREE, "pick");
+  s = S.commitCorrect(s, "same", "area").session;
+  s = S.commitCorrect(s, "same", "area").session;
+  return s.rounds[101].score === 20 && s.placed.length === 1;
+})(), "");
+
+check("focusPlayer：能点名切换，名单外的人被忽略（不改变状态）", (() => {
+  const s = S.createSession(THREE, "relay");
+  const toC = S.focusPlayer(s, 103);
+  const outsider = S.focusPlayer(toC, 999);
+  return S.currentId(toC) === 103 && outsider === toC && S.currentId(s) === 101;
+})(), "");
+
+check("commitHint：扣当前答题人的分，并让该条目掉一档系数", (() => {
+  let s = S.createSession(THREE, "pick");
+  s = S.commitHint(s, "h1");
+  const afterHint = s.rounds[101].score;
+  const out = S.commitCorrect(s, "h1", "area");
+  // 提示算作多试了一轮 ⇒ 第 2 次答对按 0.6 系数：12 分
+  return afterHint === 0 && out.gained === 12;
+})(), "");
+
+check("addSeconds：只记到指定的那个人头上", (() => {
+  let s = S.createSession(THREE, "relay");
+  s = S.addSeconds(s, 102, 7.4);
+  s = S.addSeconds(s, 102, -1);
+  return s.seconds[102] === 7.4 && s.seconds[101] === 0;
+})(), "");
+
+check("resultsOf：每人得分 = 各自状态里的分数，且按分从高到低排", (() => {
+  let s = S.createSession(THREE, "pick");
+  s = S.commitCorrect(s, "r1", "area").session; // 甲 +20
+  s = S.focusPlayer(s, 102);
+  s = S.commitCorrect(s, "r2", "area").session; // 乙 +20
+  s = S.commitCorrect(s, "r3", "line").session; // 乙 +12
+  const rows = S.resultsOf(s, 38);
+  return (
+    rows.length === 3 &&
+    rows[0].studentId === 102 &&
+    rows[0].score === 32 &&
+    rows[0].correctCount === 2 &&
+    rows[0].totalCount === 38 &&
+    rows[2].score === 0
+  );
+})(), "");
+
+check("**不重不漏**：全图归位后，各人塑成的张数之和 = 总张数，且已归位集合无重复", (() => {
+  let s = S.createSession(THREE, "relay");
+  const ids = regions.AREAS.map((a) => a.id).concat(regions.RANGES.map((r) => r.id));
+  for (const id of ids) {
+    s = S.commitCorrect(s, id, "area").session;
+  }
+  const split = THREE.map((p) => s.rounds[p.studentId].placed.length);
+  const sum = split.reduce((a, b) => a + b, 0);
+  const unique = new Set(s.placed);
+  return (
+    s.placed.length === ids.length &&
+    unique.size === ids.length &&
+    sum === ids.length &&
+    Object.keys(s.owner).length === ids.length
+  );
+})(), "");
+
+check("**分数守恒**：各人分数之和 = 每次放对的加分之和 − 每次扣分", (() => {
+  let s = S.createSession(THREE, "relay");
+  let gainedTotal = 0;
+  for (const [id, kind] of [["p1", "area"], ["p2", "line"], ["p3", "area"]]) {
+    const out = S.commitCorrect(s, id, kind);
+    gainedTotal += out.gained;
+    s = out.session;
+  }
+  s = S.commitWrong(s); // −5
+  s = S.commitHint(s, "p4"); // −8
+  const sum = THREE.reduce((acc, p) => acc + s.rounds[p.studentId].score, 0);
+  return sum === Math.max(0, gainedTotal - 13) && gainedTotal === 52;
+})(), "");
+
+check("classGrade：三条都在场、且都一次答对时给出最高评级", (() => {
+  let s = S.createSession(THREE, "relay");
+  const ids = regions.AREAS.map((a) => a.id).concat(regions.RANGES.map((r) => r.id));
+  for (const id of ids) {
+    s = S.commitCorrect(s, id, "area").session;
+  }
+  const g = S.classGrade(s, ids.length);
+  return g.key === "perfect" && s.placed.length === ids.length;
+})(), "");
+
+check("classGrade：放错会拉低评级（不是只看总分）", (() => {
+  let s = S.createSession(THREE, "relay");
+  const ids = regions.AREAS.map((a) => a.id);
+  for (const id of ids) {
+    s = S.commitCorrect(s, id, "area").session;
+  }
+  const perfect = S.classGrade(s, ids.length).key;
+  for (let i = 0; i < 12; i++) {
+    s = S.commitWrong(s);
+  }
+  return perfect === "perfect" && S.classGrade(s, ids.length).key !== "perfect";
+})(), "");
+
+/* ===================== 9) 底图与瓦片布局（v1.1.0） ===================== */
+
+const BM = require("./_basemap.cjs");
+
+check("底图三选一，且只有遥感影像依赖联网", (() => {
+  const kinds = BM.BASEMAPS.map((b) => b.kind);
+  const online = BM.BASEMAPS.filter((b) => b.online).map((b) => b.kind);
+  return kinds.join(",") === "relief,hillshade,satellite" && online.join(",") === "satellite";
+})(), BM.BASEMAPS.map((b) => `${b.kind}${b.online ? "(联网)" : ""}`).join(" "));
+
+check("Mercator 纵向换算自洽：lat → y → lat 可逆", [0, 17, 25.3, 36, 45.8, 54, 70].every((lat) => {
+  return Math.abs(BM.mercYToLat(BM.latToMercY(lat)) - lat) < 1e-9;
+}), "");
+
+check("赤道在 Mercator 归一化 y 的正中间（0.5）", Math.abs(BM.latToMercY(0) - 0.5) < 1e-12, `${BM.latToMercY(0)}`);
+
+const LAY = geo.mapLayout(1164, 700);
+const Z = BM.pickZoom(LAY);
+const RECTS = BM.tileRects(LAY, Z);
+
+check("缩放级别由画布分辨率算出：瓦片像素/经度 ≥ 画布像素/经度", (() => {
+  const canvasPxPerDeg = (LAY.mapScale * geo.KM_PER_DEG * geo.CHINA_DEM.lonScale) / geo.WORLD_UNIT_KM;
+  const tilePxPerDeg = (256 * (1 << Z)) / 360;
+  return tilePxPerDeg >= canvasPxPerDeg && Z >= 4 && Z <= 6;
+})(), `z=${Z}，瓦片 ${((256 * (1 << Z)) / 360).toFixed(1)} px/° vs 画布 ${((LAY.mapScale * geo.KM_PER_DEG * geo.CHINA_DEM.lonScale) / geo.WORLD_UNIT_KM).toFixed(1)} px/°`);
+
+check("瓦片数在合理范围（不是 1 张也不是上千张）", RECTS.length > 4 && RECTS.length <= 140, `${RECTS.length} 张`);
+
+check("**瓦片铺满整张地图**（最外侧瓦片要盖住取景框四边）", (() => {
+  const mapL = LAY.mapX;
+  const mapT = LAY.mapY;
+  const mapR = LAY.mapX + geo.SPAN_X * LAY.mapScale;
+  const mapB = LAY.mapY + geo.SPAN_Z * LAY.mapScale;
+  const minL = Math.min(...RECTS.map((t) => t.left));
+  const minT = Math.min(...RECTS.map((t) => t.top));
+  const maxR = Math.max(...RECTS.map((t) => t.left + t.width));
+  const maxB = Math.max(...RECTS.map((t) => t.top + t.height));
+  return minL <= mapL + 0.5 && minT <= mapT + 0.5 && maxR >= mapR - 0.5 && maxB >= mapB - 0.5;
+})(), `地图 x[${LAY.mapX.toFixed(0)},${(LAY.mapX + geo.SPAN_X * LAY.mapScale).toFixed(0)}] y[${LAY.mapY.toFixed(0)},${(LAY.mapY + geo.SPAN_Z * LAY.mapScale).toFixed(0)}]`);
+
+check("同一行相邻瓦片首尾相接，不留缝（否则会露出白发丝线）", (() => {
+  const rows = new Map();
+  for (const t of RECTS) {
+    if (!rows.has(t.y)) rows.set(t.y, []);
+    rows.get(t.y).push(t);
+  }
+  let worst = -Infinity;
+  for (const row of rows.values()) {
+    row.sort((a, b) => a.x - b.x);
+    for (let i = 1; i < row.length; i++) {
+      worst = Math.max(worst, row[i].left - (row[i - 1].left + row[i - 1].width));
+    }
+  }
+  return worst <= 0;
+})(), "");
+
+check("同一列上下相邻瓦片也不留缝", (() => {
+  const cols = new Map();
+  for (const t of RECTS) {
+    if (!cols.has(t.x)) cols.set(t.x, []);
+    cols.get(t.x).push(t);
+  }
+  let worst = -Infinity;
+  for (const col of cols.values()) {
+    col.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < col.length; i++) {
+      worst = Math.max(worst, col[i].top - (col[i - 1].top + col[i - 1].height));
+    }
+  }
+  return worst <= 0;
+})(), "");
+
+/**
+ * 这条是**配准断言**：把瓦片的画布坐标反算回经度纬度，必须回到
+ * 这个瓦片本来该覆盖的经纬度范围。等距圆柱 ≠ Mercator，中间只要
+ * 有一处符号或比例写错，影像就会整体跑偏 —— 而画面上"影像和等高线
+ * 差了几十公里"看着只像"图有点糊"，很难归因。
+ */
+const regErr = (() => {
+  const xToLon = (x) => geo.xToLon((x - LAY.mapX) / LAY.mapScale - geo.SPAN_X / 2);
+  const yToLat = (y) => geo.zToLat((y - LAY.mapY) / LAY.mapScale - geo.SPAN_Z / 2);
+  let lon = 0;
+  let lat = 0;
+  for (const t of RECTS) {
+    const n = 1 << t.z;
+    // 矩形留了 1 px 出血，反算前先补回来
+    lon = Math.max(lon, Math.abs(xToLon(t.left + 1) - ((t.x / n) * 360 - 180)));
+    lat = Math.max(lat, Math.abs(yToLat(t.top + 1) - BM.mercYToLat(t.y / n)));
+  }
+  return { lon, lat };
+})();
+
+check("**配准**：瓦片左上角的画布坐标反算回经纬度 = 该瓦片应有的经纬度",
+  regErr.lon < 0.15 && regErr.lat < 0.15,
+  `最大偏差 经度 ${regErr.lon.toFixed(4)}° / 纬度 ${regErr.lat.toFixed(4)}°（1 px 出血约合 0.069°）`);
+
+check("瓦片 URL 里没有残留占位符，且密钥原样拼进去", (() => {
+  const url = BM.tiandituTileUrl(5, 11, 7, "abc123");
+  return (
+    url.indexOf("{") < 0 &&
+    url.indexOf("tk=abc123") > 0 &&
+    url.indexOf("TILEMATRIX=5") > 0 &&
+    url.indexOf("TILECOL=11") > 0 &&
+    url.indexOf("TILEROW=7") > 0 &&
+    /^https:\/\/t[0-7]\.tianditu\.gov\.cn\//.test(url)
+  );
+})(), BM.tiandituTileUrl(5, 11, 7, "abc123"));
+
+check("子域按行列号轮转（不会所有瓦片都去挤 t0）", (() => {
+  const subs = new Set();
+  for (let x = 0; x < 8; x++) {
+    subs.add(BM.tiandituTileUrl(5, x, 0, "k").match(/\/\/t(\d)\./)[1]);
+  }
+  return subs.size === 8;
+})(), "");
+
+/* ===================== 9) 本局计划：范围 / 低难度 / 预置（v1.2.0） ===================== */
+
+const P = require("./_plan.cjs");
+
+/**
+ * 把数据翻译成计划层要的形状。
+ *
+ * 这里**不写分组名**（"四大高原"之类），而是用数据自带的 `kind`。
+ * 分组名是给人看的文案，改一次文案就断一次测试；`kind` 是数据身份。
+ */
+const PLAN_ITEMS = [
+  ...AREAS.map((a) => ({ id: a.id, scopeKey: a.kind })),
+  ...RANGES.map((r) => ({ id: r.id, scopeKey: "range" }))
+];
+const ALL_IDS = PLAN_ITEMS.map((i) => i.id);
+const SCOPES = ["all", "plateau", "basin", "plain", "range"];
+const STARTS = ["blank", "easy"];
+
+const planFor = (scope, start, seed) => P.planRound(PLAN_ITEMS, scope, start, P.mulberry32(seed));
+
+check("条目清单：38 张 = 4 高原 + 4 盆地 + 3 平原 + 27 山脉（分类专练的分母都从这儿来）", (() => {
+  const by = {};
+  for (const it of PLAN_ITEMS) {
+    by[it.scopeKey] = (by[it.scopeKey] || 0) + 1;
+  }
+  return (
+    PLAN_ITEMS.length === 38 &&
+    by.plateau === 4 &&
+    by.basin === 4 &&
+    by.plain === 3 &&
+    by.range === 27
+  );
+})(), `${PLAN_ITEMS.length} 张：高原 4 / 盆地 4 / 平原 3 / 山脉 27`);
+
+check("**不重不漏**：10 种组合下「待塑 ∪ 预置」恒等于全部 38 条，且两者无交集", (() => {
+  for (const scope of SCOPES) {
+    for (const start of STARTS) {
+      const p = planFor(scope, start, 7);
+      const set = new Set([...p.required, ...p.preset]);
+      if (set.size !== ALL_IDS.length) {
+        return `${scope}/${start}：并集只有 ${set.size} 条`;
+      }
+      if (p.required.some((id) => p.preset.includes(id))) {
+        return `${scope}/${start}：有交集`;
+      }
+    }
+  }
+  return true;
+})(), "10 种组合（这条是死局防线：漏一条永远打不完，重一条同一块地算两遍分）");
+
+check("「待塑」与「预置」都保持数据原始顺序（卡片列表、归属图落盘顺序都得稳定）", (() => {
+  for (const scope of SCOPES) {
+    for (const start of STARTS) {
+      const p = planFor(scope, start, 11);
+      const rs = new Set(p.required);
+      const ps = new Set(p.preset);
+      if (p.required.join(",") !== ALL_IDS.filter((id) => rs.has(id)).join(",")) {
+        return `${scope}/${start}：待塑顺序被打乱`;
+      }
+      if (p.preset.join(",") !== ALL_IDS.filter((id) => ps.has(id)).join(",")) {
+        return `${scope}/${start}：预置顺序被打乱`;
+      }
+    }
+  }
+  return true;
+})(), "");
+
+check("大厅报的「本局要塑 N 张」与开局后的进度分母出自同一个算法（10 种组合 × 5 个种子）", (() => {
+  for (const scope of SCOPES) {
+    for (const start of STARTS) {
+      const want = P.plannedCount(PLAN_ITEMS, scope, start);
+      for (const seed of [1, 2, 3, 99, 12345]) {
+        const got = planFor(scope, start, seed).required.length;
+        if (got !== want) {
+          return `${scope}/${start}/seed=${seed}：大厅说 ${want}，开局是 ${got}`;
+        }
+      }
+    }
+  }
+  return true;
+})(), "两个数字对不上，学生第一眼就会看到「大厅说 15 张、进来变成 14 张」");
+
+check("「空白地图」：范围内的全要塑，范围之外的整类预置", (() => {
+  const all = planFor("all", "blank", 3);
+  const plateau = planFor("plateau", "blank", 3);
+  return (
+    all.preset.length === 0 &&
+    all.required.length === 38 &&
+    plateau.required.length === 4 &&
+    plateau.preset.length === 34 &&
+    plateau.preset.every((id) => PLAN_ITEMS.find((i) => i.id === id).scopeKey !== "plateau")
+  );
+})(), `全部/空白：预置 ${planFor("all", "blank", 3).preset.length} 待塑 38；只练高原：预置 34 待塑 4`);
+
+check("**分类专练**：只练山脉时，11 个地形区整类都已就位（地图上真的只缺山脉）", (() => {
+  const p = planFor("range", "blank", 5);
+  const presetKinds = new Set(p.preset.map((id) => PLAN_ITEMS.find((i) => i.id === id).scopeKey));
+  return (
+    p.required.length === 27 &&
+    p.preset.length === 11 &&
+    presetKinds.size === 3 &&
+    !presetKinds.has("range") &&
+    p.required.every((id) => PLAN_ITEMS.find((i) => i.id === id).scopeKey === "range")
+  );
+})(), "27 条山脉待塑 / 11 个地形区预置");
+
+check("**低难度**：随机预置约六成，待塑远少于全部（38 张时留下 15 张左右）", (() => {
+  const p = planFor("all", "easy", 42);
+  const ratio = p.preset.length / 38;
+  return p.required.length === P.plannedCount(PLAN_ITEMS, "all", "easy") && ratio > 0.5 && ratio < 0.7;
+})(), `${planFor("all", "easy", 42).required.length} 待塑 / ${planFor("all", "easy", 42).preset.length} 预置`);
+
+check("任何一局都留够练习量：池子只有 3 个（三大平原）时也不会只剩 1 张", (() => {
+  const p = planFor("plain", "easy", 8);
+  const p2 = planFor("basin", "easy", 8);
+  return p.required.length >= 2 && p2.required.length >= 2;
+})(), `只练平原：待塑 ${planFor("plain", "easy", 8).required.length}；只练盆地：待塑 ${planFor("basin", "easy", 8).required.length}`);
+
+check("**每次随机**：换一批种子，预置集合真的不一样（不是写死的）", (() => {
+  const seen = new Set();
+  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    seen.add(planFor("all", "easy", seed).preset.join(","));
+  }
+  return seen.size === 8;
+})(), "8 个种子 → 8 种不同的预置组合");
+
+check("同一个种子必然复现同一局（回归脚本能重放，不必往产品里塞测试开关）", (() => {
+  const a = planFor("all", "easy", 20260917);
+  const b = planFor("all", "easy", 20260917);
+  return a.required.join(",") === b.required.join(",") && a.preset.join(",") === b.preset.join(",");
+})(), "");
+
+check("预置的选取是均匀随机的，没有系统性偏向（每条被预置的概率都在 0.6 附近）", (() => {
+  const hit = {};
+  const NSEED = 400;
+  for (let seed = 0; seed < NSEED; seed++) {
+    for (const id of planFor("all", "easy", seed).preset) {
+      hit[id] = (hit[id] || 0) + 1;
+    }
+  }
+  const rates = ALL_IDS.map((id) => (hit[id] || 0) / NSEED);
+  const lo = Math.min(...rates);
+  const hi = Math.max(...rates);
+  // 400 次抽样下二项分布的标准差约 0.024 ⇒ ±0.1 是很宽的界，只为了抓"明显偏向"
+  return lo > 0.5 && hi < 0.7;
+})(), `最低被预置率 ${(Math.min(
+  ...ALL_IDS.map((id) => {
+    let c = 0;
+    for (let seed = 0; seed < 400; seed++) {
+      if (planFor("all", "easy", seed).preset.includes(id)) c++;
+    }
+    return c / 400;
+  })
+)).toFixed(3)} ~ 最高 ${(Math.max(
+  ...ALL_IDS.map((id) => {
+    let c = 0;
+    for (let seed = 0; seed < 400; seed++) {
+      if (planFor("all", "easy", seed).preset.includes(id)) c++;
+    }
+    return c / 400;
+  })
+)).toFixed(3)}`);
+
+/* ---- 会话层：预置 ≠ 成绩 ---- */
+
+const PLAN_RANGE = planFor("range", "blank", 1); // 27 条山脉待塑 + 11 个地形区预置
+
+check("`isSettled` 认预置、`isPlaced` 不认（两个函数刻意分开，别混用）", (() => {
+  const s = S.createSession(THREE, "relay", PLAN_RANGE);
+  return (
+    S.isPlaced(s, "qingzang") === false &&
+    S.isSettled(s, "qingzang") === true &&
+    S.isPlaced(s, "taihang") === false &&
+    S.isSettled(s, "taihang") === false &&
+    S.requiredCount(s) === 27
+  );
+})(), "预置 11 / 待塑 27");
+
+check("预置的条目**不会被再塑一次**：commitCorrect 返回 gained 0 且 session 原地不动", (() => {
+  const s = S.createSession(THREE, "relay", PLAN_RANGE);
+  const out = S.commitCorrect(s, "qingzang", "area");
+  return out.gained === 0 && out.session === s && s.placed.length === 0 && s.rounds[101].score === 0;
+})(), "否则同一块地能加两次分");
+
+check("预置的条目用「提示」也不扣分（它已经在图上了，闪位置毫无意义）", (() => {
+  const s = S.createSession(THREE, "relay", PLAN_RANGE);
+  return S.commitHint(s, "qingzang") === s;
+})(), "");
+
+check("成绩只算学生塑的：预置的 11 张不进 placed、不进 correctCount", (() => {
+  let s = S.createSession(THREE, "relay", PLAN_RANGE);
+  s = S.commitCorrect(s, "taihang", "line").session;
+  const r = S.resultsOf(s, S.requiredCount(s))[0];
+  return (
+    s.placed.length === 1 &&
+    r.correctCount === 1 &&
+    r.totalCount === 27 &&
+    s.owner.qingzang === undefined
+  );
+})(), "上报的 correctCount 不会因为预置而虚高");
+
+check("全部待塑归位后 `allSettled` 为真（结算判定的依据，与预置无关）", (() => {
+  let s = S.createSession(THREE, "relay", PLAN_RANGE);
+  for (const id of PLAN_RANGE.required) {
+    s = S.commitCorrect(s, id, "line").session;
+  }
+  return S.allSettled(s) === true && s.placed.length === 27;
+})(), "");
+
 /* ===================== 汇总 ===================== */
+
 
 const failed = checks.filter((c) => !c.ok);
 for (const c of checks) {

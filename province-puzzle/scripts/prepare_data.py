@@ -27,8 +27,69 @@ LEVELS = {
 
 OUT_DIR = pathlib.Path(__file__).resolve().parent.parent / "src" / "data"
 
+# 写进产物里的 `version` 字段，取自 package.json —— **单一真源，不再手工同步**。
+#
+# 它不代表游戏版本、也没有任何代码读它（`grep` 过 src/），纯粹是"这份数据是哪一版生成的"
+# 的出处标记，方便日后 diff `province.json` 时知道该配哪个 commit。
+# 之前它是手写的常量，结果从 0.3.3 一路滞后到游戏 0.3.7 都没人发现 —— 出处标记一旦
+# 说假话就比没有更糟。改成读 package.json 后，只要发版时改 package.json 它就自动跟上。
+GAME_VERSION = json.loads(
+    (pathlib.Path(__file__).resolve().parent.parent / "package.json").read_text(
+        encoding="utf-8"
+    )
+)["version"]
+
 # 投影后简化容差（米）。越大越精简，但边界越粗糙。
+#
+# ⚠ 这是个**统一的绝对长度**，而省级行政区的面积差着四个数量级：
+# 新疆 166 万 km²、香港 1110 km²、澳门 33 km²。按"省的平均规模"定的 3800 m
+# 落到澳门身上就是灾难 —— 它整个只有 12 km 宽，3800 m 容差会把外环压成三角形、
+# 内环压成 4 个**完全重合的点**（`M727,740L727,740L727,740L727,740Z`），
+# 界面上一个像素都画不出来。香港也只剩 68 个顶点、12 个 5 点小环。
+# 小面积行政区走 SMALL_AREA_OVERRIDES 单独配置。
 SIMPLIFY_TOLERANCE_METERS = 3800.0
+
+# 「小面积行政区」的专属参数（2026-09-17 新增，v1.0.0）。
+#
+# 两条判据都用「它在这个游戏里占几个像素」来定，而不是拍脑袋：
+#
+#   1) 简化容差 —— 取"卡片上一个像素的几分之一"。
+#      卡片 svg 固定高 37 px，香港 bbox 跨约 62 km ⇒ 约 0.9 km/px；
+#      澳门 bbox 跨约 12 km、卡片有效约 0.3 km/px。
+#      取 120 m / 50 m，都远低于各自的一个像素 ⇒ 画面上看不出被简化过。
+#      上限也不必贪：地图本体只有 1 单位 ≈ 5.3 km，香港在图上就 11 px 宽，
+#      比卡片还粗一个数量级 —— 数据再细，地图上也表现不出来。
+#
+#   2) 最小岛面积 —— 原来的 0.0002°² ≈ 2.3 km²，是照"值得在大图上出现的岛"定的。
+#      香港 34 个多边形按这个阈值只活下来 12 个（丢掉的是 0.4~2.0 km² 的岛），
+#      澳门 4 个只剩 2 个。但**卡片是单独缩放显示的**，小岛在卡片上照样看得见，
+#      所以这两个行政区降到 0.00001°² ≈ 0.11 km²，全部保留。
+#
+#   3) 坐标精度 —— 这一条最隐蔽，但它是**真正的瓶颈**。
+#      输出坐标原来是 `round()` 成整数的，而整张地图只有 1200 单位宽（1 单位 ≈ 5.3 km）。
+#      澳门真实跨度 7.1 × 11.9 km = 1.34 × 2.25 单位，取整之后最多剩 2 × 3 个不同位置：
+#      实测外环 47 个顶点只落在 **4 个不同点**上，整个澳门变成一个 1×1 的小方块。
+#      也就是说**再细的源数据都会在这一步被抹平** —— 香港 34 个岛里 27 个、
+#      澳门 4 个里 3 个都是这么塌掉的。
+#      但托盘卡片是拿同一个 `d` 自己缩放渲染的（`viewBox` 用该要素的 bbox），
+#      所以只要 `d` 里留着小数位，卡片就能把细节放大出来；
+#      地图本体那边仍按真实比例画成一个小点，本来就是对的。
+#      0.01 单位 = 53 m，与上面 50~120 m 的容差同一量级，不浪费字节。
+#
+# 面积可信度（与官方口径对照，这一条决定了"用源数据还是上网另找"）：
+#   香港 源数据 1110 km² vs 官方 1114.57 km²（2024 香港年报）⇒ 偏差 -0.4%
+#   澳门 源数据   35 km² vs 官方   33.3 km²（2024 统计暨普查局）⇒ 偏差 +5.1%
+#        （澳门面积逐年在涨，源数据是"2022 年初"口径，且含已填海未纳入统计的地块，
+#          5% 的偏差对这种量级是可接受的；关键是下面 DataV 那组差了 59%）
+# 对照：阿里云 DataV（高德数据）香港 1288 km²（+15.6%）、澳门 53 km²（+59%），
+# 且澳门只有 84 个顶点（比源数据的 203 还粗）—— 所以这一版**没有换数据源**，
+# 修的是"把好数据用坏"的简化参数与坐标量化。
+SMALL_AREA_OVERRIDES = {
+    # code: (简化容差 m, 最小岛面积 °², 坐标小数位)
+    "810000": (120.0, 0.00001, 2),  # 香港特别行政区
+    "820000": (50.0, 0.00001, 2),   # 澳门特别行政区
+}
+
 # 画布总宽度（视图单位）。
 PROJECT_WIDTH = 1200
 # 主图省界实际占用宽度；右侧留白给南海小地图。
@@ -150,7 +211,7 @@ def inspect(level: str):
 
 
 def project_coords(geometry, x_min, y_max, x_scale, y_scale):
-    """把投影坐标系几何转成 SVG 视图坐标。"""
+    """把投影坐标系几何转成 SVG 视图坐标（float，不取整 —— 由 rings_to_path 决定精度）。"""
     out = []
     for poly in geometry.geoms if isinstance(geometry, MultiPolygon) else [geometry]:
         poly_rings = []
@@ -158,34 +219,55 @@ def project_coords(geometry, x_min, y_max, x_scale, y_scale):
         for ring in rings:
             coords = []
             for x, y in ring.coords:
-                px = round((x - x_min) * x_scale)
-                py = round((y_max - y) * y_scale)
+                px = (x - x_min) * x_scale
+                py = (y_max - y) * y_scale
                 coords.append((px, py))
             poly_rings.append(coords)
         out.append(poly_rings)
     return out
 
 
-def rings_to_path(polygons):
+def fmt_coord(value, decimals):
+    """按指定小数位格式化一个坐标分量。
+
+    `decimals <= 0` 走整数分支，**与历史输出逐字节一致**（`round()` 是银行家舍入，
+    f-string 取 0 位小数也是 —— 但不能想当然，所以两条分支分开写）。
+    """
+    if decimals <= 0:
+        return str(round(value))
+    text = f"{value:.{decimals}f}"
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def rings_to_path(polygons, decimals=0):
     parts = []
     for poly_rings in polygons:
         for ring in poly_rings:
             if not ring:
                 continue
-            d = "M" + "L".join(f"{x},{y}" for x, y in ring) + "Z"
+            d = "M" + "L".join(
+                f"{fmt_coord(x, decimals)},{fmt_coord(y, decimals)}" for x, y in ring
+            ) + "Z"
             parts.append(d)
     return "".join(parts)
 
 
-def filter_geometry(geom):
-    """保留主岛，剔除远海碎岛。"""
+def filter_geometry(geom, min_area=MIN_ISLAND_AREA):
+    """保留主岛，剔除远海碎岛。
+
+    `min_area` 是**投影前**（经纬度）的面积阈值，单位是度²。小面积行政区
+    走 SMALL_AREA_OVERRIDES 传更小的值 —— 大图上"不值得画"的小岛，
+    在单独缩放的卡片上照样看得见，不该一起砍掉。
+    """
     if isinstance(geom, Polygon):
         geom = MultiPolygon([geom])
     keep = []
     for poly in geom.geoms:
         if poly.is_empty:
             continue
-        if poly.area < MIN_ISLAND_AREA:
+        if poly.area < min_area:
             continue
         if poly.representative_point().y < MIN_ISLAND_LAT:
             continue
@@ -296,13 +378,18 @@ def emit(level: str):
         if not name:
             name = rec.get("ENG_NAME", code)
 
-        cleaned = filter_geometry(geom)
+        # 小面积行政区（港澳）用专属参数，其余仍走全局默认。
+        # 两条路径产出的几何**除了这两个 code 之外必须逐字节相同** ——
+        # 复核脚本会拿新旧 JSON 逐 feature 比对 `d` / `centroid` / `bbox`。
+        tol, min_area, decimals = SMALL_AREA_OVERRIDES.get(
+            code, (SIMPLIFY_TOLERANCE_METERS, MIN_ISLAND_AREA, 0)
+        )
+
+        cleaned = filter_geometry(geom, min_area)
         if cleaned is None:
             continue
         projected = reproject(cleaned, gdf.crs, ALBERS_CRS)
-        simplified = projected.simplify(
-            SIMPLIFY_TOLERANCE_METERS, preserve_topology=True
-        )
+        simplified = projected.simplify(tol, preserve_topology=True)
         if simplified.is_empty:
             continue
         features.append(
@@ -311,6 +398,7 @@ def emit(level: str):
                 "code": code,
                 "name": name,
                 "geom": simplified,
+                "decimals": decimals,
             }
         )
 
@@ -330,29 +418,57 @@ def emit(level: str):
     out_features = []
     for f in features:
         geom = f["geom"]
+        dec = f["decimals"]
         rings = project_coords(geom, x_min, y_max, scale, scale)
-        path = rings_to_path(rings)
+        path = rings_to_path(rings, dec)
         centroid = geom.centroid
-        cx = round((centroid.x - x_min) * scale)
-        cy = round((y_max - centroid.y) * scale)
         bbox = geom.bounds
+        # centroid / bbox 必须与 `d` 用**同一个精度**：托盘卡片是拿 bbox 当 viewBox 的，
+        # bbox 取整而 `d` 不取整，小要素就会偏出卡片取景框（澳门偏半格就够露馅）。
+        pt = lambda v: round(v, dec) if dec > 0 else round(v)  # noqa: E731
+        cx = pt((centroid.x - x_min) * scale)
+        cy = pt((y_max - centroid.y) * scale)
         out_features.append(
             {
                 "id": f["id"],
                 "name": f["name"],
                 "centroid": [cx, cy],
                 "bbox": [
-                    round((bbox[0] - x_min) * scale),
-                    round((y_max - bbox[3]) * scale),
-                    round((bbox[2] - x_min) * scale),
-                    round((y_max - bbox[1]) * scale),
+                    pt((bbox[0] - x_min) * scale),
+                    pt((y_max - bbox[3]) * scale),
+                    pt((bbox[2] - x_min) * scale),
+                    pt((y_max - bbox[1]) * scale),
                 ],
                 "d": path,
             }
         )
 
+    # ── 自检：小面积行政区不许再被"坐标取整"塌成方块 ─────────────────────────
+    # 这是 v1.0.0 踩过的真坑：澳门改前 8 个顶点全重合、改后（仅调容差）外环 47 个顶点
+    # 只落在 4 个不同位置上，界面上就是一个 1×1 的小方块。
+    # 判据直接量"最大的那个环有多少个不同坐标"，低于 8 就说明精度又被抹平了。
+    for f in features:
+        if f["id"] not in SMALL_AREA_OVERRIDES:
+            continue
+        rings = rings_to_path(
+            project_coords(f["geom"], x_min, y_max, scale, scale), f["decimals"]
+        ).split("M")
+        best = 0
+        for seg in rings:
+            pts = {p for p in seg.rstrip("Z").split("L") if p}
+            best = max(best, len(pts))
+        verts = sum(len(s.rstrip("Z").split("L")) for s in rings if s)
+        status = "✔" if best >= 8 else "✘ 精度被抹平"
+        print(f"  [小面积] {f['id']} {f['name']}: 顶点={verts} "
+              f"最大环不同坐标={best} 容差={SMALL_AREA_OVERRIDES[f['id']][0]}m "
+              f"小数位={f['decimals']} {status}")
+        assert best >= 8, (
+            f"{f['id']} 的几何在输出精度下塌陷了（最大环只有 {best} 个不同坐标）。"
+            f" 检查 SMALL_AREA_OVERRIDES 里的坐标小数位是否被改回 0。"
+        )
+
     payload = {
-        "version": "0.3.3",
+        "version": GAME_VERSION,
         "level": level,
         "projection": {
             "name": "albers",
