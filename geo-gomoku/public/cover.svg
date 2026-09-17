@@ -9,20 +9,25 @@
     <line x1="58" y1="28" x2="58" y2="100"/>
     <line x1="76" y1="28" x2="76" y2="100"/>
     <line x1="22" y1="46" x2="94" y2="46"/>
-    <line x1="22" y1="64" x2="94" y2="64"/>
     <line x1="22" y1="82" x2="94" y2="82"/>
   </g>
-  <!-- 经纬度坐标标注 -->
-  <text x="13" y="68" font-family="'Yuanti SC','Microsoft YaHei',sans-serif" font-size="11" fill="#b8722f" font-weight="bold" transform="rotate(-90 13 68)">40°N</text>
-  <text x="50" y="18" font-family="'Yuanti SC','Microsoft YaHei',sans-serif" font-size="11" fill="#b8722f" font-weight="bold">116°E</text>
+  <!-- 赤道：加粗金线，标出南北半球的分界 -->
+  <line x1="22" y1="64" x2="94" y2="64" stroke="#b8722f" stroke-width="3.2"/>
+  <text x="25" y="61" font-family="'Yuanti SC','Microsoft YaHei',sans-serif" font-size="8.5" fill="#b8722f" font-weight="bold">赤道</text>
+  <!-- 南北纬 / 东西经标注：四个象限都点到 -->
+  <text x="13" y="50" font-family="'Yuanti SC','Microsoft YaHei',sans-serif" font-size="10" fill="#b8722f" font-weight="bold" transform="rotate(-90 13 50)">40°N</text>
+  <text x="13" y="88" font-family="'Yuanti SC','Microsoft YaHei',sans-serif" font-size="10" fill="#b8722f" font-weight="bold" transform="rotate(-90 13 88)">20°S</text>
+  <text x="28" y="18" font-family="'Yuanti SC','Microsoft YaHei',sans-serif" font-size="10" fill="#b8722f" font-weight="bold">116°E</text>
+  <text x="74" y="18" font-family="'Yuanti SC','Microsoft YaHei',sans-serif" font-size="10" fill="#b8722f" font-weight="bold">60°W</text>
   <!-- 棋子 -->
-  <circle cx="58" cy="64" r="8" fill="#2b2620" stroke="#2b2620" stroke-width="2"/>
+  <circle cx="40" cy="46" r="8" fill="#2b2620" stroke="#2b2620" stroke-width="2"/>
+  <circle cx="58" cy="46" r="8" fill="#2b2620" stroke="#2b2620" stroke-width="2"/>
   <circle cx="76" cy="46" r="8" fill="#2b2620" stroke="#2b2620" stroke-width="2"/>
-  <circle cx="76" cy="82" r="8" fill="#fdf8ec" stroke="#2b2620" stroke-width="2.5"/>
-  <circle cx="40" cy="82" r="8" fill="#2b2620" stroke="#2b2620" stroke-width="2"/>
-  <!-- 连珠红线 -->
-  <line x1="34" y1="88" x2="82" y2="42" stroke="#c94f43" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <circle cx="76" cy="64" r="8" fill="#fdf8ec" stroke="#2b2620" stroke-width="2.5"/>
+  <circle cx="76" cy="82" r="8" fill="#2b2620" stroke="#2b2620" stroke-width="2"/>
+  <!-- 连珠红线（跨赤道连成五子） -->
+  <line x1="34" y1="46" x2="82" y2="82" stroke="#c94f43" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
   <!-- 印章 -->
-  <rect x="82" y="14" width="22" height="22" rx="4" fill="#b8722f" stroke="#2b2620" stroke-width="2.5"/>
-  <text x="93" y="31" font-family="'Kaiti SC','STKaiti',KaiTi,serif" font-size="15" fill="#fdf8ec" text-anchor="middle" font-weight="bold">弈</text>
+  <rect x="82" y="12" width="22" height="22" rx="4" fill="#b8722f" stroke="#2b2620" stroke-width="2.5"/>
+  <text x="93" y="29" font-family="'Kaiti SC','STKaiti',KaiTi,serif" font-size="15" fill="#fdf8ec" text-anchor="middle" font-weight="bold">弈</text>
 </svg>

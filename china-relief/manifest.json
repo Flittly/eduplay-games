@@ -1,0 +1,14 @@
+{
+  "gameCode": "china_relief",
+  "name": "山河塑形·中国地形",
+  "version": "0.0.1",
+  "minPlatformVersion": "0.1.0",
+  "maxPlatformVersion": "1.0.0",
+  "type": "iframe",
+  "sdkVersion": "1",
+  "entry": "web/index.html",
+  "cover": "web/cover.svg",
+  "backendPlugin": null,
+  "requiresRoster": false,
+  "description": "一张会起伏的真实中国地形沙盘：把四大高原、四大盆地、三大平原和 27 条山脉的卡片拖到正确位置，被放对的地方就按真实高程隆起来，放错会弹回。全部归位后，中国地势三级阶梯会自己长出来。点任意地形区可看实景照片与成因讲解。"
+}

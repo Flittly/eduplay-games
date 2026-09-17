@@ -1,0 +1,575 @@
+{
+  "game": "地图图例消消乐",
+  "categories": [
+    {
+      "id": "boundary",
+      "name": "行政区划与界线"
+    },
+    {
+      "id": "terrain",
+      "name": "地形与地貌"
+    },
+    {
+      "id": "water",
+      "name": "河流与水域"
+    },
+    {
+      "id": "transport",
+      "name": "交通与航线"
+    },
+    {
+      "id": "resource",
+      "name": "资源与人文"
+    },
+    {
+      "id": "mapbase",
+      "name": "地图基础"
+    },
+    {
+      "id": "climate",
+      "name": "气候图线"
+    }
+  ],
+  "legends": [
+    {
+      "id": "guojie",
+      "name": "国界线",
+      "short": "国界线",
+      "category": "boundary",
+      "categoryName": "行政区划与界线",
+      "summary": "国与国之间的界线，用最醒目的双实线画出。",
+      "image": "assets/legends/guojie.svg"
+    },
+    {
+      "id": "weiding_guojie",
+      "name": "未定国界",
+      "short": "未定国界",
+      "category": "boundary",
+      "categoryName": "行政区划与界线",
+      "summary": "尚未正式划定或存在争议的国界段，用断开的双虚线表示。",
+      "image": "assets/legends/weiding_guojie.svg"
+    },
+    {
+      "id": "shengjie",
+      "name": "省、自治区、直辖市界",
+      "short": "省界",
+      "category": "boundary",
+      "categoryName": "行政区划与界线",
+      "summary": "省级行政区的分界，用一长一短的点划线画出。",
+      "image": "assets/legends/shengjie.svg"
+    },
+    {
+      "id": "diqujie",
+      "name": "地区界",
+      "short": "地区界",
+      "category": "boundary",
+      "categoryName": "行政区划与界线",
+      "summary": "地级市、自治州等地区一级的界线，用较短的等长点线表示。",
+      "image": "assets/legends/diqujie.svg"
+    },
+    {
+      "id": "shoudu",
+      "name": "首都",
+      "short": "首都",
+      "category": "boundary",
+      "categoryName": "行政区划与界线",
+      "summary": "国家的首都，用红色的五角星标出。",
+      "image": "assets/legends/shoudu.svg"
+    },
+    {
+      "id": "shenghui",
+      "name": "省级行政中心",
+      "short": "省级行政中心",
+      "category": "boundary",
+      "categoryName": "行政区划与界线",
+      "summary": "省、自治区人民政府所在地，用双圆圈标出。",
+      "image": "assets/legends/shenghui.svg"
+    },
+    {
+      "id": "chengshi",
+      "name": "一般城市",
+      "short": "一般城市",
+      "category": "boundary",
+      "categoryName": "行政区划与界线",
+      "summary": "普通城市（县城等），用单圆圈标出，里面不套小圈。",
+      "image": "assets/legends/chengshi.svg"
+    },
+    {
+      "id": "waiguo_shoudu",
+      "name": "外国首都",
+      "short": "外国首都",
+      "category": "boundary",
+      "categoryName": "行政区划与界线",
+      "summary": "其他国家的首都，用黑色五角星外面套一个圈表示。",
+      "image": "assets/legends/waiguo_shoudu.svg"
+    },
+    {
+      "id": "denggaoxian",
+      "name": "等高线",
+      "short": "等高线",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "海拔相同的各点连成的闭合曲线；线越密，坡越陡。",
+      "image": "assets/legends/denggaoxian.svg"
+    },
+    {
+      "id": "shanfeng",
+      "name": "山峰",
+      "short": "山峰",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "山体的最高点，用三角形标出，旁边常注有海拔数值。",
+      "image": "assets/legends/shanfeng.svg"
+    },
+    {
+      "id": "huoshan",
+      "name": "火山",
+      "short": "火山",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "岩浆喷出地表堆成的锥形山体，图上还画出喷发的烟焰。",
+      "image": "assets/legends/huoshan.svg"
+    },
+    {
+      "id": "shamo",
+      "name": "沙漠",
+      "short": "沙漠",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "地表被沙覆盖的干旱地区，用密集的棕色沙点表示。",
+      "image": "assets/legends/shamo.svg"
+    },
+    {
+      "id": "zhaoze",
+      "name": "沼泽",
+      "short": "沼泽",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "地表长期积水、生长湿生植物的低洼地，用成组的横线表示。",
+      "image": "assets/legends/zhaoze.svg"
+    },
+    {
+      "id": "bingchuan",
+      "name": "冰川",
+      "short": "冰川",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "高山或两极地区能自行流动的巨大冰体，用蓝色冰舌表示。",
+      "image": "assets/legends/bingchuan.svg"
+    },
+    {
+      "id": "changnian_jixue",
+      "name": "常年积雪",
+      "short": "常年积雪",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "常年不化的积雪覆盖区，用山顶那一顶浅蓝色雪帽表示。",
+      "image": "assets/legends/changnian_jixue.svg"
+    },
+    {
+      "id": "haianxian",
+      "name": "海岸线",
+      "short": "海岸线",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "陆地与海洋的分界线，线外向海的一侧画着水波纹。",
+      "image": "assets/legends/haianxian.svg"
+    },
+    {
+      "id": "shanhu_jiao",
+      "name": "珊瑚礁",
+      "short": "珊瑚礁",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "热带浅海里珊瑚骨骼堆积成的礁体，用成排的小弧表示。",
+      "image": "assets/legends/shanhu_jiao.svg"
+    },
+    {
+      "id": "sanjiaozhou",
+      "name": "三角洲",
+      "short": "三角洲",
+      "category": "terrain",
+      "categoryName": "地形与地貌",
+      "summary": "河流入海（湖）处泥沙堆积、河道分成几汊形成的低平陆地。",
+      "image": "assets/legends/sanjiaozhou.svg"
+    },
+    {
+      "id": "changnian_he",
+      "name": "常年河",
+      "short": "常年河",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "一年四季都有水的河流，用双线画出，有支流汇入主流。",
+      "image": "assets/legends/changnian_he.svg"
+    },
+    {
+      "id": "shiling_he",
+      "name": "时令河",
+      "short": "时令河",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "只在雨季或融雪期才有水的河流，用虚线表示。",
+      "image": "assets/legends/shiling_he.svg"
+    },
+    {
+      "id": "yunhe",
+      "name": "运河",
+      "short": "运河",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "人工开凿的通航河道，用带一道道船闸横档的双线表示。",
+      "image": "assets/legends/yunhe.svg"
+    },
+    {
+      "id": "shuiku",
+      "name": "水库",
+      "short": "水库",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "拦河蓄水形成的人工湖，一端画着拦河坝。",
+      "image": "assets/legends/shuiku.svg"
+    },
+    {
+      "id": "hupo",
+      "name": "湖泊",
+      "short": "湖泊",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "陆地上汇集起来的水域，用闭合的蓝色轮廓表示。",
+      "image": "assets/legends/hupo.svg"
+    },
+    {
+      "id": "shiling_hu",
+      "name": "时令湖",
+      "short": "时令湖",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "旱季会干涸的湖泊，用虚线的闭合轮廓表示。",
+      "image": "assets/legends/shiling_hu.svg"
+    },
+    {
+      "id": "pubu",
+      "name": "瀑布",
+      "short": "瀑布",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "河流流经陡崖时跌落形成的水流，用断崖处的齿线表示。",
+      "image": "assets/legends/pubu.svg"
+    },
+    {
+      "id": "quan",
+      "name": "泉",
+      "short": "泉",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "地下水自然涌出地表的地方，用圆圈中间加一点表示。",
+      "image": "assets/legends/quan.svg"
+    },
+    {
+      "id": "haixia",
+      "name": "海峡",
+      "short": "海峡",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "两块陆地之间连接两个海域的狭窄水道。",
+      "image": "assets/legends/haixia.svg"
+    },
+    {
+      "id": "yinshui_luxian",
+      "name": "引水路线",
+      "short": "引水路线",
+      "category": "water",
+      "categoryName": "河流与水域",
+      "summary": "跨流域调水的工程线路（如南水北调），用带箭头的双虚线表示。",
+      "image": "assets/legends/yinshui_luxian.svg"
+    },
+    {
+      "id": "tielu",
+      "name": "铁路",
+      "short": "铁路",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "铁轨线路，用实线加一道道垂直横档的“花线”表示。",
+      "image": "assets/legends/tielu.svg"
+    },
+    {
+      "id": "fuxian_tielu",
+      "name": "复线铁路",
+      "short": "复线铁路",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "有两条并行轨道的铁路，用两条并排的“花线”表示。",
+      "image": "assets/legends/fuxian_tielu.svg"
+    },
+    {
+      "id": "gaosu_gonglu",
+      "name": "高速公路",
+      "short": "高速公路",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "全封闭、全立交的高等级公路，用中间带分隔线的粗双实线表示。",
+      "image": "assets/legends/gaosu_gonglu.svg"
+    },
+    {
+      "id": "gonglu",
+      "name": "公路",
+      "short": "公路",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "普通公路，用弯曲的细双实线表示。",
+      "image": "assets/legends/gonglu.svg"
+    },
+    {
+      "id": "suidao",
+      "name": "隧道",
+      "short": "隧道",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "穿过山体的通道，用两端带洞门钩子的虚线表示。",
+      "image": "assets/legends/suidao.svg"
+    },
+    {
+      "id": "qiaoliang",
+      "name": "桥梁",
+      "short": "桥梁",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "跨越河流的通道，在河道两岸各画出一座桥台。",
+      "image": "assets/legends/qiaoliang.svg"
+    },
+    {
+      "id": "hanghaixian",
+      "name": "航海线",
+      "short": "航海线",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "海上运输的航线，用带箭头的虚线表示。",
+      "image": "assets/legends/hanghaixian.svg"
+    },
+    {
+      "id": "hangkongxian",
+      "name": "航空线",
+      "short": "航空线",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "飞机飞行的航线，用一串小圆点组成的点线表示。",
+      "image": "assets/legends/hangkongxian.svg"
+    },
+    {
+      "id": "gangkou",
+      "name": "港口",
+      "short": "港口",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "船舶停靠、装卸货物的码头，用船锚符号表示。",
+      "image": "assets/legends/gangkou.svg"
+    },
+    {
+      "id": "jichang",
+      "name": "机场",
+      "short": "机场",
+      "category": "transport",
+      "categoryName": "交通与航线",
+      "summary": "飞机起降的场地，用俯视的飞机符号表示。",
+      "image": "assets/legends/jichang.svg"
+    },
+    {
+      "id": "meikuang",
+      "name": "煤矿",
+      "short": "煤矿",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "开采煤炭的矿区，用方框里加一个黑色方块表示。",
+      "image": "assets/legends/meikuang.svg"
+    },
+    {
+      "id": "tiekuang",
+      "name": "铁矿",
+      "short": "铁矿",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "开采铁矿石的矿区，用黑色三角形表示。",
+      "image": "assets/legends/tiekuang.svg"
+    },
+    {
+      "id": "shiyou",
+      "name": "石油",
+      "short": "石油",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "开采石油的油田，用油井架符号表示。",
+      "image": "assets/legends/shiyou.svg"
+    },
+    {
+      "id": "tianranqi",
+      "name": "天然气",
+      "short": "天然气",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "开采天然气的油气田，用火焰符号表示。",
+      "image": "assets/legends/tianranqi.svg"
+    },
+    {
+      "id": "youse_kuang",
+      "name": "有色金属矿",
+      "short": "有色金属矿",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "铜、铅锌、钨等有色金属矿区，用菱形表示。",
+      "image": "assets/legends/youse_kuang.svg"
+    },
+    {
+      "id": "shuidianzhan",
+      "name": "水电站",
+      "short": "水电站",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "利用水能发电的电站，用坝体加一道闪电表示。",
+      "image": "assets/legends/shuidianzhan.svg"
+    },
+    {
+      "id": "huodianzhan",
+      "name": "火电站",
+      "short": "火电站",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "燃烧煤炭等燃料发电的电站，用厂房加冒烟的烟囱表示。",
+      "image": "assets/legends/huodianzhan.svg"
+    },
+    {
+      "id": "hedianzhan",
+      "name": "核电站",
+      "short": "核电站",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "利用核能发电的电站，用原子符号表示。",
+      "image": "assets/legends/hedianzhan.svg"
+    },
+    {
+      "id": "changcheng",
+      "name": "长城",
+      "short": "长城",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "古代修筑的军事防御工程，用带城垛的锯齿线表示。",
+      "image": "assets/legends/changcheng.svg"
+    },
+    {
+      "id": "mingsheng",
+      "name": "名胜古迹",
+      "short": "名胜古迹",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "有名的风景与文物古迹，用宝塔符号表示。",
+      "image": "assets/legends/mingsheng.svg"
+    },
+    {
+      "id": "baohuqu",
+      "name": "自然保护区",
+      "short": "自然保护区",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "为保护自然生态划定的区域，用树叶符号表示。",
+      "image": "assets/legends/baohuqu.svg"
+    },
+    {
+      "id": "yuchang",
+      "name": "渔场",
+      "short": "渔场",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "鱼类集中、便于捕捞的海域，用鱼形符号表示。",
+      "image": "assets/legends/yuchang.svg"
+    },
+    {
+      "id": "yanchang",
+      "name": "盐场",
+      "short": "盐场",
+      "category": "resource",
+      "categoryName": "资源与人文",
+      "summary": "靠晒海水制盐的滩地，用方格表示的盐田。",
+      "image": "assets/legends/yanchang.svg"
+    },
+    {
+      "id": "bilichi",
+      "name": "比例尺",
+      "short": "比例尺",
+      "category": "mapbase",
+      "categoryName": "地图基础",
+      "summary": "图上距离与实地距离之比，用带数字的线段表示。",
+      "image": "assets/legends/bilichi.svg"
+    },
+    {
+      "id": "zhixiangbiao",
+      "name": "指向标",
+      "short": "指向标",
+      "category": "mapbase",
+      "categoryName": "地图基础",
+      "summary": "地图上指示北方的小箭头，箭头指向就是北。",
+      "image": "assets/legends/zhixiangbiao.svg"
+    },
+    {
+      "id": "jingxian",
+      "name": "经线",
+      "short": "经线",
+      "category": "mapbase",
+      "categoryName": "地图基础",
+      "summary": "连接南北两极、指示南北方向的线，又叫子午线。",
+      "image": "assets/legends/jingxian.svg"
+    },
+    {
+      "id": "weixian",
+      "name": "纬线",
+      "short": "纬线",
+      "category": "mapbase",
+      "categoryName": "地图基础",
+      "summary": "与赤道平行、指示东西方向的圆圈。",
+      "image": "assets/legends/weixian.svg"
+    },
+    {
+      "id": "dengwenxian",
+      "name": "等温线",
+      "short": "等温线",
+      "category": "climate",
+      "categoryName": "气候图线",
+      "summary": "气温相同的各点连成的线，线上注着温度数值。",
+      "image": "assets/legends/dengwenxian.svg"
+    },
+    {
+      "id": "dengjiangshuiliang",
+      "name": "等降水量线",
+      "short": "等降水量线",
+      "category": "climate",
+      "categoryName": "气候图线",
+      "summary": "降水量相同的各点连成的线，线上注着毫米数。",
+      "image": "assets/legends/dengjiangshuiliang.svg"
+    },
+    {
+      "id": "taifeng_lujing",
+      "name": "台风路径",
+      "short": "台风路径",
+      "category": "climate",
+      "categoryName": "气候图线",
+      "summary": "台风移动的路线，用带螺旋的曲线画出。",
+      "image": "assets/legends/taifeng_lujing.svg"
+    },
+    {
+      "id": "hanchao_lujing",
+      "name": "寒潮路径",
+      "short": "寒潮路径",
+      "category": "climate",
+      "categoryName": "气候图线",
+      "summary": "寒潮侵入的方向，用自北向南的粗箭头表示。",
+      "image": "assets/legends/hanchao_lujing.svg"
+    },
+    {
+      "id": "shachenbao_lujing",
+      "name": "沙尘暴路径",
+      "short": "沙尘暴路径",
+      "category": "climate",
+      "categoryName": "气候图线",
+      "summary": "沙尘暴移动的方向，用带沙点的棕色箭头表示。",
+      "image": "assets/legends/shachenbao_lujing.svg"
+    }
+  ]
+}

@@ -105,6 +105,32 @@ input:focus {
   font-weight: 700;
 }
 
+/* 平台迟迟不下发名单时的说明：卡片本来很窄，这里要多给点行宽才读得顺。 */
+.init-card .init-hint {
+  max-width: 34em;
+  line-height: 1.7;
+  font-weight: 700;
+}
+
+.init-card .init-hint strong {
+  color: var(--red);
+}
+
+.init-trial-button {
+  margin-top: 4px;
+  padding: 10px 22px;
+  background: var(--red);
+  color: var(--paper);
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.init-trial-button:hover {
+  background: var(--ink);
+  color: var(--red);
+}
+
 .game {
   height: 100%;
   display: flex;
@@ -961,4 +987,133 @@ input:focus {
   font-size: 12px;
   font-weight: 700;
   text-align: center;
+}
+
+/* ===== v1.0.0：格线标注档位 + 赤道 / 本初子午线 ===== */
+
+/* 三档切换在"设置卡片"（宽）和"坐标面板"（窄）里都用，所以做成自适应： */
+/* 宽度够就一行按钮，不够就标题独占一行、按钮换行。 */
+/* v1.1.0 起这个类名是通用的"分段切换"（格线标注 + 坐标输入方式共用），不只是格线标注。 */
+.hide-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 3px solid var(--ink);
+  background: var(--paper-dim);
+}
+
+.hide-mode-title {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.hide-mode-options {
+  display: flex;
+  flex: 1 1 180px;
+  gap: 6px;
+}
+
+.hide-mode-options button {
+  flex: 1 1 0;
+  padding: 6px 4px;
+  font-size: 12px;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.hide-mode-options button.is-active {
+  background: var(--red);
+  color: var(--paper);
+}
+
+/* 赤道 / 本初子午线：画成醒目的金线，是隐藏标签时学生唯一能依赖的锚点 */
+.grid-lines line.is-zero-line {
+  stroke: var(--gold);
+  stroke-width: 3;
+}
+
+.axis-labels text.is-zero-label {
+  fill: var(--red);
+  font-size: 19px;
+}
+
+/* 直接挂在 svg 上（不在 .axis-labels 里），所以不存在被覆盖的问题 */
+.zero-line-note {
+  fill: var(--gold);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  paint-order: stroke;
+  stroke: var(--paper);
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+/* ===== v1.1.0：坐标输入方式（手动输入 / 下拉选择） ===== */
+
+/* 度数下拉框 + 半球按钮同一行：面板只有 280px，窄了会自动挤，所以 select 给了 flex:1 */
+.degree-picker {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.degree-select {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 26px 8px 8px;
+  border: 3px solid var(--ink);
+  border-radius: 0 !important;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  /* 原生下拉箭头是圆角灰块，跟这套粗野派视觉不搭 —— 换成两个渐变拼出来的实心三角 */
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+    linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 55%, calc(100% - 9px) 55%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.degree-select:focus {
+  outline: 3px solid var(--red);
+}
+
+.hemi-options {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.hemi-options button {
+  padding: 8px 7px;
+  font-size: 12px;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.hemi-options button.is-active {
+  background: var(--red);
+  color: var(--paper);
+}
+
+/* 选 0° 时半球无意义，置灰而不是隐藏：位置不变，学生不会以为界面少了一块 */
+.hemi-options button:disabled {
+  opacity: 0.4;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.degree-picker-tip {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.45;
+  opacity: 0.75;
 }

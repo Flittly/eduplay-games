@@ -1,0 +1,26 @@
+{
+  "name": "@eduplay/china-relief",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test:data": "rolldown src/game.ts --format cjs --file scripts/_game.cjs && rolldown src/geo.ts --format cjs --file scripts/_geo.cjs && rolldown src/data/regions.ts --format cjs --file scripts/_regions.cjs && node scripts/game.test.cjs",
+    "test:photos": "python scripts/photo_rules.test.py",
+    "test": "npm run test:data && npm run test:photos"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.180.0",
+    "@vitejs/plugin-react": "^6.1.0",
+    "typescript": "^7.0.0",
+    "vite": "^8.2.2"
+  }
+}

@@ -1,0 +1,2 @@
+# rolldown 从 src/*.ts 生成的测试用 CJS 包（每次 npm run test:data 会重新生成）
+scripts/_*.cjs

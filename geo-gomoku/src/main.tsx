@@ -9,7 +9,19 @@ import type {
 import "./styles.css";
 
 const gameCode = "geo_gomoku";
-const version = "0.2.0";
+const version = "1.1.0";
+
+/**
+ * 平台没下发名单时的本地试玩学生。
+ * 用负数 id 与真实学生区分开，且试玩状态下不上报成绩（见 GameApp）。
+ */
+const GUEST_ROSTER: PlayerInfo[] = [
+  { studentId: -1, studentName: "试玩学生甲", className: null },
+  { studentId: -2, studentName: "试玩学生乙", className: null }
+];
+
+/** 等名单超过这个时长就给出"试玩"出口，免得界面变成死路。 */
+const ROSTER_WAIT_HINT_MS = 2500;
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {
@@ -136,6 +148,8 @@ function parseRoster(payload: InitPayload): PlayerInfo[] {
 
 function GameApp() {
   const [roster, setRoster] = useState<PlayerInfo[]>([]);
+  const [trial, setTrial] = useState(false);
+  const [showTrialOffer, setShowTrialOffer] = useState(false);
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -159,20 +173,55 @@ function GameApp() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  if (roster.length === 0) {
+  // 平台迟迟不下发名单时给个出口。这里不做静默兜底，
+  // 因为老师需要知道"成绩没计入"，而不是莫名其妙在跟"试玩学生甲"下棋。
+  useEffect(() => {
+    if (roster.length > 0 || trial) {
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setShowTrialOffer(true),
+      ROSTER_WAIT_HINT_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [roster.length, trial]);
+
+  // 判定顺序：真实名单 > 本地试玩 > 空。
+  // 这样即使平台在学生已经试玩之后才把名单送到，真实名单也会立刻接管。
+  const effectiveRoster =
+    roster.length > 0 ? roster : trial ? GUEST_ROSTER : [];
+
+  if (effectiveRoster.length === 0) {
     return (
       <div className="init-card">
         <h1>经纬度五子棋</h1>
         <p>正在等待平台下发学生名单…</p>
+        {showTrialOffer && (
+          <>
+            <p className="init-hint">
+              平台一直没有下发学生名单。常见原因是上一页没有勾选学生，
+              返回上一页重新选择即可；也可以先用试玩学生练一局，
+              <strong>试玩成绩不会计入积分榜</strong>。
+            </p>
+            <button
+              type="button"
+              className="init-trial-button"
+              onClick={() => setTrial(true)}
+            >
+              先用试玩学生练一局
+            </button>
+          </>
+        )}
       </div>
     );
   }
 
   return (
     <GeoGomoku
-      roster={roster}
-      onComplete={notifyComplete}
-      onSessionEnd={notifySessionEnd}
+      roster={effectiveRoster}
+      // 试玩时不上报成绩：上报会带着负数 id 打到平台上，只会换来一条无法结算的报错。
+      onComplete={trial ? () => {} : notifyComplete}
+      onSessionEnd={trial ? () => {} : notifySessionEnd}
     />
   );
 }

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" font-family="'Arial Black','Franklin Gothic Heavy','Microsoft YaHei','PingFang SC',sans-serif">
+<rect x="0" y="0" width="240" height="240" fill="#f2e8d5"/>
+<rect x="5" y="5" width="230" height="230" fill="none" stroke="#1a1a1a" stroke-width="4"/>
+<path d="M 120 40 L 140.737 95.4579 L 199.889 98.0426 L 153.553 134.902 L 169.374 191.957 L 120 159.28 L 70.626 191.957 L 86.4467 134.902 L 40.1113 98.0426 L 99.2629 95.4579 Z" fill="#cc0000" stroke="#1a1a1a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

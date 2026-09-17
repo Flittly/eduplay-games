@@ -1,7 +1,7 @@
 {
   "gameCode": "geo_gomoku",
   "name": "经纬度五子棋",
-  "version": "0.2.0",
+  "version": "1.1.0",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
@@ -9,5 +9,6 @@
   "entry": "web/index.html",
   "cover": "web/cover.svg",
   "backendPlugin": null,
-  "description": "两位学生在经纬线棋盘上轮流报出坐标后落子，先连成五子者获胜。"
+  "requiresRoster": true,
+  "description": "在经纬线棋盘上轮流报出带半球的坐标后落子，先连成五子者获胜。棋盘可能整块落在北纬、南纬、东经、西经任一象限，也可能跨赤道或本初子午线；坐标可手写，也可用下拉框按 5° 一档选度数再选半球，格线标注还能分三档隐藏。"
 }

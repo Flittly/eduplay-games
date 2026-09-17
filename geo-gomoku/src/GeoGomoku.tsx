@@ -1,4 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  DEFAULT_HIDE_MODE,
+  DEG_STEP,
+  GRID,
+  HIDE_MODES,
+  axisDegreeOptions,
+  axisHemiText,
+  axisName,
+  axisRangeText,
+  buildAxes,
+  colOfLon,
+  composeDegreeInput,
+  defaultHemi,
+  formatLatCompact,
+  formatLonCompact,
+  formatMove,
+  formatRowCol,
+  hemiName,
+  hemiOptions,
+  labelIndices,
+  parseDegreeInput,
+  randomBoardRange,
+  rowOfLat,
+  sampleInput,
+  zeroIndex,
+  zeroName,
+  type AxisKind,
+  type BoardRange,
+  type Hemi,
+  type HideMode
+} from "./geo";
 
 export interface PlayerInfo {
   studentId: number;
@@ -45,7 +76,6 @@ interface MoveLog {
   text: string;
 }
 
-const GRID = 15;
 const RULES_STORAGE_KEY = "eduplay.geo-gomoku.rules.v1";
 
 const DEFAULT_RULES: ScoreRules = {
@@ -54,30 +84,8 @@ const DEFAULT_RULES: ScoreRules = {
   drawPoints: 10
 };
 
-// 棋盘经纬度范围：每局随机生成，避免学生死记固定范围。
-// 网格固定 15 条线、间隔 5°，因此每轴跨度恒为 70°，只随机平移窗口位置。
-// 纬度窗口：底部最低 0°、顶部最高 90°（北纬）；
-// 经度窗口：左侧最低 0°、右侧最高 180°（东经）。
-interface BoardRange {
-  latTop: number;
-  lonLeft: number;
-}
-
-const LAT_TOPS = [70, 75, 80, 85, 90];
-const LON_LEFTS = Array.from({ length: 23 }, (_, index) => index * 5);
-
-function randomBoardRange(): BoardRange {
-  return {
-    latTop: LAT_TOPS[Math.floor(Math.random() * LAT_TOPS.length)],
-    lonLeft: LON_LEFTS[Math.floor(Math.random() * LON_LEFTS.length)]
-  };
-}
-
-function buildAxes(range: BoardRange) {
-  const lats = Array.from({ length: GRID }, (_, index) => range.latTop - index * 5);
-  const lons = Array.from({ length: GRID }, (_, index) => range.lonLeft + index * 5);
-  return { lats, lons };
-}
+// 棋盘经纬度范围与坐标解析都放在 ./geo（纯逻辑，有 Node 测试覆盖）。
+// 这里只负责渲染与交互。
 
 type Phase = "setup" | "playing" | "roundDone";
 type GameMode = "pvp" | "ai";
@@ -135,29 +143,6 @@ function emptyBoard(): Cell[][] {
   return Array.from({ length: GRID }, () =>
     Array.from<Cell>({ length: GRID }).fill(null)
   );
-}
-
-function parseDegreeInput(raw: string, kind: "lat" | "lon"): number | null {
-  const text = raw.trim();
-  const lower = text.toLowerCase();
-  if (kind === "lat" && (lower.includes("s") || lower.includes("南"))) {
-    return null;
-  }
-  if (kind === "lon" && (lower.includes("w") || lower.includes("西"))) {
-    return null;
-  }
-  const cleaned = text
-    .replace(/[°度]/g, "")
-    .replace(/北纬|南纬|东经|西经|经度|纬度|[nsew]/gi, "")
-    .trim();
-  if (!cleaned) {
-    return null;
-  }
-  const value = Number(cleaned);
-  if (!Number.isInteger(value)) {
-    return null;
-  }
-  return value;
 }
 
 function withDegreeSymbol(value: string): string {
@@ -281,6 +266,162 @@ function formatTime(totalSeconds: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+/**
+ * 分段切换控件：格线标注档位（老师先"全部标出"讲一遍，再切到"只留锚点"）
+ * 与坐标输入方式共用一套外观。
+ */
+interface SwitchOption<T extends string> {
+  id: T;
+  label: string;
+  hint: string;
+}
+
+function SegmentedSwitch<T extends string>({
+  title,
+  value,
+  options,
+  onChange
+}: {
+  title: string;
+  value: T;
+  options: SwitchOption<T>[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="hide-mode-switch">
+      <span className="hide-mode-title">{title}</span>
+      <div className="hide-mode-options">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            className={value === option.id ? "is-active" : ""}
+            title={option.hint}
+            onClick={() => onChange(option.id)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 坐标输入方式：手写（学生自己读格线报坐标）/ 下拉（老师报坐标、学生找交点）。 */
+type InputMode = "type" | "pick";
+
+const INPUT_MODES: SwitchOption<InputMode>[] = [
+  { id: "type", label: "手动输入", hint: "自己从格线上读出度数并写出来（含半球）" },
+  { id: "pick", label: "下拉选择", hint: "度数从下拉框里选，半球另外选一次" }
+];
+
+/** 下拉选择模式的一次取值；hemi 为 null 表示"用本棋盘默认的那一半"。 */
+interface DegreePick {
+  degree: number | null;
+  hemi: Hemi | null;
+}
+
+const EMPTY_PICK: DegreePick = { degree: null, hemi: null };
+
+/**
+ * 一条轴上的坐标输入框。
+ *
+ * 两种方式产出的是**同一句文本**（如「北纬45°」），交给同一个 parseDegreeInput 校验 ——
+ * 所以下拉框不会成为绕过校验的后门，两种方式也永远给学生一样的对错反馈。
+ */
+function AxisField({
+  kind,
+  range,
+  mode,
+  text,
+  onText,
+  pick,
+  onPick,
+  onEnter
+}: {
+  kind: AxisKind;
+  range: BoardRange;
+  mode: InputMode;
+  text: string;
+  onText: (value: string) => void;
+  pick: DegreePick;
+  onPick: (value: DegreePick) => void;
+  onEnter: () => void;
+}) {
+  const degrees = useMemo(() => axisDegreeOptions(kind, range), [kind, range]);
+  // 半球没被显式选过时用本棋盘默认值：单半球棋盘不会一上来就吃一个必错的默认值。
+  const hemi = pick.hemi ?? defaultHemi(kind, range);
+  const label = `${axisName(kind)}（${axisHemiText(kind, range)}）`;
+
+  if (mode === "type") {
+    return (
+      <label className="coord-field">
+        {label}
+        <input
+          type="text"
+          value={text}
+          placeholder={`如 ${sampleInput(kind, range, "cn")} / ${sampleInput(
+            kind,
+            range,
+            "compact"
+          )}`}
+          onChange={(event) => onText(withDegreeSymbol(event.target.value))}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              onEnter();
+            }
+          }}
+        />
+      </label>
+    );
+  }
+
+  return (
+    <div className="coord-field">
+      {label}
+      <div className="degree-picker">
+        <select
+          className="degree-select"
+          value={pick.degree === null ? "" : String(pick.degree)}
+          onChange={(event) =>
+            onPick({
+              ...pick,
+              degree:
+                event.target.value === "" ? null : Number(event.target.value)
+            })
+          }
+        >
+          <option value="">请选择度数</option>
+          {degrees.map((degree) => (
+            <option key={degree} value={degree}>
+              {degree === 0 ? `0°（${zeroName(kind)}）` : `${degree}°`}
+            </option>
+          ))}
+        </select>
+        <div className="hemi-options">
+          {hemiOptions(kind).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={hemi === option ? "is-active" : ""}
+              // 0° 不属于任何半球，选不选都不影响结果，干脆置灰免得学生白纠结。
+              disabled={pick.degree === 0}
+              onClick={() => onPick({ ...pick, hemi: option })}
+            >
+              {hemiName(kind, option)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <small className="degree-picker-tip">
+        {pick.degree === 0
+          ? `${zeroName(kind)}就是 0°，不用再选半球`
+          : `度数每 ${DEG_STEP}° 一档（共 ${degrees.length} 档），选完还要自己选半球`}
+      </small>
+    </div>
+  );
+}
+
 export default function GeoGomoku({
   roster,
   onComplete,
@@ -309,13 +450,24 @@ export default function GeoGomoku({
   const [matchNo, setMatchNo] = useState(1);
   const [finishedMatches, setFinishedMatches] = useState(0);
   const [range, setRange] = useState<BoardRange>(() => randomBoardRange());
+  const [hideMode, setHideMode] = useState<HideMode>(DEFAULT_HIDE_MODE);
+  const [inputMode, setInputMode] = useState<InputMode>("type");
+  const [latPick, setLatPick] = useState<DegreePick>(EMPTY_PICK);
+  const [lonPick, setLonPick] = useState<DegreePick>(EMPTY_PICK);
 
   const { lats: LATS, lons: LONGS } = useMemo(
     () => buildAxes(range),
     [range]
   );
-  const latBottom = range.latTop - 70;
-  const lonRight = range.lonLeft + 70;
+
+  // 0° 线（赤道 / 本初子午线）在棋盘上时的格线序号；不在棋盘上则是 null。
+  const latZero = zeroIndex("lat", range);
+  const lonZero = zeroIndex("lon", range);
+  // 哪些格线显示度数标签。labelIndices 会保证 0° 线无论如何都标出来。
+  const showLatLabel = useMemo(() => labelIndices(hideMode, latZero), [hideMode, latZero]);
+  const showLonLabel = useMemo(() => labelIndices(hideMode, lonZero), [hideMode, lonZero]);
+  const latRangeText = axisRangeText("lat", range);
+  const lonRangeText = axisRangeText("lon", range);
 
   const completedIds = useMemo(
     () => new Set(records.map((record) => record.player.studentId)),
@@ -406,10 +558,30 @@ export default function GeoGomoku({
     setPairBId(null);
   }
 
+  /** 当前输入方式下，该轴真正要提交的文本 —— 手动输入与下拉选择在这里汇成同一句话。 */
+  function axisText(kind: AxisKind): string {
+    if (inputMode === "type") {
+      return kind === "lat" ? latInput : lonInput;
+    }
+    const pick = kind === "lat" ? latPick : lonPick;
+    return composeDegreeInput(
+      kind,
+      pick.degree,
+      pick.hemi ?? defaultHemi(kind, range)
+    );
+  }
+
+  function changeInputMode(mode: InputMode) {
+    setInputMode(mode);
+    setInputError("");
+  }
+
   function resetBoard() {
     setBoard(emptyBoard());
     setLatInput("");
     setLonInput("");
+    setLatPick(EMPTY_PICK);
+    setLonPick(EMPTY_PICK);
     setInputError("");
     setMoves([]);
     setLastMove(null);
@@ -446,27 +618,30 @@ export default function GeoGomoku({
     if (gameMode === "ai" && currentIndex !== 0) {
       return;
     }
-    const lat = parseDegreeInput(latInput, "lat");
-    const lon = parseDegreeInput(lonInput, "lon");
-    if (lat === null || lon === null) {
-      setInputError("请按“北纬30° 东经100°”的格式填写");
+    // 两条轴分开校验：纬度写错时不要拿经度的错误去提示学生。
+    // 校验的输入是 axisText()——手动输入与下拉选择在这里共用同一条校验路径。
+    const latResult = parseDegreeInput(axisText("lat"), "lat", range);
+    if (!latResult.ok) {
+      setInputError(latResult.error);
       return;
     }
-    if (
-      lat < latBottom ||
-      lat > range.latTop ||
-      lon < range.lonLeft ||
-      lon > lonRight ||
-      lat % 5 !== 0 ||
-      lon % 5 !== 0
-    ) {
+    const lonResult = parseDegreeInput(axisText("lon"), "lon", range);
+    if (!lonResult.ok) {
+      setInputError(lonResult.error);
+      return;
+    }
+    const lat = latResult.value;
+    const lon = lonResult.value;
+    const row = rowOfLat(lat, range);
+    const col = colOfLon(lon, range);
+    // parseDegreeInput 已保证"落在窗口内 + 是 5° 的倍数"，两者合起来 row/col 必然在 0~14。
+    // 这里只是兜底：万一以后窗口模型改了，宁可报错也不要把棋子画到棋盘外。
+    if (row < 0 || row >= GRID || col < 0 || col >= GRID) {
       setInputError(
-        `本棋盘纬度为北纬 ${latBottom}°—${range.latTop}°、经度为东经 ${range.lonLeft}°—${lonRight}°，且必须是 5° 的倍数`
+        `这个坐标不在棋盘上（纬度 ${latRangeText} / 经度 ${lonRangeText}），请对照格线重新数一遍`
       );
       return;
     }
-    const row = (range.latTop - lat) / 5;
-    const col = (lon - range.lonLeft) / 5;
     if (board[row][col] !== null) {
       setInputError("该交点已有棋子，请换一个坐标");
       return;
@@ -479,12 +654,15 @@ export default function GeoGomoku({
     setInputError("");
     setLatInput("");
     setLonInput("");
+    // 下拉框也清空，逼学生重新看一次格线：否则连点两次"确认"只会撞上"该交点已有棋子"。
+    setLatPick(EMPTY_PICK);
+    setLonPick(EMPTY_PICK);
     setMoves((current) => [
       ...current,
       {
         no: current.length + 1,
         playerName: currentPlayer.studentName,
-        text: `北纬${lat}° 东经${lon}°`
+        text: formatMove(lat, lon)
       }
     ]);
 
@@ -529,7 +707,7 @@ export default function GeoGomoku({
       {
         no: current.length + 1,
         playerName: AI_PLAYER.studentName,
-        text: `北纬${LATS[row]}° 东经${LONGS[col]}°`
+        text: formatRowCol(row, col, range)
       }
     ]);
 
@@ -668,7 +846,7 @@ export default function GeoGomoku({
       <header className="game-topbar">
         <div className="game-heading">
           <strong>经纬度五子棋</strong>
-          <span>横线是纬线、竖线是经线，输入正确的经纬度坐标后才能落子</span>
+          <span>横线是纬线、竖线是经线（可能是南纬 / 西经），学生报出带半球的坐标才能落子</span>
         </div>
         <div className="topbar-actions">
           <div className="score-panel">
@@ -711,7 +889,8 @@ export default function GeoGomoku({
               <h2>经纬度五子棋</h2>
               <p>
                 双人轮流输入坐标落子，也可以选择学生挑战电脑。
-                只有输入正确且为空的经纬度交点才能落子。
+                棋盘可能是北纬、南纬、东经、西经，也可能同时跨赤道或本初子午线 ——
+                所以坐标必须写明半球，且正好落在格点上才能落子。
               </p>
               <div className="rules-summary">
                 胜方 +{rules.winPoints} · 负方 +{rules.losePoints} · 平局 +
@@ -720,8 +899,8 @@ export default function GeoGomoku({
 
               <div className="range-summary">
                 <span>
-                  本局棋盘：北纬 {latBottom}°—{range.latTop}° · 东经{" "}
-                  {range.lonLeft}°—{lonRight}°
+                  本局棋盘：纬度 {latRangeText} · 经度 {lonRangeText}
+                  （每格 5°，共 15 条线）
                 </span>
                 <button
                   type="button"
@@ -731,6 +910,13 @@ export default function GeoGomoku({
                   换一个范围
                 </button>
               </div>
+
+              <SegmentedSwitch
+                title="格线标注"
+                value={hideMode}
+                options={HIDE_MODES}
+                onChange={setHideMode}
+              />
 
               <div className="mode-select">
                 <button
@@ -842,7 +1028,7 @@ export default function GeoGomoku({
                 <div className="board-legend">
                   <span className="legend-red">● {playerA?.studentName ?? "红方"}</span>
                   <span className="legend-black">● {blackPlayer?.studentName ?? "黑方"}</span>
-                  <span>横轴为经度 · 纵轴为纬度</span>
+                  <span>横轴为经度 · 纵轴为纬度 · 每格 5°</span>
                 </div>
 
                 <svg
@@ -857,6 +1043,7 @@ export default function GeoGomoku({
                     return (
                       <line
                         key={`lon-${col}`}
+                        className={col === lonZero ? "is-zero-line" : undefined}
                         x1={x}
                         y1={TOP}
                         x2={x}
@@ -869,6 +1056,7 @@ export default function GeoGomoku({
                     return (
                       <line
                         key={`lat-${row}`}
+                        className={row === latZero ? "is-zero-line" : undefined}
                         x1={LEFT}
                         y1={y}
                         x2={rightX}
@@ -878,26 +1066,53 @@ export default function GeoGomoku({
                   })}
                 </g>
 
+                {/* 赤道 / 本初子午线是这一版才有的参照物，学生一眼要能认出来 */}
+                {latZero !== null && (
+                  <text
+                    x={LEFT + 8}
+                    y={TOP + latZero * STEP - 8}
+                    className="zero-line-note"
+                  >
+                    {zeroName("lat")}
+                  </text>
+                )}
+                {lonZero !== null && (
+                  <text
+                    x={LEFT + lonZero * STEP + 8}
+                    y={TOP + 16}
+                    className="zero-line-note"
+                  >
+                    {zeroName("lon")}
+                  </text>
+                )}
+
                 <g className="axis-labels">
-                  {LATS.map((lat, row) => (
-                    <text
-                      key={`lat-label-${row}`}
-                      x={LEFT - 10}
-                      y={TOP + row * STEP + 6}
-                    >
-                      {lat}°N
-                    </text>
-                  ))}
-                  {LONGS.map((lon, col) => (
-                    <text
-                      key={`lon-label-${col}`}
-                      className="lon-label"
-                      x={LEFT + col * STEP}
-                      y={bottomY + 26}
-                    >
-                      {lon}°E
-                    </text>
-                  ))}
+                  {LATS.map((lat, row) =>
+                    showLatLabel[row] ? (
+                      <text
+                        key={`lat-label-${row}`}
+                        className={row === latZero ? "is-zero-label" : undefined}
+                        x={LEFT - 10}
+                        y={TOP + row * STEP + 6}
+                      >
+                        {formatLatCompact(lat)}
+                      </text>
+                    ) : null
+                  )}
+                  {LONGS.map((lon, col) =>
+                    showLonLabel[col] ? (
+                      <text
+                        key={`lon-label-${col}`}
+                        className={
+                          col === lonZero ? "lon-label is-zero-label" : "lon-label"
+                        }
+                        x={LEFT + col * STEP}
+                        y={bottomY + 26}
+                      >
+                        {formatLonCompact(lon)}
+                      </text>
+                    ) : null
+                  )}
                 </g>
 
                 <text x={LEFT - 4} y={TOP - 24} className="axis-heading">
@@ -940,9 +1155,14 @@ export default function GeoGomoku({
               <aside className="coordinate-panel">
                 <h3>输入坐标落子</h3>
                 <p className="coord-range-hint">
-                  本棋盘：北纬 {latBottom}°—{range.latTop}° · 东经{" "}
-                  {range.lonLeft}°—{lonRight}°
+                  本棋盘经线、纬线每格 5°，坐标要正好落在格点上
                 </p>
+                <SegmentedSwitch
+                  title="格线标注"
+                  value={hideMode}
+                  options={HIDE_MODES}
+                  onChange={setHideMode}
+                />
                 <p className="coord-current">
                   <span
                     className={
@@ -958,38 +1178,50 @@ export default function GeoGomoku({
                   <p className="ai-thinking">电脑正在计算坐标并落子…</p>
                 ) : (
                   <>
-                    <label className="coord-field">
-                      纬度（北纬）
-                      <input
-                        type="text"
-                        value={latInput}
-                        placeholder="如 30°N / 北纬30°"
-                        onChange={(event) => {
-                          setLatInput(withDegreeSymbol(event.target.value));
-                          setInputError("");
-                        }}
-                      />
-                    </label>
-                    <label className="coord-field">
-                      经度（东经）
-                      <input
-                        type="text"
-                        value={lonInput}
-                        placeholder="如 100°E / 东经100°"
-                        onChange={(event) => {
-                          setLonInput(withDegreeSymbol(event.target.value));
-                          setInputError("");
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            submitCoordinate();
-                          }
-                        }}
-                      />
-                    </label>
-                    <p className="degree-hint">
-                      提示：直接输入“度”会自动转换成“°”，例如 30度 → 30°
-                    </p>
+                    <SegmentedSwitch
+                      title="输入方式"
+                      value={inputMode}
+                      options={INPUT_MODES}
+                      onChange={changeInputMode}
+                    />
+                    <AxisField
+                      kind="lat"
+                      range={range}
+                      mode={inputMode}
+                      text={latInput}
+                      onText={(value) => {
+                        setLatInput(value);
+                        setInputError("");
+                      }}
+                      pick={latPick}
+                      onPick={(value) => {
+                        setLatPick(value);
+                        setInputError("");
+                      }}
+                      onEnter={submitCoordinate}
+                    />
+                    <AxisField
+                      kind="lon"
+                      range={range}
+                      mode={inputMode}
+                      text={lonInput}
+                      onText={(value) => {
+                        setLonInput(value);
+                        setInputError("");
+                      }}
+                      pick={lonPick}
+                      onPick={(value) => {
+                        setLonPick(value);
+                        setInputError("");
+                      }}
+                      onEnter={submitCoordinate}
+                    />
+                    {inputMode === "type" && (
+                      <p className="degree-hint">
+                        要写明半球（北纬/南纬、东经/西经），也可以写 30°N、45°W 这样的字母写法；
+                        直接输入「度」会自动变成「°」。
+                      </p>
+                    )}
 
                     <button
                       type="button"
