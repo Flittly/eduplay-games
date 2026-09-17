@@ -1,23 +1,31 @@
 /**
- * 山河塑形 · 中国地形（v0.0.1）
+ * 山河塑形 · 中国地形（v1.0.0）
  *
  * 玩法：右侧卡片栏里是四大高原、四大盆地、三大平原和 27 条山脉。
- * 把卡片拖到地图上正确的位置，那块地就按**真实高程**从平地隆起来；
+ * 把卡片拖到地图上正确的位置，那块地就按**真实高程**分层设色塑出来；
  * 拖错了弹回并说明偏到哪儿去了。全部归位后，中国地势三级阶梯会自己长出来。
  *
- * ## 为什么"隆起来的高度"要用真实 DEM
+ * ## 为什么"塑出来的高度"要用真实 DEM
  *
  * 这不是一张手绘示意图，而是一张数值地图：每个格子的高程都来自
  * AWS Terrain Tiles 的真实测量值。学生把青藏高原拖对位置，看到的是
  * 4 700 米的高原，而不是"一个象征高原的色块"。反过来，如果把地形区
- * 丢到错的地方，它隆起的高度会立刻和周围对不上 —— 这个"不对劲"
+ * 丢到错的地方，它塑出来的高度会立刻和周围对不上 —— 这个"不对劲"
  * 本身就是一次教学。
  *
  * ## 判定的口径
  *
  * 地形区查**区域位图**（这一格到底属于谁），山脉查**最近的那条走带是不是它**。
- * 两种判定都在世界坐标里做，和学生看到的画面完全一致，不存在
+ * 两种判定都在经纬度里做，和学生看到的画面完全一致，不存在
  * "看着放对了却说错"的情况。
+ *
+ * ## v1.0.0 的三处改版（用户反馈）
+ *
+ * 1. **三维换成卡通二维**（详见 terrain.ts 的注释）：网面 34 万个三角形
+ *    在教室机器上是明摆着的卡顿，改成 Canvas 2D 俯视分层设色。
+ * 2. **点地图不再弹介绍**：原先随手点一下地图就会弹出"这里是太行山"，
+ *    等于把答案送到手上；现在介绍只有一个来源 —— 放对（或点卡片）。
+ * 3. **放对后中间弹出介绍**：归位即讲解，把"做对了"和"学到了"缝在一起。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -38,11 +46,7 @@ import {
   distToPolyline,
   insideChina,
   judgeAreaDrop,
-  judgeRangeDrop,
-  lonToX,
-  latToZ,
-  xToLon,
-  zToLat
+  judgeRangeDrop
 } from "./geo";
 import {
   applyCorrect,
@@ -66,6 +70,7 @@ export interface PlayerInfo {
 }
 
 const N = GRID_W * GRID_H;
+
 
 /**
  * 山脉的两层隆起参数（都是"度"）。
@@ -147,12 +152,6 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
     return [...a, ...b];
   }, []);
 
-  const itemById = useMemo(() => {
-    const m = new Map<string, Item>();
-    items.forEach((it) => m.set(it.id, it));
-    return m;
-  }, [items]);
-
   const nameByGridId = useMemo(() => {
     const m = new Map<number, string>();
     AREAS.forEach((a) => m.set(a.gridId, a.name));
@@ -178,6 +177,16 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
   stateRef.current = state;
   const [toast, setToast] = useState<Toast | null>(null);
   const [infoItem, setInfoItem] = useState<Item | null>(null);
+  /**
+   * 介绍卡是"刚放对自动弹的"还是"点卡片主动看的"。
+   *
+   * 两者外观差不多，但底部动作不同：主动看才给「在图上闪一下它的位置（−8 分）」，
+   * 自动弹时答案已经给出去了，再给提示按钮没有意义。
+   *
+   * ⚠️ 不能靠 `state.placed.includes()` 来判：setState 是异步的，
+   *    弹出这一刻它还是旧值，会先闪出一个不该出现的提示按钮再消失。
+   */
+  const [justPlaced, setJustPlaced] = useState(false);
   const [groupFilter, setGroupFilter] = useState<string>("全部");
   const [drag, setDrag] = useState<{
     item: Item;
@@ -342,6 +351,12 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
     [data, buildRidge, liftTarget, addTarget]
   );
 
+  /** 打开介绍卡：`justPlaced=true` 表示这次是"放对了自动弹" */
+  const openIntro = useCallback((item: Item, justPlacedNow: boolean) => {
+    setJustPlaced(justPlacedNow);
+    setInfoItem(item);
+  }, []);
+
   const handleDrop = useCallback(
     (item: Item, lon: number, lat: number) => {
       if (stateRef.current.placed.includes(item.id)) {
@@ -358,6 +373,8 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
           const gained = gainFor(stateRef.current, item.id, "area");
           setState((s) => applyCorrect(s, item.id, "area"));
           say("ok", `${item.name} 归位 · +${gained}`);
+          // 放对了就讲：把"做对了"和"学到了"缝在一起
+          openIntro(item, true);
         } else {
           setState((s) => applyWrong(s));
           say("bad", `${v.message}（−5）`);
@@ -371,6 +388,7 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
           const gained = gainFor(stateRef.current, item.id, "line");
           setState((s) => applyCorrect(s, item.id, "line"));
           say("ok", `${item.name} 归位 · +${gained}`);
+          openIntro(item, true);
         } else {
           setState((s) => applyWrong(s));
           const where = distanceHint(lon, lat, item.range.anchor);
@@ -378,7 +396,7 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
         }
       }
     },
-    [data, nameByGridId, doPlace, say]
+    [data, nameByGridId, doPlace, say, openIntro]
   );
 
   // 指针事件里要读到最新的 handleDrop，所以过一层 ref
@@ -437,8 +455,8 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
       dragRef.current = null;
       setDrag(null);
       if (!d.moved) {
-        // 没拖动 = 想看说明
-        setInfoItem(d.item);
+        // 没拖动 = 想先看看这是什么东西的讲解；`false` = 学生主动点开的
+        openIntro(d.item, false);
         return;
       }
       const hit = toLonLat(event.clientX, event.clientY);
@@ -462,55 +480,6 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
     };
   }, []);
 
-  /* ------------------------- 点击地图查信息 ------------------------- */
-  const onCanvasClick = useCallback(
-    (event: React.MouseEvent) => {
-      if (drag) {
-        return;
-      }
-      const canvas = canvasRef.current;
-      if (!canvas) {
-        return;
-      }
-      const rect = canvas.getBoundingClientRect();
-      const hit = viewRef.current?.pick(event.clientX, event.clientY);
-      if (!hit) {
-        return;
-      }
-      const i = Math.min(GRID_W - 1, Math.max(0, Math.round(
-        ((hit.lon - CHINA_DEM.lon0) / (CHINA_DEM.lon1 - CHINA_DEM.lon0)) * (GRID_W - 1))));
-      const j = Math.min(GRID_H - 1, Math.max(0, Math.round(
-        ((CHINA_DEM.lat1 - hit.lat) / (CHINA_DEM.lat1 - CHINA_DEM.lat0)) * (GRID_H - 1))));
-      const gid = data.region[j * GRID_W + i];
-      if (gid > 0) {
-        const found = AREAS.find((a) => a.gridId === gid);
-        if (found) {
-          const it = itemById.get(found.id);
-          if (it) {
-            setInfoItem(it);
-            return;
-          }
-        }
-      }
-      // 不在任何地形区里：看看是不是踩在某条山脉的走带上
-      let best: Item | null = null;
-      let bestD = 0.42;
-      for (const r of RANGES) {
-        const d = distToPolyline(hit.lon, hit.lat, r.line);
-        if (d < bestD) {
-          bestD = d;
-          best = itemById.get(r.id) ?? null;
-        }
-      }
-      if (best) {
-        setInfoItem(best);
-        return;
-      }
-      void rect;
-    },
-    [drag, data, itemById]
-  );
-
   /* ----------------------------- 提示 ----------------------------- */
   const onHint = useCallback(() => {
     if (!infoItem || state.placed.includes(infoItem.id)) {
@@ -533,6 +502,20 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
     return () => window.clearTimeout(timer);
   }, [flash]);
 
+  // 介绍卡是居中弹出的，ESC 要能关；不然 38 张卡片逐张弹出来会很打断节奏
+  useEffect(() => {
+    if (!infoItem) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setInfoItem(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [infoItem]);
+
   /* ----------------------------- 完成 ----------------------------- */
   useEffect(() => {
     if (state.placed.length === total && total > 0) {
@@ -550,7 +533,7 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
     if (!flash) {
       return null;
     }
-    const v = viewRef.current?.project(flash.lon, flash.lat, 0);
+    const v = viewRef.current?.project(flash.lon, flash.lat);
     return v ?? null;
   }, [flash]);
 
@@ -558,11 +541,9 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
   return (
     <div className="cr-root">
       <div className="cr-stage">
-        <canvas
-          ref={canvasRef}
-          className="cr-canvas"
-          onClick={onCanvasClick}
-        />
+        {/* 地图本身不接点击：介绍只能靠"放对"或"点卡片"拿到，
+            否则随手点一下就把答案点出来了 */}
+        <canvas ref={canvasRef} className="cr-canvas" />
 
         {/* 顶部记分板 */}
         <div className="cr-hud">
@@ -585,9 +566,6 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
             <span className="cr-hud-num">{state.wrongCount}</span>
             <span className="cr-hud-label">放错</span>
           </div>
-          <button type="button" className="cr-hud-btn" onClick={() => viewRef.current?.resetCamera()}>
-            复位视角
-          </button>
         </div>
 
         {/* 拖动跟随的幽灵卡 */}
@@ -676,40 +654,52 @@ export default function ChinaRelief({ roster }: { roster: PlayerInfo[] }) {
         </div>
       </aside>
 
-      {/* 信息面板 */}
+      {/* 介绍卡：放对了自动弹（居中），点卡片也能主动看 */}
       {infoItem ? (
-        <div className="cr-sheet" role="dialog">
-          <button type="button" className="cr-sheet-close" onClick={() => setInfoItem(null)}>
-            ×
-          </button>
-          <div className="cr-sheet-photo">
-            <img
-              src={`./assets/photos/${infoItem.id}.jpg`}
-              alt={infoItem.name}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-                e.currentTarget.parentElement?.classList.add("is-missing");
-              }}
-            />
-            <span className="cr-sheet-photo-fallback">
-              {infoItem.name}
-              <small>实景照片待补充 · 可在三维沙盘上查看它的真实起伏</small>
-            </span>
-          </div>
-          <div className="cr-sheet-body">
-            <h2>
-              {infoItem.name}
-              {infoItem.area ? <em>{infoItem.area.elevation} m 上下</em> : null}
-              {infoItem.range && !infoItem.range.core ? <em>了解性知识</em> : null}
-            </h2>
-            <p>{infoItem.blurb}</p>
-            {!state.placed.includes(infoItem.id) ? (
-              <button type="button" className="cr-hint-btn" onClick={onHint}>
-                在图上闪一下它的位置（−8 分）
+        <div
+          className="cr-sheet"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setInfoItem(null)}
+        >
+          <div className="cr-sheet-card" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="cr-sheet-close" onClick={() => setInfoItem(null)}>
+              ×
+            </button>
+            <div className="cr-sheet-photo">
+              <img
+                src={`./assets/photos/${infoItem.id}.jpg`}
+                alt={infoItem.name}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                  e.currentTarget.parentElement?.classList.add("is-missing");
+                }}
+              />
+              <span className="cr-sheet-photo-fallback">
+                {infoItem.name}
+                <small>实景照片待补充</small>
+              </span>
+            </div>
+            <div className="cr-sheet-body">
+              <h2>
+                {infoItem.name}
+                {infoItem.area ? <em>{infoItem.area.elevation} m 上下</em> : null}
+                {infoItem.range && !infoItem.range.core ? <em>了解性知识</em> : null}
+              </h2>
+              <p>{infoItem.blurb}</p>
+              {justPlaced || state.placed.includes(infoItem.id) ? (
+                <p className="cr-sheet-done">已经归位 ✓ 继续拖下一张卡片</p>
+              ) : (
+                <button type="button" className="cr-hint-btn" onClick={onHint}>
+                  在图上闪一下它的位置（−8 分）
+                </button>
+              )}
+            </div>
+            <div className="cr-sheet-foot">
+              <button type="button" className="cr-primary" onClick={() => setInfoItem(null)}>
+                继续塑形
               </button>
-            ) : (
-              <p className="cr-sheet-done">已经归位 ✓</p>
-            )}
+            </div>
           </div>
         </div>
       ) : null}

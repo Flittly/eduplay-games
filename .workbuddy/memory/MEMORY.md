@@ -72,6 +72,61 @@
   换了主体（"雪松林"→树皮特写）、舷窗照（带飞机翼尖）。
 - 脚本跑在**带 Pillow** 的解释器上：`C:/Users/Administrator/.workbuddy/binaries/python/envs/default/Scripts/python.exe`。
   参考实现 `china-relief/scripts/`（`fetch_photos.py` / `pick_photos.py` / `sheet_selected.py` / `photo_rules.test.py`）。
+## 双端商城对齐（盘点 / 补齐 / 核对）
+
+- **工具**：`scripts/publish_batch.py`（仓库根，2026-09-17 起）。`--audit` 只读出核对矩阵；
+  默认双端对齐（缺的补、落后的升，再出矩阵）。**不维护"缺哪些"的清单，每次现算** ——
+  仓库 manifest 是唯一真值：admin 无记录→create；教师端版本落后→publish；非 ACTIVE→activate。
+- **"教师端拿到的版本"才是真的**：admin 列表的 `version` 是 `game_product.version` 独立列，会长期陈旧
+  （本地 `province_quiz` 那列还写着 0.2.3，教师端早已 1.0.0）。核对读 `GET /store/games` 的版本。
+- **三套存储别搞混**（2026-09-17 实测）：①**H2 文件库** `eduplay/backend/data/eduplay.mv.db`
+  = **本地 7070**（**本地商城根本不碰 MySQL**，11 款游戏全在这份）；②**MySQL**
+  `localhost:3306/eduplay_cloud` = **云端 17070**；③**MySQL(Docker)** `localhost:3307`
+  = 研究生项目 / nacos，**从来没有任何 eduplay 库**。17070 虽叫"云端"，进程与库都在本机
+  ⇒ 那是**用本机模拟云端**。读 H2 用 `org.h2.tools.Shell` + `AUTO_SERVER=TRUE`（文件被 7070 锁着也能读）。
+- **两个侧边栏入口各读各的库**（"看起来游戏少了"的头号原因，2026-09-17 实测）：
+  「**游戏商城**」`nav.store`（`StorePage.tsx`）= `cloudListStoreGames()` → `/cloud-api` → **云端 MySQL**；
+  「**游戏中心**」`nav.games`（`DashboardPage.tsx`）= `listInstalledGames()` → `/api/v1/me/games` → **本地 H2**。
+  商城页的**卡片数由云端决定**，卡上的「本机已安装」标记才是本地信息；**未登录云端账号时商城页只显示登录框**。
+  `/cloud-api` **不是直连**：前端 → 本地 7070 `CloudApiProxyController` → `app_settings.cloud.base-url`
+  （缺省回落 `application-local.yml` 的 `${EDUPLAY_CLOUD_URL:http://localhost:17070}`）。
+  ⚠ 后端登录接口是 **`/api/v1/auth/local/login`**，写成 `/auth/login` 会返回 **500 `INTERNAL_ERROR`**
+  （本项目"接口不存在"被包成 500 而非 404），极易误判成后端崩了。
+- **判断"数据被删过吗"的五条硬取证**（都比数行数可靠）：①库目录 birth time（MySQL 8 每库一子目录，
+  DROP 重建会刷新它）；②**`.ibd` 文件创建时间**（DROP 会连它一起删、重建会生成新文件 ⇒ 时间变新）；
+  ③**binlog 全量按表数 `INSERT/UPDATE/DELETE` 次数**（最强，见下条）；④自增值 vs `MAX(id)`；
+  ⑤数据目录里到底有没有那个库。
+  注意 PowerShell 读 `C:\ProgramData` 会被沙箱拦成**空输出且 exit 0**（像"目录不存在"），改用 Python `os.stat().st_ctime`。
+- **binlog 全量取证怎么用**：复制 binlog 到工作区 → `mysqlbinlog --base64-output=DECODE-ROWS -v` 解码 →
+  跟踪 `use` 判当前库 → 按「库.表」统计事件。2026-09-17 实测 `eduplay_cloud.game_product`
+  **INSERT 12 / DELETE 0**（从建库到当天只插过 12 行、一行没删），一次正面回答了"是不是表被删了"。
+  ⚠ **两个坑**：①`### INSERT/UPDATE/DELETE` 行**也以 `#` 开头**，按"跳过 `#` 注释"过滤会把
+  **全部 DML 一起扔掉**、只剩 DDL，于是得出"这库只有建表没有数据变更"的错误结论；
+  ②不带库名前缀的 DDL 作用于"最近一次 `use` 的库"，看到 `drop database` 要先确认删的是哪个库
+  （早期临时库 `eduplay` 的清理不是事故）。**工具：`scripts/binlog_audit.py`**（一条命令出报告：
+  时间跨度 + 各表读写次数 + 危险语句），完整方法见 skill `eduplay-game-publish` §5.3。
+- `game_package` **没有 `game_code` 列**（走 `game_id` 关联 `game_product`），按 code 直接查会报列不存在。
+- **判断"用户实际能玩到哪版"最直接的证据**是 `eduplay/backend/plugins/installed/{userId}/{code}/`
+  下**有哪些版本目录** —— 比查任何 DB 字段都准。
+- **"数据库里明明有，怎么没了"先看自增值**：`auto_increment == MAX(id)+1` ⇒ 这些行**从未被创建过**
+  （若曾创建再删除，计数会停在更大值上）。2026-09-17 就靠这条定性了
+  "云端缺 6 款是**从未上架**，不是被删"。再顺手全库扫 `information_schema.tables LIKE '%game%'` 排除记错库。
+- **但 id 有空洞 ≠ 被删过**：Hibernate 号段生成器（`allocationSize=50`）一次占一段 id、用不完就浪费。
+  本地 H2 的 `game_product.id` 是 `1,2,3,4,35,36,37,69,70,71,101`，看着像删了几十行，其实不是。
+  **要判删除，看 binlog 的 `DELETE FROM` 计数，不看 id 空洞。**
+- **商城条目数 == `game_product` 里 `status='ACTIVE'` 的行数**：`CloudGameStoreService.listStoreGames()`
+  只按这一个条件过滤（不看包、不看权益、不按用户过滤）。所以"商城少了几个"等价于"表里 ACTIVE 行少了几个"，
+  而"线上看起来少"最常见的真因是**看错了端**（本地 H2 11 款 vs 云端 MySQL 到 09-08 只有 4 款）。
+- `game_package.status` 有 `PUBLISHED` / `MISSING` 两态：**`MISSING` = 文件已从磁盘消失**
+  ⇒ "DB 里有行"≠"用户下得到包"。云端包落在 `eduplay/server/plugins/packages/`。
+- **端到端验证凑三层独立证据**（别只信自己脚本的输出）：DB 直查 → 磁盘文件存在 →
+  **包 sha256 与本地打包字节逐一比对**（`game_package.sha256` 列直接对）。
+- **产物新鲜度判据**：只看 `dist/web/index.html` + `assets/index-*.js|css` 的 mtime ——
+  别用目录里最旧/最新（`public/` 的 cover.svg、textures/ 是复制过去的、保留原 mtime，会把
+  **每个**游戏都误判成"需重建"）；判据里也**别含 `package.json`**（版本号三处同步会顺手动它）。
+- **商店里版本比仓库高的不许静默降级**（孤儿版本，如 `province_puzzle 0.3.8`）：默认只报警，
+  要动得显式 `--force`。判断孤儿版本是否有害，就解开两个 zip 逐文件比 sha256。
+
 - **简介只改 `manifest.json` 的 `description`**，重传包即自动同步（别在脚本里硬编码 DESC）；目标 ≤120 字。
 - `screenshots/` 已被 gitignore，验证图只留本地。
 
@@ -159,9 +214,11 @@
 
 `province_puzzle 0.3.7` · `shanhe_match3 1.0.1` · `province_quiz 1.0.0` · `geo_gomoku 1.1.0`
 · `earth_globe 1.4.5` · `solar_system 1.1.2` · `landform_quiz 1.3.0` · `weather_quiz 1.0.0`
-· `legend_match 0.0.1` · `mountain_zones 2.0.0` · `china_relief 0.0.1`（山河塑形·中国地形）
+· `legend_match 0.0.1` · `mountain_zones 2.0.0` · `china_relief 1.0.0`（山河塑形·中国地形）
 
 > `china_relief`：纯展示型（`requiresRoster=false`），38 张卡 = 11 地形区 + 27 山脉，
-> DEM 用 AWS Terrarium（`h = R*256 + G + B/256 − 32768`），等距圆柱 + cos(36°) 经度修正，
-> 拖对后按海拔增量抬升真实地形。回归：`npm run test` = 62（纯逻辑）+ 16（图源规则）项，
-> Electron `shot.js` 65 项；`.workbuddy/tmp/publish_china_relief.py` 双端上架。
+> DEM 用 AWS Terrarium（`h = R*256 + G + B/256 − 32768`），等距圆柱 + cos(36°) 经度修正。
+> **v1.0.0 起渲染层是 Canvas 2D 俯视分层设色（卡通），已彻底摘掉 three.js**：
+> 高度场仍是 `y = alt[k]·lift[k] + add[k]`，但"高度"只用来判 7 个色档 + 明暗 + 档间描边，
+> 不再驱动几何。回归：`npm run test` = 62（纯逻辑）+ 16（图源规则）项，
+> Electron `shot.js` 85 项；`.workbuddy/tmp/publish_china_relief.py` 双端上架。

@@ -1,38 +1,43 @@
 /**
- * 三维地形沙盘：一层真实高程的中国地形网面 + 海面 + 相机控制。
+ * 卡通地形沙盘（Canvas 2D）
  *
- * ## 一张网面，两个高度来源
+ * ## 为什么不再用 WebGL
  *
- * 每个顶点的视觉高度是：
+ * v0.0.1 用 three.js 起了一层 480×358 的真实高程网面（约 34 万个三角形）：
+ * 每帧要把 17 万个顶点的高度与颜色重算一遍，动画收尾还得重算法线
+ * （20~50 ms），在教室那类没有独显的机器上就是明摆着的卡顿 —— 用户的原话是
+ * "三维展示的时候有些卡顿"。
  *
- *     y = BASE_LIFT + (alt[k] × lift[k] + add[k]) × ALT_TO_WORLD
+ * 而这个游戏真正要教的东西 ——「这块地按它真实的海拔被塑起来了」——
+ * 并不需要透视相机和多边形光照：**分层设色 + 档间描边 + 北向明暗**
+ * 在俯视图上就读得出来，而且这正是地理教科书读地形图的方式。
+ * 于是整层换成一张 Canvas 2D 俯视图，着色退化成一次线性扫描，
+ * 帧成本从几十毫秒降到几毫秒，且不依赖 WebGL（老机器的显卡驱动也不会再拖后腿）。
  *
- *  - `alt`：真实 DEM 高程（米），只读。
- *  - `lift[0..1]`：这块地**被塑出来了多少**。地形区拖对之后从 0 涨到 1，
- *    于是"平地上长出一片高原"；山脉拖对后它会在**走带走廊**里涨到 1，
- *    让那道山真正按它的实测海拔立起来。
- *  - `add`（米）：沿折线叠的一条高斯脊，山脉专用。全国 DEM 是 11.9 km/格，
- *    太行山、南岭这种宽 50~80 km 的山脉在这个尺度上只剩几格，脊线会被抹平；
- *    靠 `add` 把脊挑出来，配合 `lift` 放出的真实 DEM，两条叠加才既像山又落在
- *    正确的地形背景上。
+ * ## 一格像素怎么决定颜色
  *
- * ## 未塑形的地方为什么是灰的
+ * 按优先级从外到内：
+ *   1. **海洋**三层 —— 深海 / 近岸浅滩 / 陆地投影。投影是把陆地掩膜往东南
+ *      平移两格后落在海里的那部分染深一档，整块陆地就有"浮在海面上"的卡通感。
+ *   2. **陆地在境外**（mask=0 已排除）—— 不画。
+ *   3. **未塑形**：米灰 + 每 4 格一档的淡斜纹。刻意不用浅绿 —— 直接按高程 0
+ *      上色会和沿海平原同色，学生分不清"这块我还没放"和"这块本来就是低地"。
+ *   4. **已塑形**：按 `alt × lift + add` 落到 7 个色档，档与档之间描一道深边
+ *      （等于把等高线画出来），再按"北邻比自己高还是低"提亮/压暗一刀 ——
+ *      两档量化的明暗就是卡通光照，能读出山脉的坡向，又不会糊成照片。
  *
- * `lift = 0` 时若直接按高程 0 上色，会得到一大片和沿海平原同色的浅绿，
- * 学生分不清"这块我还没放"和"这块本来就是低地"。所以未塑形统一用米灰色，
- * 塑形后才切到分层设色 —— 拖动之后同时拿到**高度**和**颜色**两重反馈。
+ * ## 为什么先算两块中间数组
  *
- * ## 为什么要有裙边
+ * 上色要读邻居（判档界、判明暗）。若每个像素都现场再算一遍邻居的高程，
+ * 常数直接变三倍。先把 `hAll`（高程）与 `bandAll`（色档）各扫一遍，
+ * 上色就退化成查表 —— 两次线性扫描远比一次三倍常数的小循环便宜。
  *
- * 只渲染地表会得到一块悬空的纸片，一转到侧视角就露馅。这里沿陆地边界
- * 往下拉一圈侧壁，整块变成地质标本那样的"托盘"，同时裙边也跟着地形高度走，
- * 隆起之后不会在边缘露出空隙。
+ * ## 动画期间降采样
+ *
+ * `refresh(..., animating=true)` 时按 2 格 1 像素出图（4.3 万格），
+ * 动画停止后补一次全分辨率。与 v0.0.1 在动画期间跳过法线是同一个取舍。
  */
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import {
-  ALT_TO_WORLD,
-  CHINA_DEM,
   GRID_H,
   GRID_W,
   SPAN_X,
@@ -43,37 +48,59 @@ import {
   zToLat
 } from "./geo";
 
-/** 未塑形地面的基准厚度（世界单位），让它略高于海面 */
-const BASE_LIFT = 0.005;
-/** 裙边往下伸多少（世界单位） */
-const SKIRT_DEPTH = 0.10;
-const SEA_COLOR = 0x9dc0da;
-const UNSHAPED = new THREE.Color(0xded7c9);
-const SKIRT_COLOR = new THREE.Color(0xbdb2a0);
+const N = GRID_W * GRID_H;
 
-/** 分层设色：低地绿 → 丘陵黄 → 高原褐 → 雪山白 */
-const HYPSO: Array<[number, number]> = [
-  [0, 0x7bab7f], [150, 0x93b87a], [500, 0xc6c078], [1200, 0xd0b473],
-  [2200, 0xc09869], [3200, 0xb4835e], [4200, 0xa67d6d], [5200, 0xc2b3a9],
-  [6000, 0xeae6e1], [7600, 0xffffff]
+/* ------------------------------ 调色 ------------------------------ */
+
+type RGB = readonly [number, number, number];
+
+/** 深海 / 近岸浅滩 / 陆地投影 / 海岸线 */
+const SEA_DEEP: RGB = [143, 192, 224];
+const SEA_SHALLOW: RGB = [186, 222, 241];
+const SEA_SHADOW: RGB = [109, 157, 196];
+const COAST: RGB = [74, 109, 138];
+
+/** 未塑形：米灰两色交替成斜纹 */
+const UNSHAPED: RGB = [222, 215, 201];
+const UNSHAPED_ALT: RGB = [211, 203, 187];
+
+/**
+ * 分层设色，7 档离散（卡通风的关键是**减少色阶**，连续插值会糊成照片）。
+ * 阈值取 200 / 500 / 1000 / 2000 / 3500 / 5000 m，与地理教材的分层设色一致。
+ */
+const BAND_MAX = [200, 500, 1000, 2000, 3500, 5000];
+const BAND_RGB: RGB[] = [
+  [127, 176, 105], // ≤200   低地绿
+  [168, 192, 106], // ≤500   黄绿
+  [207, 195, 107], // ≤1000  土黄
+  [209, 163, 95], // ≤2000  橙褐
+  [184, 122, 77], // ≤3500  褐
+  [156, 132, 120], // ≤5000  灰褐
+  [233, 228, 221] // >5000  雪白
 ];
 
-export function hypsoColor(alt: number, out = new THREE.Color()): THREE.Color {
-  if (alt <= HYPSO[0][0]) {
-    return out.setHex(HYPSO[0][1]);
-  }
-  for (let k = 0; k < HYPSO.length - 1; k++) {
-    const [a, ca] = HYPSO[k];
-    const [b, cb] = HYPSO[k + 1];
-    if (alt <= b) {
-      const t = (alt - a) / (b - a);
-      out.setHex(ca);
-      out.lerp(new THREE.Color(cb), t);
-      return out;
+/** 色档下标（0 = 未塑形，1..7 = BAND_RGB 的下标 +1） */
+function bandIndexOf(h: number): number {
+  for (let b = 0; b < BAND_MAX.length; b++) {
+    if (h <= BAND_MAX[b]) {
+      return b + 1;
     }
   }
-  return out.setHex(HYPSO[HYPSO.length - 1][1]);
+  return BAND_RGB.length;
 }
+
+const clamp255 = (v: number): number => (v < 0 ? 0 : v > 255 ? 255 : v | 0);
+
+/** 陆地投影往东南偏几格 */
+const SHADOW_STEP = 2;
+/** 明暗分档的坡度阈值（米/格） */
+const SHADE_DEG = 60;
+const SHADE_UP = 1.14;
+const SHADE_DOWN = 0.86;
+/** 档界描边的压暗系数 */
+const EDGE_DARK = 0.66;
+
+/* ------------------------------ 接口 ------------------------------ */
 
 export interface PickResult {
   lon: number;
@@ -82,293 +109,268 @@ export interface PickResult {
 
 export interface TerrainView {
   /**
-   * 重新计算顶点位置与颜色。
-   * `animating=true` 时跳算法线（34 万个三角形要 20~50 ms，逐帧算会卡），
-   * 动画收尾时传 false 补算一次。
+   * 重新出图。
+   * `animating=true` 时按 2 格 1 像素降采样（动画期间够用），
+   * 动画收尾传 false 补一次全分辨率。
    */
   refresh(alt: Float32Array, lift: Float32Array, add: Float32Array, animating: boolean): void;
   pick(clientX: number, clientY: number): PickResult | null;
   /** 经纬度 → 画布内的像素坐标，用于给提示气泡定位 */
-  project(lon: number, lat: number, heightM: number): { x: number; y: number } | null;
-  resetCamera(): void;
+  project(lon: number, lat: number): { x: number; y: number } | null;
   dispose(): void;
 }
 
 export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): TerrainView {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1b3550);
-  scene.fog = new THREE.Fog(0x1b3550, 110, 260);
-
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 500);
-  const controls = new OrbitControls(camera, canvas);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-  controls.minPolarAngle = 0.12;
-  controls.maxPolarAngle = 1.32;
-  controls.minDistance = 20;
-  controls.maxDistance = 150;
-  controls.screenSpacePanning = false;
-  controls.enablePan = true;
-
-  scene.add(new THREE.AmbientLight(0xffffff, 1.1));
-  const sun = new THREE.DirectionalLight(0xfff2dc, 2.1);
-  sun.position.set(-45, 80, 45);
-  scene.add(sun);
-  const fill = new THREE.DirectionalLight(0xc2d4ea, 0.55);
-  fill.position.set(55, 35, -45);
-  scene.add(fill);
-
-  // ---------------- 海面 ----------------
-  const sea = new THREE.Mesh(
-    new THREE.PlaneGeometry(SPAN_X * 3, SPAN_Z * 3),
-    new THREE.MeshBasicMaterial({ color: SEA_COLOR })
-  );
-  sea.rotation.x = -Math.PI / 2;
-  sea.position.y = 0;
-  scene.add(sea);
-
-  // ---------------- 地形网面 ----------------
-  const dx = SPAN_X / (GRID_W - 1);
-  const dz = SPAN_Z / (GRID_H - 1);
-  const x0 = -SPAN_X / 2;
-  const z0 = -SPAN_Z / 2;
-
-  const geo = new THREE.PlaneGeometry(SPAN_X, SPAN_Z, GRID_W - 1, GRID_H - 1);
-  geo.rotateX(-Math.PI / 2);
-  const pos = geo.attributes.position as THREE.BufferAttribute;
-  pos.setUsage(THREE.DynamicDrawUsage);
-  const colorAttr = new THREE.BufferAttribute(new Float32Array(GRID_W * GRID_H * 3), 3);
-  colorAttr.setUsage(THREE.DynamicDrawUsage);
-  geo.setAttribute("color", colorAttr);
-
-  // 剔除任何一个顶点落在境外的三角形 —— 否则中国轮廓外会出现一整圈斜坡
-  const index: number[] = [];
-  for (let j = 0; j < GRID_H - 1; j++) {
-    for (let i = 0; i < GRID_W - 1; i++) {
-      const a = j * GRID_W + i;
-      const b = (j + 1) * GRID_W + i;
-      const c = (j + 1) * GRID_W + i + 1;
-      const d = j * GRID_W + i + 1;
-      if (land[a] && land[b] && land[d]) {
-        index.push(a, b, d);
-      }
-      if (land[b] && land[c] && land[d]) {
-        index.push(b, c, d);
-      }
-    }
+  // 声明成非空类型：TS 不会把 `if (!x) throw` 的窄化带进下面的嵌套函数里
+  const ctxMaybe = canvas.getContext("2d");
+  if (!ctxMaybe) {
+    throw new Error("这个浏览器没有 Canvas 2D 上下文");
   }
-  geo.setIndex(index);
-  geo.computeVertexNormals();
+  const ctx: CanvasRenderingContext2D = ctxMaybe;
 
-  const terrainMat = new THREE.MeshLambertMaterial({
-    vertexColors: true,
-    side: THREE.DoubleSide
-  });
-  const terrain = new THREE.Mesh(geo, terrainMat);
-  scene.add(terrain);
-
-  // ---------------- 裙边 ----------------
-  const skirtIdx: number[] = [];
-  const sPos: number[] = [];
-  const sNor: number[] = [];
-  const sCol: number[] = [];
-  const sTri: number[] = [];
-  let sBase = 0;
-
-  function pushEdge(iA: number, jA: number, iB: number, jB: number, nx: number, nz: number) {
-    const ax = x0 + iA * dx;
-    const az = z0 + jA * dz;
-    const bx = x0 + iB * dx;
-    const bz = z0 + jB * dz;
-    sPos.push(ax, 0, az, bx, 0, bz, ax, -SKIRT_DEPTH, az, bx, -SKIRT_DEPTH, bz);
-    for (let k = 0; k < 4; k++) {
-      sNor.push(nx, 0, nz);
-      sCol.push(SKIRT_COLOR.r, SKIRT_COLOR.g, SKIRT_COLOR.b);
-    }
-    const b = sBase;
-    if (nx + nz > 0) {
-      sTri.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
-    } else {
-      sTri.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
-    }
-    skirtIdx.push(jA * GRID_W + iA, jB * GRID_W + iB, jA * GRID_W + iA, jB * GRID_W + iB);
-    sBase += 4;
+  const off = document.createElement("canvas");
+  const offMaybe = off.getContext("2d");
+  if (!offMaybe) {
+    throw new Error("离屏 Canvas 2D 上下文创建失败");
   }
+  const offCtx: CanvasRenderingContext2D = offMaybe;
 
+  /* -------------------- 近岸浅滩（只算一次） -------------------- */
+  const nearShore = new Uint8Array(N);
   for (let j = 0; j < GRID_H; j++) {
     for (let i = 0; i < GRID_W; i++) {
       const k = j * GRID_W + i;
-      if (!land[k]) {
+      if (land[k]) {
         continue;
       }
-      if (i === 0 || !land[k - 1]) {
-        pushEdge(i, j, i, j + 1, -1, 0);
+      let touch = false;
+      for (let dj = -1; dj <= 1 && !touch; dj++) {
+        const jj = j + dj;
+        if (jj < 0 || jj >= GRID_H) {
+          continue;
+        }
+        for (let di = -1; di <= 1; di++) {
+          const ii = i + di;
+          if (ii < 0 || ii >= GRID_W) {
+            continue;
+          }
+          if (land[jj * GRID_W + ii]) {
+            touch = true;
+            break;
+          }
+        }
       }
-      if (i === GRID_W - 1 || !land[k + 1]) {
-        pushEdge(i + 1, j, i + 1, j + 1, 1, 0);
-      }
-      if (j === 0 || !land[k - GRID_W]) {
-        pushEdge(i, j, i + 1, j, 0, -1);
-      }
-      if (j === GRID_H - 1 || !land[k + GRID_W]) {
-        pushEdge(i, j + 1, i + 1, j + 1, 0, 1);
-      }
+      nearShore[k] = touch ? 1 : 0;
     }
   }
 
-  const skirtGeo = new THREE.BufferGeometry();
-  skirtGeo.setAttribute("position", new THREE.Float32BufferAttribute(sPos, 3));
-  skirtGeo.setAttribute("normal", new THREE.Float32BufferAttribute(sNor, 3));
-  skirtGeo.setAttribute("color", new THREE.Float32BufferAttribute(sCol, 3));
-  skirtGeo.setIndex(sTri);
-  const skirtPosition = skirtGeo.attributes.position as THREE.BufferAttribute;
-  skirtPosition.setUsage(THREE.DynamicDrawUsage);
-  const skirt = new THREE.Mesh(skirtGeo, terrainMat);
-  scene.add(skirt);
+  /* ---------------------- 中间数组（复用） ---------------------- */
+  /** 高程（米）；未塑形为 -1，作为"没有地形"的哨兵 */
+  const hAll = new Float32Array(N);
+  /** 色档；0 = 未塑形 */
+  const bandAll = new Uint8Array(N);
 
-  // ---------------- 相机 ----------------
-  function resetCamera() {
-    camera.position.set(0, SPAN_Z * 0.80, SPAN_Z * 1.02);
-    controls.target.set(0, 0.1, SPAN_Z * 0.02);
-    controls.update();
-  }
+  /* ---------------------------- 布局 ---------------------------- */
+  let mapX = 0;
+  let mapY = 0;
+  let mapScale = 1;
 
-  // ---------------- 渲染循环 ----------------
-  let needsRender = true;
-  function loop() {
-    requestAnimationFrame(loop);
-    if (controls.update() || needsRender) {
-      renderer.render(scene, camera);
-      needsRender = false;
-    }
-  }
-
-  function resize() {
+  function layout(): { w: number; h: number } {
     const w = canvas.clientWidth || 800;
     const h = canvas.clientHeight || 600;
-    if (canvas.width !== w || canvas.height !== h) {
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      needsRender = true;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const pw = Math.max(1, Math.round(w * dpr));
+    const ph = Math.max(1, Math.round(h * dpr));
+    if (canvas.width !== pw || canvas.height !== ph) {
+      canvas.width = pw;
+      canvas.height = ph;
     }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // 整张中国地图等比铺满舞台，留 2% 呼吸位
+    mapScale = Math.min(w / SPAN_X, h / SPAN_Z) * 0.96;
+    mapX = (w - SPAN_X * mapScale) / 2;
+    mapY = (h - SPAN_Z * mapScale) / 2;
+    return { w, h };
   }
 
-  // ---------------- 更新 ----------------
-  const tmpColor = new THREE.Color();
-  let curAlt: Float32Array | null = null;
-  let curLift: Float32Array | null = null;
-  let curAdd: Float32Array | null = null;
+  /* --------------------------- 状态缓存 --------------------------- */
+  let lastAlt: Float32Array | null = null;
+  let lastLift: Float32Array | null = null;
+  let lastAdd: Float32Array | null = null;
 
-  function heightWorldAt(lon: number, lat: number): number {
-    if (!curAlt || !curLift || !curAdd) {
-      return BASE_LIFT;
+  /* ---------------------------- 出图 ---------------------------- */
+  let img: ImageData | null = null;
+  let imgW = 0;
+  let imgH = 0;
+
+  function render(step: number) {
+    const { w, h } = layout();
+
+    const da = lastAlt;
+    const dl = lastLift;
+    const dAdd = lastAdd;
+    if (!da || !dl || !dAdd) {
+      return;
     }
-    const i = Math.min(GRID_W - 1, Math.max(0, Math.round(
-      ((lon - CHINA_DEM.lon0) / (CHINA_DEM.lon1 - CHINA_DEM.lon0)) * (GRID_W - 1))));
-    const j = Math.min(GRID_H - 1, Math.max(0, Math.round(
-      ((CHINA_DEM.lat1 - lat) / (CHINA_DEM.lat1 - CHINA_DEM.lat0)) * (GRID_H - 1))));
-    const k = j * GRID_W + i;
-    return BASE_LIFT + (curAlt[k] * curLift[k] + curAdd[k]) * ALT_TO_WORLD;
-  }
 
-  function refresh(alt: Float32Array, lift: Float32Array, add: Float32Array, animating: boolean) {
-    curAlt = alt;
-    curLift = lift;
-    curAdd = add;
-    resize();
-    const arr = pos.array as Float32Array;
-    const col = colorAttr.array as Float32Array;
-    const n = GRID_W * GRID_H;
-    for (let k = 0; k < n; k++) {
-      const hM = alt[k] * lift[k] + add[k];
-      arr[k * 3 + 1] = BASE_LIFT + hM * ALT_TO_WORLD;
-      if (lift[k] > 0.02 || add[k] > 1) {
-        hypsoColor(hM, tmpColor);
-      } else {
-        tmpColor.copy(UNSHAPED);
+    // ---- 第 1 遍：高程（全分辨率，邻居查询要用精确值） ----
+    for (let k = 0; k < N; k++) {
+      const l = dl[k];
+      const a = dAdd[k];
+      hAll[k] = l > 0.02 || a > 1 ? da[k] * l + a : -1;
+    }
+    // ---- 第 2 遍：色档 ----
+    for (let k = 0; k < N; k++) {
+      const hv = hAll[k];
+      bandAll[k] = hv < 0 ? 0 : bandIndexOf(hv);
+    }
+
+    // ---- 第 3 遍：上色 ----
+    const W = Math.ceil(GRID_W / step);
+    const H = Math.ceil(GRID_H / step);
+    /*
+     * ⚠️ 离屏 canvas 的尺寸**必须**跟着 buffer 一起设。
+     *
+     * 踩过：只建了 `createImageData(480, 358)` 就直接 `putImageData`，
+     * 而离屏 canvas 还是默认的 300×150 —— `putImageData` 超出画布的部分会被
+     * **静默裁掉**，于是 480×358 的地图只有左上角 300×150 被写上，
+     * 其余在 `drawImage` 时按透明处理，露出舞台背景色（正好也是海蓝）。
+     *
+     * 症状极具欺骗性：页面看上去"有海有陆地、轮廓也有"，只是陆地面积只有
+     * 应有的五分之一、中国只剩了个西北角。肉眼扫一眼截图很难说清哪里不对 ——
+     * 是"陆地像素总数 vs 掩膜期望值"那条断言把它钉出来的（实测 71,566 px vs 期望 380,323 px）。
+     */
+    if (!img || imgW !== W || imgH !== H || off.width !== W || off.height !== H) {
+      off.width = W;
+      off.height = H;
+      img = offCtx.createImageData(W, H);
+      imgW = W;
+      imgH = H;
+    }
+    const px = img.data;
+
+    let o = 0;
+    for (let jj = 0; jj < H; jj++) {
+      const j = Math.min(GRID_H - 1, jj * step);
+      const rowBase = j * GRID_W;
+      for (let ii = 0; ii < W; ii++, o += 4) {
+        const i = Math.min(GRID_W - 1, ii * step);
+        const k = rowBase + i;
+        let r: number;
+        let g: number;
+        let b: number;
+
+        if (!land[k]) {
+          /* -------- 海洋 -------- */
+          if (j >= SHADOW_STEP && i >= SHADOW_STEP && land[k - SHADOW_STEP * GRID_W - SHADOW_STEP]) {
+            r = SEA_SHADOW[0];
+            g = SEA_SHADOW[1];
+            b = SEA_SHADOW[2];
+          } else if (nearShore[k]) {
+            r = SEA_SHALLOW[0];
+            g = SEA_SHALLOW[1];
+            b = SEA_SHALLOW[2];
+          } else {
+            r = SEA_DEEP[0];
+            g = SEA_DEEP[1];
+            b = SEA_DEEP[2];
+          }
+        } else if (i === 0 || i === GRID_W - 1 || j === 0 || j === GRID_H - 1 ||
+          !land[k - 1] || !land[k + 1] || !land[k - GRID_W] || !land[k + GRID_W]) {
+          /* -------- 海岸线 -------- */
+          r = COAST[0];
+          g = COAST[1];
+          b = COAST[2];
+        } else {
+          const hv = hAll[k];
+          if (hv < 0) {
+            /* -------- 未塑形：米灰斜纹 -------- */
+            const c = ((i >> 2) + (j >> 2)) & 1 ? UNSHAPED_ALT : UNSHAPED;
+            r = c[0];
+            g = c[1];
+            b = c[2];
+          } else {
+            /* -------- 已塑形：色档 + 档界 + 明暗 -------- */
+            const bd = bandAll[k];
+            const c = BAND_RGB[bd - 1];
+            const northH = hAll[k - GRID_W];
+            let mul = 1;
+            if (northH >= 0) {
+              if (hv > northH + SHADE_DEG) {
+                mul = SHADE_UP;
+              } else if (hv < northH - SHADE_DEG) {
+                mul = SHADE_DOWN;
+              }
+            }
+            const rightB = i < GRID_W - 1 ? bandAll[k + 1] : bd;
+            const downB = j < GRID_H - 1 ? bandAll[k + GRID_W] : bd;
+            if ((rightB !== 0 && rightB !== bd) || (downB !== 0 && downB !== bd)) {
+              mul *= EDGE_DARK;
+            }
+            r = clamp255(c[0] * mul);
+            g = clamp255(c[1] * mul);
+            b = clamp255(c[2] * mul);
+          }
+        }
+
+        px[o] = r;
+        px[o + 1] = g;
+        px[o + 2] = b;
+        px[o + 3] = 255;
       }
-      col[k * 3] = tmpColor.r;
-      col[k * 3 + 1] = tmpColor.g;
-      col[k * 3 + 2] = tmpColor.b;
     }
-    pos.needsUpdate = true;
-    colorAttr.needsUpdate = true;
 
-    const sp = skirtPosition.array as Float32Array;
-    for (let q = 0, m = skirtIdx.length; q < m; q += 4) {
-      const kA = skirtIdx[q];
-      const kB = skirtIdx[q + 1];
-      const hA = BASE_LIFT + (alt[kA] * lift[kA] + add[kA]) * ALT_TO_WORLD;
-      const hB = BASE_LIFT + (alt[kB] * lift[kB] + add[kB]) * ALT_TO_WORLD;
-      const base = q * 3;
-      sp[base + 1] = hA;
-      sp[base + 4] = hB;
-      sp[base + 7] = hA;
-      sp[base + 10] = hB;
-    }
-    skirtPosition.needsUpdate = true;
-
-    if (!animating) {
-      geo.computeVertexNormals();
-      geo.attributes.normal.needsUpdate = true;
-    }
-    needsRender = true;
+    offCtx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(off, 0, 0, W, H, mapX, mapY, SPAN_X * mapScale, SPAN_Z * mapScale);
   }
 
-  // ---------------- 拾取 ----------------
-  const raycaster = new THREE.Raycaster();
-  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  const hit = new THREE.Vector3();
-  const ndc = new THREE.Vector2();
+  /* --------------------------- 对外接口 --------------------------- */
+  function refresh(alt: Float32Array, lift: Float32Array, add: Float32Array, animating: boolean) {
+    lastAlt = alt;
+    lastLift = lift;
+    lastAdd = add;
+    render(animating ? 2 : 1);
+  }
 
+  /* ---------------------------- 拾取 ---------------------------- */
   function pick(clientX: number, clientY: number): PickResult | null {
     const rect = canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) {
       return null;
     }
-    ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(ndc, camera);
-    plane.constant = 0;
-    if (!raycaster.ray.intersectPlane(plane, hit)) {
+    const wx = (clientX - rect.left - mapX) / mapScale - SPAN_X / 2;
+    const wz = (clientY - rect.top - mapY) / mapScale - SPAN_Z / 2;
+    if (wx < -SPAN_X / 2 || wx > SPAN_X / 2 || wz < -SPAN_Z / 2 || wz > SPAN_Z / 2) {
       return null;
     }
-    // 地形是立体的：直接打 y=0 平面在高处会明显偏，用当前高度迭代收敛
-    for (let pass = 0; pass < 3; pass++) {
-      const h = heightWorldAt(xToLon(hit.x), zToLat(hit.z));
-      plane.constant = -h;
-      if (!raycaster.ray.intersectPlane(plane, hit)) {
-        return null;
-      }
-    }
-    return { lon: xToLon(hit.x), lat: zToLat(hit.z) };
+    return { lon: xToLon(wx), lat: zToLat(wz) };
   }
 
-  function project(lon: number, lat: number, heightM: number) {
-    const v = new THREE.Vector3(lonToX(lon), BASE_LIFT + heightM * ALT_TO_WORLD + 0.03, latToZ(lat));
-    v.project(camera);
-    const rect = canvas.getBoundingClientRect();
-    if (v.z > 1) {
+  function project(lon: number, lat: number) {
+    if (!canvas.clientWidth) {
       return null;
     }
-    return { x: ((v.x + 1) / 2) * rect.width, y: ((1 - v.y) / 2) * rect.height };
+    return {
+      x: mapX + (lonToX(lon) + SPAN_X / 2) * mapScale,
+      y: mapY + (latToZ(lat) + SPAN_Z / 2) * mapScale
+    };
   }
+
+  /* ---------------------------- 尺寸联动 ---------------------------- */
+  // 静止时不会再调 refresh，所以窗口变化必须由观察者自己触发一次重绘
+  const ro = new ResizeObserver(() => {
+    if (lastAlt && lastLift && lastAdd) {
+      render(1);
+    }
+  });
+  ro.observe(canvas);
 
   function dispose() {
-    controls.dispose();
-    geo.dispose();
-    skirtGeo.dispose();
-    terrainMat.dispose();
-    renderer.dispose();
+    ro.disconnect();
+    img = null;
   }
 
-  resetCamera();
-  resize();
-  loop();
-
-  return { refresh, pick, project, resetCamera, dispose };
+  return { refresh, pick, project, dispose };
 }

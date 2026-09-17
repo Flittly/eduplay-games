@@ -50,19 +50,16 @@ button {
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
-  background: #1b3550;
+  /* 与 terrain.ts 的 SEA_DEEP 同色：画布之外的留白也是"海" */
+  background: #8fc0e0;
 }
 
 .cr-canvas {
   display: block;
   width: 100%;
   height: 100%;
-  cursor: grab;
+  cursor: default;
   touch-action: none;
-}
-
-.cr-canvas:active {
-  cursor: grabbing;
 }
 
 /* ------------------------------ 记分板 ------------------------------ */
@@ -111,20 +108,6 @@ button {
   font-weight: 700;
   color: var(--ink-faint);
   letter-spacing: 0.12em;
-}
-
-.cr-hud-btn {
-  padding: 0 14px;
-  border: 0;
-  background: var(--ink);
-  color: var(--paper);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.cr-hud-btn:hover {
-  background: var(--ochre);
 }
 
 /* ---------------------------- 拖动幽灵卡 ---------------------------- */
@@ -402,26 +385,43 @@ button {
   color: var(--ink-faint);
 }
 
-/* ----------------------------- 信息面板 ----------------------------- */
+/* ---------------------- 介绍卡（居中弹出） ---------------------- */
 
+/* 遮罩把整张舞台盖住，但侧边栏留在外面 —— 学生关掉卡片就能接着拖下一张 */
 .cr-sheet {
   position: absolute;
-  top: 0;
-  right: 336px;
-  bottom: 0;
-  width: 388px;
+  inset: 0;
   display: flex;
-  flex-direction: column;
-  background: var(--paper-2);
-  border-left: 3px solid var(--ink);
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.28);
-  z-index: 30;
-  animation: cr-slide 0.18s ease-out;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(24, 20, 14, 0.55);
+  /* 高于结算页（60）：最后一块归位时两张一起出现，先看完讲解再关掉看结算 */
+  z-index: 70;
+  animation: cr-fade 0.16s ease-out;
 }
 
-@keyframes cr-slide {
+@keyframes cr-fade {
   from {
-    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+.cr-sheet-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  max-height: 100%;
+  background: var(--paper-2);
+  border: 4px solid var(--ink);
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.38);
+  animation: cr-pop 0.18s ease-out;
+}
+
+@keyframes cr-pop {
+  from {
+    transform: translateY(14px) scale(0.97);
     opacity: 0;
   }
 }
@@ -449,8 +449,9 @@ button {
 
 .cr-sheet-photo {
   position: relative;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   aspect-ratio: 16 / 10;
+  max-height: 38vh;
   background: #e4dccb;
   border-bottom: 3px solid var(--ink);
   overflow: hidden;
@@ -495,6 +496,8 @@ button {
 
 .cr-sheet-body {
   flex: 1 1 auto;
+  /* min-height:0 是必需的：否则 flex 子项不肯收缩，长讲解会把卡片顶出屏幕、body 却不滚动 */
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 18px 22px;
 }
@@ -544,6 +547,19 @@ button {
   margin-top: 14px !important;
   color: var(--jade) !important;
   font-weight: 800;
+}
+
+.cr-sheet-foot {
+  flex: 0 0 auto;
+  padding: 12px 18px 14px;
+  border-top: 2px solid var(--line);
+  background: var(--paper);
+  text-align: right;
+}
+
+.cr-sheet-foot .cr-primary {
+  padding: 10px 28px;
+  font-size: 15px;
 }
 
 /* ------------------------------- 结算 ------------------------------- */
@@ -703,9 +719,5 @@ button {
   .cr-side {
     flex-basis: 286px;
     width: 286px;
-  }
-  .cr-sheet {
-    right: 286px;
-    width: 330px;
   }
 }

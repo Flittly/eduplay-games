@@ -6,7 +6,7 @@ import type { PlayerInfo } from "./App";
 import "./styles.css";
 
 const gameCode = "china_relief";
-const version = "0.0.1";
+const version = "1.0.0";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {
