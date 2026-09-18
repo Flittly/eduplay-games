@@ -121,7 +121,7 @@ function gradeOf(state, total) {
 //#endregion
 //#region src/session.ts
 /**
-* 多人接力会话（v1.1.0 新增，v1.2.0 加上"本局计划"）。
+* 多人接力会话（v1.1.0 新增，v1.2.0 加上"本局计划"，v1.3.0 加上图鉴）。
 *
 * ## 一张地图，轮流答题
 *
@@ -154,6 +154,12 @@ function gradeOf(state, total) {
 * 这批地形与"学生塑出来的"是两件事，所以是两个集合：
 * 只有 `placed` 进成绩，`preset` 只影响"图上有没有"。
 * 判断"这块地完成了没有"一律走 `isSettled()`，别用 `isPlaced()`。
+*
+* ## v1.3.0：图鉴（`createAtlasSession`）
+*
+* 三种玩法里只有图鉴**不是**答题 —— 它是"整幅地形都在图上、慢慢看"。
+* 实现上就是把上面的机制推到极端（全预置 / 零待塑 / 无人），
+* 详见 `createAtlasSession` 上方的注释。
 */
 const EMPTY_PLAN = {
 	required: [],
@@ -182,6 +188,37 @@ function createSession(players, mode, plan = EMPTY_PLAN) {
 		turns: [],
 		seconds
 	};
+}
+/**
+* 图鉴会话（v1.3.0）：整幅地形都在图上，**没有人在答题**。
+*
+* ## 为什么图鉴也走 `Session`
+*
+* 用户要的是"不需要答题的图鉴版本"。图鉴要回答的问题与答题模式是同一个：
+* 图上有什么、这块地归谁。另造一套"图鉴状态"等于把"这块地在图上了没有"
+* 回答两遍，两条代码路径迟早给出不同答案。
+*
+* 所以图鉴是一份**退化到极点的会话**，三个参数各封死一个方向：
+*
+* - `preset` = 全部条目 ⇒ 每条都 `isSettled()` 为真。界面里那条既有规则
+*   （已在图上的一律不给拖、但点得开，见 `App.tsx` 的 `onCardPointerDown`）
+*   随之生效 —— 图鉴**不必为卡片另写一套交互**，"点开看讲解"就是它要的行为；
+* - `required` = 空 ⇒ `requiredCount()` 为 0。结算判定是
+*   `total > 0 && placed.length === total`，这一步直接不成立：
+*   **图鉴在结构上不可能被判定为"做完了"**，因此绝不会触发上报。
+*   （真触发的话，平台会收到一批 0 分空成绩，把学生的积分记录弄脏。）
+* - `order` = 空 ⇒ `currentId()` 返回 `NO_CURRENT`，所有提交函数的
+*   第一道闸门 `studentId < 0` 全部挡住 ⇒ **不可能加分、不可能扣分、
+*   不可能换人**。不是"界面上没显示分数"，是分数根本不会产生。
+*
+* 这三个"封死"是可独立验证的：把任意一条改成非空/非全，图鉴立刻退化回
+* 答题模式 —— `scripts/game.test.cjs` 第 10 节对每一条都有断言守着。
+*/
+function createAtlasSession(allIds) {
+	return createSession([], "pick", {
+		required: [],
+		preset: allIds.slice()
+	});
 }
 /**
 * 「当前没有答题人」的哨兵值（名单为空时）。
@@ -391,6 +428,7 @@ exports.classGrade = classGrade;
 exports.commitCorrect = commitCorrect;
 exports.commitHint = commitHint;
 exports.commitWrong = commitWrong;
+exports.createAtlasSession = createAtlasSession;
 exports.createSession = createSession;
 exports.currentId = currentId;
 exports.currentName = currentName;

@@ -1,7 +1,7 @@
 {
   "gameCode": "province_quiz",
   "name": "省级行政区识别",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
@@ -9,5 +9,6 @@
   "entry": "web/index.html",
   "cover": "web/cover.svg",
   "backendPlugin": null,
-  "description": "根据省级行政区轮廓与提示选择名称，适合初中地理复习。"
+  "requiresRoster": true,
+  "description": "根据省级行政区轮廓与提示选择名称，适合初中地理复习。香港、澳门的轮廓采用细粒度行政区边界，海岸线与离岛可辨认。"
 }

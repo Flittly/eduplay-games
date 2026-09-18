@@ -9,7 +9,7 @@ import type {
 import "./styles.css";
 
 const gameCode = "geo_gomoku";
-const version = "1.1.0";
+const version = "1.2.0";
 
 /**
  * 平台没下发名单时的本地试玩学生。

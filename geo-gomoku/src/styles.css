@@ -418,16 +418,23 @@ input:focus {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
 }
 
+/*
+ * v1.2.0 起把间距从 12px 加到 34px。
+ *
+ * 原因不是"感觉挤"：棋盘右边有一条 7px 的硬阴影（box-shadow: 7px 7px 0），
+ * 它把 12px 的间距吃掉了大半，实际只剩 5px —— 输入栏看起来就贴在棋盘上。
+ * 34px 减掉阴影还剩 27px，两块才算真正分开。
+ */
 .match-area {
   width: 100%;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 12px;
-  max-width: 1080px;
+  gap: 34px;
+  max-width: 1120px;
 }
 
 .coordinate-panel {
@@ -437,6 +444,8 @@ input:focus {
   overflow-y: auto;
   padding: 14px;
   border: 4px solid var(--ink);
+  /* 左侧加一道更粗的红"书脊"：间距负责拉开距离，书脊负责一眼看出这是另一块 */
+  border-left: 9px solid var(--red);
   background: var(--paper);
   box-shadow: 6px 6px 0 var(--ink);
 }
@@ -621,29 +630,101 @@ input:focus {
   color: var(--paper);
 }
 
-.board-svg {
-  display: block;
+/*
+ * 棋盘是两层叠出来的：下面 canvas 铺皮肤贴图、上面 SVG 画格线与棋子。
+ * 外层负责"框"（边框、底色、硬阴影）并锁成正方形；两层各自铺满，坐标系才对得上。
+ * 早先 max-height 直接写在 svg 上，短屏幕时 svg 会被压扁成非正方形，
+ * 于是 viewBox 在元素里被letterbox —— 贴图层没法跟着对，只能把框提到外面来。
+ */
+.board-stage {
+  position: relative;
   width: 100%;
-  height: auto;
-  max-height: calc(100vh - 170px);
+  max-width: min(100%, calc(100vh - 180px));
+  aspect-ratio: 1 / 1;
   border: 4px solid var(--ink);
   background: var(--paper);
   box-shadow: 7px 7px 0 var(--ink);
+}
+
+.board-stage > * {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.board-svg {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   cursor: default;
 }
 
+.skin-canvas {
+  /* canvas 属性里的 940 是绘制分辨率，显示尺寸交给 CSS 拉伸 */
+  image-rendering: auto;
+}
+
 .board-bg {
   fill: var(--paper);
 }
 
-.grid-lines line {
+.grid-lines line,
+.grid-lines path {
+  fill: none;
   stroke: var(--ink);
   stroke-width: 1.5;
 }
 
+/*
+ * 窗口之外、延伸到圆盘边界的同一条格线。画得很淡：
+ * 有它，圆盘才读得出"一个地球仪"；没它，四角会空出四个月牙、像画错了。
+ * 但它不是棋盘的一部分，所以只做背景。
+ */
+.ghost-lines path {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+  opacity: 0.13;
+}
+
+/* 能下棋的范围那条边界。圆形下它是"哪些交点可落"的唯一提示，所以用虚线画出来 */
+.window-outline {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.2;
+  stroke-dasharray: 12 8;
+  opacity: 0.7;
+}
+
+/* 圆盘的外圈。纸纹皮肤下棋盘底色和背景同色，没有这一圈就看不出"这是个地球仪" */
+.disc-outline {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+}
+
+/*
+ * v1.2.0：设置页新增的说明行（例如"圆形棋盘用不了大棋盘"）。
+ * 用金色左脊而不是红色 —— 红色在这个界面里是"红方/当前玩家"，不能抢那个含义。
+ */
+.setup-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 5px solid var(--gold);
+  background: var(--paper-dim);
+  color: var(--brown);
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+/*
+ * v1.2.0：加一层纸色描边（halo）。
+ * 方形棋盘上标签在棋盘外面、底下就是纸色，描边看不出来（行为与 v1.0.0 一致）；
+ * 圆形棋盘上标签落在圆盘内部、正压在格线与贴图上，没有这层底就读不动。
+ */
 .axis-labels text,
 .axis-heading {
   fill: var(--brown);
@@ -651,6 +732,10 @@ input:focus {
   font-weight: 900;
   text-anchor: end;
   dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: var(--paper);
+  stroke-width: 4;
+  stroke-linejoin: round;
 }
 
 .axis-labels text.lon-label {
@@ -1030,15 +1115,24 @@ input:focus {
   color: var(--paper);
 }
 
+/*
+ * v1.2.0：圆形棋盘下"大"这一档画不出来，于是置灰。
+ * 置灰而不是隐藏 —— 位置不变、学生看得见有这一档，也看得见它点不动（理由写在旁边的说明行）。
+ */
+.hide-mode-options button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
 /* 赤道 / 本初子午线：画成醒目的金线，是隐藏标签时学生唯一能依赖的锚点 */
-.grid-lines line.is-zero-line {
+.grid-lines .is-zero-line {
   stroke: var(--gold);
   stroke-width: 3;
 }
 
 .axis-labels text.is-zero-label {
   fill: var(--red);
-  font-size: 19px;
 }
 
 /* 直接挂在 svg 上（不在 .axis-labels 里），所以不存在被覆盖的问题 */

@@ -5,7 +5,7 @@ import type { PlayerInfo, RoundRecord, RoundResult } from "./ShanheMatch3";
 import "./styles.css";
 
 const gameCode = "shanhe_match3";
-const version = "1.0.1";
+const version = "1.1.0";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {

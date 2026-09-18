@@ -81,10 +81,25 @@ button {
   touch-action: none;
 }
 
+/*
+ * 指到"能点开的要素"上时给个手型（v1.5.3）。
+ *
+ * 地图点击是个**既不会报错、也没有别处反馈**的交互：点在米灰处什么都没发生，
+ * 与"点在要素上但没点准"在画面上长得一模一样，老师很容易以为功能没生效。
+ * 这个类由 App.tsx 的 `pickable` 状态切，而那个状态用的是**与点击同一个**
+ * 命中函数 —— 所以不会出现"光标是手型却点不开"或者反过来。
+ */
+.cr-canvas.is-pickable {
+  cursor: pointer;
+}
+
 /* 画布之上的一切都要显式抬到 z-index ≥ 2：
-   `.cr-canvas` 是一个 z-index:1 的定位元素，而默认的 z-index:auto 会排在它下面 */
+   `.cr-canvas` 是一个 z-index:1 的定位元素，而默认的 z-index:auto 会排在它下面。
+
+   v1.5.1：这里收的是**定位元素**。那三条浮层（底图 / 轮廓 / 名称）现在挂在
+   `.cr-corner` 底下当 flex 子项，抬层级的责任归容器，所以它们自己不写 z-index。 */
 .cr-hud,
-.cr-basemap,
+.cr-corner,
 .cr-turn,
 .cr-progress,
 .cr-credit,
@@ -806,12 +821,75 @@ button {
   transition: width 0.32s ease-out;
 }
 
-/* --------------------------- 底图切换（舞台上） --------------------------- */
+/* ------------------ 舞台上的三条常驻浮层：底图 / 轮廓 / 名称 ------------------ */
 
-.cr-basemap {
+/*
+ * v1.5.1：三条浮层的位置从「每条各自写死 `top`」改成「容器统一摆位」。
+ *
+ * 起因是用户一句话：「地图选择的按钮栏可以放到左下角，左下角的空地比较多。」
+ * 原来三条钉在右上角（`top: 14 / 64 / 108`，`right: 14`），而那个 `top` 是按
+ * 44px 行高**估**出来的。实测（真机取帧 1164×1000）三条的高度是
+ * **48 / 35 / 35** —— 只有「底图」那条多一行「需密钥」，另外两条是单行。
+ * 于是实际行距是 **2px 与 9px**（`64-(14+48)`、`108-(64+35)`），一紧一松，
+ * 看截图能看出来但没人会去量。换成 flex 列 + `gap` 之后行距才真的均匀。
+ *
+ * ⚠ 这两个数是**受控 A/B**量出来的，不是拍的：同一份构建产物、同一局状态，
+ *   只往页面里注入一段把 `.cr-corner` 打回旧摆位的样式（`top: 14/64/108`），
+ *   两帧相减。脚手架 `ab.js` 可复跑，原始数字在 `ab-report.json`。
+ *   （更早凭注释记的 3px / 10px 是错的 —— 那个数要有 47/34/34 的高度才成立。）
+ *
+ * 位置写在容器上还有第二个好处：秘钥配好之后「遥感影像」那条少一行、矮 13px，
+ * 各自写死 `top` 的话上面那条一变矮，下面两条就都悬空了。
+ */
+.cr-corner {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  /*
+   * 两种模式都贴左下角（那一块是海，取景里没有陆地 —— 正是用户说的"空地"）。
+   * v1.5.1 只搬了答题模式，图鉴里因为知识卡占着左下角而留在右上；
+   * v1.5.2 起图鉴里也搬过来，改成**卡片往上让**（见 `.cr-sheet.is-atlas`
+   * 的 `--cr-corner-reserve`，那个数就是照着这里的高度算的）。
+   *
+   * `bottom` 取 38 而不是 14，是给底下那行「影像来源」小字让位：
+   * 它是 `bottom: 10px` + 10px 字号，真机实测占 y 968~989、**高 22px**，
+   * 顶到距底 32px；留 6px 气口就是 38。
+   * ⚠ 这条数只在"小字永远一行"时成立 —— 所以 `.cr-credit` 上那句
+   * `white-space: nowrap` 是这条 38 的前提，别顺手删掉。
+   */
+  left: 14px;
+  bottom: 38px;
+  display: flex;
+  flex-direction: column;
+  /* 三条宽度不同（底图条 352px，两条开关一样宽）。左对齐，别拉成等宽 */
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/*
+ * 图鉴模式：**还是同一个左下角**，只把左边距对齐到知识卡（v1.5.2）。
+ *
+ * 上一版（v1.5.1）这里是"整个容器挪回右上角"的例外，理由是图鉴左下角归知识卡
+ * （`.cr-sheet.is-atlas` 贴左下，卡片底部那行「上一条 / 下一条 / 关闭」正好压在
+ * 按钮条会占的位置上）。v1.5.2 用户的意见是"图鉴里也搬" —— 那就不是让按钮条
+ * 继续躲，而是**卡片往上让**，让法见下面 `.cr-sheet.is-atlas` 的 `--cr-corner-reserve`。
+ *
+ * 所以两处左下角现在共用同一条 `left / bottom`，这里只多 4px：卡片是
+ * `margin-left: 18px`（4px 墨框 + 14px 视觉留白），按钮条跟着挪到 18，
+ * 图鉴里上下两块左边就对齐了。答题模式不受影响（那儿没有卡片，14 就是最靠边）。
+ *
+ * 回归里三条断言盯着这里：① 图鉴模式下 `.cr-corner` 仍贴左下角；
+ * ② `.cr-corner` 与 `.cr-sheet-card` 的矩形**不相交**；③ `.cr-corner` 与卡片
+ * 底部那行按钮（`.cr-sheet-foot`）的矩形**也不相交** —— 真正"不能被压住"的是它。
+ */
+.cr-stage.is-atlas .cr-corner {
+  left: 18px;
+}
+
+/*
+ * 三条浮层的**外观**（同一家族：纸底 + 3px 墨框 + 硬阴影）。
+ * 定位一律归上面的 `.cr-corner`，所以这里不再出现 `position` / `top` / `right`
+ * —— 也正因为如此，`.cr-basemap` 不再需要出现在 z-index 那一组里（见文件开头）。
+ */
+.cr-basemap {
   display: flex;
   align-items: center;
   gap: 0;
@@ -937,11 +1015,22 @@ button {
 
 /* ------------------------------ 影像来源 ------------------------------ */
 
+/*
+ * 影像来源（天地图）那行小字，只在遥感影像底图下出现。
+ *
+ * `white-space: nowrap` 与写死的 `line-height` 是给 `.cr-corner` 的 `bottom: 38px`
+ * 兜底的 —— 那 38px 里含一个前提：「这行小字只占一行、高 22px（真机实测
+ * y 968~989）」。真让它换行的话，底图条就会压到小字上。
+ * 这个耦合不好，但比让三条浮层跟着一行小字的高度上下跳要好；
+ * 回归里量的是**真实矩形的相交关系**，不靠这条注释。
+ */
 .cr-credit {
   position: absolute;
   left: 14px;
   bottom: 10px;
   padding: 3px 8px;
+  white-space: nowrap;
+  line-height: 14px;
   background: rgba(255, 251, 243, 0.82);
   border: 1px solid var(--line);
   color: var(--ink-soft);
@@ -1017,6 +1106,16 @@ button {
   font-size: 15px;
   font-weight: 900;
   letter-spacing: 0.06em;
+}
+
+/*
+ * box 里的第二个小标题（v1.4.0：「底图」并进「起始地图」那个 box 之后）。
+ * 用一条横线把同一张卡片里的两组设置分开，不然两块内容会糊成一片。
+ */
+.cr-lobby-box h2.cr-lobby-sub {
+  margin-top: 16px;
+  padding-top: 13px;
+  border-top: 2px solid var(--line);
 }
 
 .cr-lobby-roster {
@@ -1229,10 +1328,18 @@ button {
 
 /* ===================== v1.2.0：轮廓开关 / 预置卡 / 范围与起始地图 ===================== */
 
-/* 轮廓开关放在底图切换正下方，与它同一套外观（同一个"舞台上的视图选项"家族） */
-.cr-viewopts {
-  top: 64px;
-}
+/*
+ * 轮廓开关 / 名称开关 —— 位置由 `.cr-corner` 统一给（v1.5.1 起），
+ * 所以这两个类**不再有任何样式规则**，但类名必须留着：
+ *   ① 回归探针按 `.cr-viewopts button` / `.cr-labelopts button` 分别数这两组开关；
+ *   ② 它们负责把两组开关与底图条区分开 —— 早先三条共用 `.cr-basemap` 一个类，
+ *      `document.querySelectorAll(".cr-basemap button")` 一次读出 5 个按钮，
+ *      "底图有几个选项"就再也量不准了。
+ *
+ * 两者曾经因为各自写死 `top` 而落在同一坐标上重叠、轮廓开关点不动
+ * （来龙去脉见 App.tsx 里 `.cr-labelopts` 那段注释）。改成 flex 列之后
+ * 结构上不可能再重叠，但上面那两条断言仍按这两个类名查，所以**不要合并**。
+ */
 
 /* -------- 卡片：本局开局就在图上的（预置） -------- */
 
@@ -1298,7 +1405,13 @@ button {
   line-height: 1.5;
 }
 
-.cr-lobby-outline {
+/*
+ * 大厅里的两个开关行（地形轮廓 / 地形名称）。
+ * 类名必须**不同**：探针 `lobby.outline` 查的是 `.cr-lobby-outline .cr-seg button`，
+ * 两行共用就会被一次数成 4 个按钮（真实踩过）。外观完全一致，所以共用同一条规则。
+ */
+.cr-lobby-outline,
+.cr-lobby-names {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -1358,4 +1471,170 @@ button {
 /* 操作栏里不需要那段上边距 —— 间距由 .cr-lobby-foot 的 padding 给 */
 .cr-lobby-foot .cr-start {
   margin-top: 0;
+}
+
+/* ============================== 图鉴（v1.3.0） ============================== */
+
+/* ------------------------- 大厅：图鉴对哪几项不生效 ------------------------- */
+
+/*
+ * 选了图鉴时，「练习范围」「起始地图」整组失效。
+ * 不把它们藏起来（藏了会让人以为"这个选项没了"），而是压下去并说明为什么 ——
+ * 否则老师先选「只练山脉」再进图鉴，进去看到 38 条全在图上，
+ * 第一反应是"我选的没生效"，而真正的原因（图鉴本来就是整幅的）无从得知。
+ */
+.cr-lobby-box.is-muted > h2 {
+  color: var(--ink-faint);
+}
+
+.cr-modes.is-muted {
+  opacity: 0.4;
+  filter: grayscale(0.65);
+  pointer-events: none;
+}
+
+/* ------------------------------ 图鉴顶栏 ------------------------------ */
+
+/* 答题模式那条是四格记分板；图鉴只有两格，且第二格是一句话 */
+.cr-hud.is-atlas {
+  align-items: center;
+  max-width: min(600px, calc(100% - 28px));
+}
+
+.cr-hud.is-atlas .cr-hud-item:last-child {
+  border-right: 0;
+}
+
+.cr-hud-item.is-hint {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  text-align: left;
+}
+
+.cr-hud-atlas-hint {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* ------------------------------ 图鉴目录 ------------------------------ */
+
+/* 图鉴里每张卡都"已在图上"，按既有规则点得开、拖不动 —— 光标要说实话 */
+.cr-card.is-atlas {
+  cursor: pointer;
+}
+
+.cr-card.is-atlas .cr-card-tag {
+  color: var(--ink-faint);
+}
+
+/* 正在看的那一条：与地图上那圈朱红描边呼应，两边一眼对得上 */
+.cr-card.is-atlas.is-current {
+  background: #fdf0ec;
+  border-color: #d63024;
+  box-shadow: 4px 4px 0 rgba(214, 48, 36, 0.26);
+}
+
+.cr-card.is-atlas.is-current .cr-card-tag {
+  color: #d63024;
+  opacity: 1;
+}
+
+.cr-atlas-go {
+  padding: 8px 18px;
+  font-size: 14px;
+}
+
+/* --------------------- 知识卡（图鉴：浮在地图左下角） --------------------- */
+
+/*
+ * 与答题模式那张居中模态共用卡片内部版式，只改摆放方式：无遮罩、贴左下角。
+ * 图鉴的重点恰恰是"一边对着地图看它在哪、一边读它是什么"，
+ * 居中模态会把刚聚焦出来的那一块正好压住（地图铺满舞台，居中卡片盖的是中原一带）。
+ *
+ * `pointer-events: none` 是关键：`.cr-sheet` 是 `inset: 0` 的全屏层
+ * （相对 `.cr-root`，连右边的目录栏也一起盖住）。不放开指针事件的话，
+ * 卡片一出现，侧栏里的"下一条"就点不动了 —— 而"逐条点过去"正是图鉴的主用法。
+ * 代价是点空白处不再能关卡片，但图鉴有关闭按钮、也接 ESC，不缺这一条。
+ */
+.cr-sheet.is-atlas {
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0;
+  background: transparent;
+  pointer-events: none;
+  /*
+   * v1.5.2：图鉴里三条浮层也占左下角，所以卡片得**往上让**出这一段。
+   *
+   * 176 = 浮层的 `bottom: 38`（给「影像来源」小字让的，见 `.cr-corner` 那段注释）
+   *       + 三条浮层最高形态的总高 130（真机实测 48 / 35 / 35，加 2 个 6px 间隙）
+   *       + 8px 气口
+   *
+   * 这是按**最坏情况**算的：密钥没配时「底图」条多一行「需密钥」才有 48px，
+   * 配好之后整叠矮 13px，实际间隙只会更大，不会反过来压住卡片。
+   * 反过来说 —— 谁要往 `.cr-corner` 里加第四条，必须回来重算这个数；
+   * `geom.js` 能把 `.cr-corner` 的真实高度量出来，用不着猜。
+   *
+   * ⚠ 这个数只在"按钮条与卡片同底"时成立。实测 `.cr-stage`、`.cr-root`、
+   *   `.cr-sheet` 三者的底边都是 1000（差 0），所以一个常量就够；哪天
+   *   `.cr-root` 加了 padding、或浮层改成挂在别处，得重算。
+   */
+  --cr-corner-reserve: 176px;
+  /* 上让的终点：图鉴顶栏底边（实测 y=72）+ 8px 气口 —— 别钻进顶栏底下 */
+  --cr-card-top-gap: 80px;
+}
+
+.cr-sheet.is-atlas .cr-sheet-card {
+  pointer-events: auto;
+  width: min(392px, 100%);
+  /*
+   * 上让：底边从"离底 18px"抬到"离底 176px"，正好落在三条浮层顶边之上。
+   *
+   * `max-height` 必须跟着一起减 —— 卡片是**贴底生长**的（`align-items: flex-end`），
+   * 底边钉死之后高度就是唯一的位移方向；只改 margin 不改 max-height 的话，
+   * 讲解文本一长，卡片会顶着底边往上顶穿顶栏、长到屏幕外去。
+   * （照片那头是 `max-height: 22vh` 定死的，所以卡片高度实际由讲解文本长度决定。）
+   */
+  max-height: calc(100% - var(--cr-corner-reserve) - var(--cr-card-top-gap));
+  margin: 0 0 var(--cr-corner-reserve) 18px;
+}
+
+.cr-sheet.is-atlas .cr-sheet-photo {
+  aspect-ratio: 16 / 9;
+  max-height: 22vh;
+}
+
+.cr-sheet.is-atlas .cr-sheet-body {
+  padding: 14px 16px 16px;
+}
+
+.cr-sheet.is-atlas .cr-sheet-body h2 {
+  font-size: 19px;
+}
+
+/* 序号推到标题行右端，与目录里的 #n 一一对应 */
+.cr-sheet-seq {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.cr-sheet.is-atlas .cr-sheet-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.cr-sheet.is-atlas .cr-sheet-foot .cr-ghost-btn {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.cr-sheet.is-atlas .cr-sheet-foot .cr-primary {
+  margin-left: auto;
+  padding: 8px 18px;
+  font-size: 14px;
 }

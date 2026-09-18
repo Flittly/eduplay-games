@@ -40,6 +40,34 @@ export function pickByAbbrs(abbrs: string[]): string[] {
   return PROVINCES.filter((p) => wanted.has(p.abbr)).map((p) => p.id);
 }
 
+/**
+ * 一个要素在牌面上"有多大"—— 用 bbox 的长边当尺子。
+ *
+ * 为什么需要它：牌面 svg 是拿**该要素自己的 bbox** 当 viewBox 单独缩放显示的
+ * （`preserveAspectRatio="xMidYMid meet"`），所以 `stroke-width` 这个 **viewBox 单位**
+ * 换算到屏幕上要乘缩放倍数，**要素越小描边越粗**。v1.1.0 的实测账：
+ *
+ *   澳门 bbox 1.59×2.41 ⇒ 牌面缩放 27.8 px/单位 ⇒ 旧描边 2 单位 = 55.6 屏幕像素，
+ *        而形状本身只有 44 px 宽 —— **描边比形状还宽**，整块糊成实心红块；
+ *   香港 bbox 12.19×10.02 ⇒ 缩放 5.58 ⇒ 描边 11.2 px（形状 56 px，占 20%）；
+ *   上海 8.7% · 北京 5.9% · 浙江 2.2%。
+ *
+ * 所以小于 `TINY_BBOX` 的要素改用**不随缩放走**的细描边（见 styles.css 的 `.is-tiny`）。
+ */
+export function bboxSize(province: ProvinceInfo): number {
+  return Math.max(province.bbox[2], province.bbox[3]);
+}
+
+/**
+ * 「小要素」门槛，单位是**地图坐标**，不是像素。
+ *
+ * 实测只有澳门(2.41)、香港(12.19) 在它以下，紧接着的上海是 27 —— 间隙很宽，
+ * 说明这条线不敏感；但**定阈值前仍然把所有 34 个对象排了一遍序**，
+ * 因为误伤是静默的（那个行政区的牌只是描边细了一点），不会有人报 bug。
+ * 排序脚本：`.workbuddy/tmp/smdata/tiny_budget.cjs`。
+ */
+export const TINY_BBOX = 22;
+
 export interface LevelDef {
   id: number;
   name: string;

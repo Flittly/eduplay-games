@@ -492,6 +492,30 @@ button:disabled {
   stroke-linejoin: miter;
 }
 
+/*
+ * 小要素（实测只有港澳）用**不随缩放走**的细描边。
+ *
+ * 上面的 `stroke-width: 2` 是 **viewBox 单位**：牌面 svg 是拿该要素自己的 bbox 当
+ * viewBox 单独缩放显示的，所以要素越小，这 2 个单位换算到屏幕上就越粗。实测
+ * （牌面 74×88、形状区约 68×67 px）：
+ *
+ *   澳门 1.59×2.41 ⇒ 缩放 27.8 px/单位 ⇒ 描边 55.6 px，而形状只有 44 px 宽
+ *        —— **描边比形状还宽**，整个澳门糊成一块实心红方块，图形一点都看不出来；
+ *   香港 12.19×10.02 ⇒ 缩放 5.58 ⇒ 描边 11.2 px（形状 56 px，占 20%）；
+ *   上海 8.7% · 北京 5.9% · 浙江 2.2%（正常量级）。
+ *
+ * 加上 `vector-effect: non-scaling-stroke` 之后 stroke-width 按**屏幕像素**解释，
+ * 港澳那 34 / 4 段细海岸线才真的能看见。
+ *
+ * 阈值见 gameData.ts 的 TINY_BBOX：只有澳门(2.41)、香港(12.19) 在它以下，
+ * 紧接着的上海是 27 —— 也就是说这条规则**实际上只作用于港澳**，改它们不会顺带
+ * 改到别的行政区。
+ */
+.tile-shape.is-tiny path {
+  stroke-width: 1.1;
+  vector-effect: non-scaling-stroke;
+}
+
 .tile-abbr-text {
   align-self: center;
   justify-self: center;

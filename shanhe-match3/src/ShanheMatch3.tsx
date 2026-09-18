@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  bboxSize,
   computeCovered,
   findHintInfo,
   generateLayout,
   getProvince,
   KIND_LABEL,
   LEVELS,
-  TILE_KINDS
+  TILE_KINDS,
+  TINY_BBOX
 } from "./gameData";
 import type { LevelDef, Tile, TileKind } from "./gameData";
 
@@ -116,12 +118,16 @@ function topWeak(studentId: number, limit: number): string[] {
 
 function TileFace({ tile }: { tile: Tile }) {
   const province = getProvince(tile.provinceId);
+  // 港澳的 bbox 只有 1.59 / 12.19 单位，而牌面 svg 是拿 bbox 当 viewBox 单独缩放显示的，
+  // 于是 stroke-width（viewBox 单位）换算到屏幕上会跟着放大 —— 澳门能放到 55.6 px，
+  // 比形状本身（44 px）还宽，整块糊成实心红块。小要素改用不随缩放走的细描边。
+  const tiny = bboxSize(province) < TINY_BBOX;
   return (
     <>
       <i className={`tile-tag tag-${tile.kind}`}>{KIND_LABEL[tile.kind]}</i>
       {tile.kind === "shape" ? (
         <svg
-          className="tile-shape"
+          className={tiny ? "tile-shape is-tiny" : "tile-shape"}
           viewBox={`${province.bbox[0]} ${province.bbox[1]} ${province.bbox[2]} ${province.bbox[3]}`}
           preserveAspectRatio="xMidYMid meet"
           aria-hidden="true"

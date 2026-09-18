@@ -20,6 +20,7 @@
 const geo = require("./_geo.cjs");
 const game = require("./_game.cjs");
 const regions = require("./_regions.cjs");
+const LB = require("./_labels.cjs");
 
 const checks = [];
 const check = (name, cond, extra) => {
@@ -236,9 +237,106 @@ for (const r of RANGES) {
 check("【关键】27 条山脉的锚点，拖上去都判定为「对」",
   badRanges.length === 0, badRanges.length ? badRanges.join(" | ") : "27/27 通过");
 
-check("锚点就压在各自的走带上（离折线 <0.02°）",
-  RANGES.every((r) => geo.distToPolyline(r.anchor[0], r.anchor[1], r.line) < 0.02),
-  RANGES.map((r) => geo.distToPolyline(r.anchor[0], r.anchor[1], r.line).toFixed(3)).join(","));
+// v1.4.0：横断山脉是一列平行山岭，它的锚点取的是**中间那条岭**的中点，
+// 所以这里必须按"到最近那一条岭的距离"算 —— 只量主脊（最西边那条高黎贡山）的话，
+// 它会显示成 0.702° 的"偏移"，看着像数据坏了，其实锚点好好地压在自己的岭上。
+// 这条断言本来想问的是"锚点不能飘到走带外面"，distToRange 才是那个问题。
+check("锚点就压在各自的走带上（到最近一条岭的距离 <0.02°）",
+  RANGES.every((r) => geo.distToRange(r.anchor[0], r.anchor[1], r) < 0.02),
+  RANGES.map((r) => geo.distToRange(r.anchor[0], r.anchor[1], r).toFixed(3)).join(","));
+
+/** ①-b 一列平行山岭（横断山脉）自己的三条：结构、判定、间距 */
+const hd = RANGES.find((r) => r.id === "hengduan");
+check("横断山脉在数据里是一列**平行山岭**（≥4 条），不是一条",
+  hd && hd.lines && hd.lines.length >= 4,
+  hd && hd.lines ? `${hd.lines.length} 条` : "没有 lines 字段");
+check("**每一条**平行岭上都判定为「对」—— 只认主脊的话，另外几条岭形同虚设",
+  hd && hd.lines && hd.lines.every((l) =>
+    l.every(([lon, lat]) => geo.judgeRangeDrop(lon, lat, "hengduan", RANGES, TOL).ok)),
+  hd && hd.lines
+    ? `${hd.lines.length} 条岭 × 各 ${hd.lines[0].length} 点，全部通过`
+    : "—");
+/*
+ * v1.4.0：把"学生能不能在投影上真的数出 5 条"变成**可复算**的断言。
+ *
+ * 这里原来只有一条"相邻岭间距 >0.2°"，那个门槛**不够**：间距 0.85° 配走廊 0.25°
+ * 时，缝隙只剩 0.19° ⇒ 屏幕上 2.7 px，投影上根本看不出是 5 条
+ *（"看着还是一条"的老问题原封不动地留着）。
+ *
+ * ⚠️ 算的时候有个容易漏的步骤：走廊在**经度方向**的宽度不是 `half + fade`，
+ *    而是 `(half + fade) / lonScale`。因为 `distToPolyline` 把经度差先乘了
+ *    `lonScale`（= cos 36° ≈ 0.809）再算距离，南北向的岭等距线是东西向的，
+ *    于是"经度方向"被放大了 1/0.809 ≈ 1.236 倍。
+ *    第一版就是按 `half + fade` 直接算的，于是"缝隙 5.8 px"只存在于纸面上，
+ *    真值只有 3.7 px —— 差点又交了个"看着分开了、其实糊着"的版本。
+ *
+ * 换算账（与 shot.js 里"画布 14.3 px/°"那条实测断言同源）：
+ *    地图区约 902 px 宽 / 取景 73~136°E ⇒ 14.3 px/°
+ */
+const PX_PER_DEG = 14.3;
+const LIFT_FADE_DEG = 0.08; // App.tsx 的 RIDGE_LIFT_FADE_DEG
+const LON_SCALE = 0.809; // geo.ts 的 CHINA_DEM.lonScale = cos(36°)
+/** 一条岭的塑形走廊在**经度方向**上单边覆盖多少度 */
+const edgeDeg = ((hd.lift_half_deg ?? 0.42) + LIFT_FADE_DEG) / LON_SCALE;
+
+/** 折线在给定纬度上的经度（按纬度线性插值）；该纬度不在折叠跨度的则返回 null */
+const lonAtLat = (line, lat) => {
+  for (let k = 0; k + 1 < line.length; k++) {
+    const la1 = line[k][1];
+    const la2 = line[k + 1][1];
+    if (la1 !== la2 && (lat - la1) * (lat - la2) <= 0) {
+      return line[k][0] + ((lat - la1) / (la2 - la1)) * (line[k + 1][0] - line[k][0]);
+    }
+  }
+  return null;
+};
+
+/** 5 条岭**都**覆盖到的纬度区间（各条跨度的交集）—— 只有在这段里才可能同时看到 5 条 */
+const spanLo = Math.max(...hd.lines.map((l) => l[0][1]));
+const spanHi = Math.min(...hd.lines.map((l) => l[l.length - 1][1]));
+
+/** 沿纬度扫一遍，找**最窄**的那道河谷缝隙（最坏情况才是"看不看得出"的判据） */
+const gapStats = (() => {
+  let worst = Infinity;
+  let at = spanLo;
+  for (let lat = spanLo; lat <= spanHi + 1e-9; lat += 0.05) {
+    const xs = hd.lines.map((l) => lonAtLat(l, lat));
+    if (xs.some((x) => x === null)) {
+      continue;
+    }
+    for (let i = 0; i + 1 < xs.length; i++) {
+      const gap = xs[i + 1] - xs[i] - 2 * edgeDeg;
+      if (gap < worst) {
+        worst = gap;
+        at = lat;
+      }
+    }
+  }
+  return { worst, at };
+})();
+
+check(
+  "一列平行岭之间**留得下看得见的缝隙**：最窄处 ≥0.35°（≈5 px @14.3 px/°）",
+  Number.isFinite(gapStats.worst) && gapStats.worst >= 0.35,
+  `最窄缝隙 ${gapStats.worst.toFixed(3)}° ≈ ${(gapStats.worst * PX_PER_DEG).toFixed(1)} px` +
+    `（在 ${gapStats.at.toFixed(2)}°N）；单边走廊 ${edgeDeg.toFixed(3)}° = (${(
+      hd.lift_half_deg ?? 0.42
+    )}+${LIFT_FADE_DEG})/${LON_SCALE}`
+);
+
+/*
+ * "5 条同现"的区间为什么只有 2.0° 而不是数据里写的 3.2°：
+ * 第 1 条（最西那条）的南段压在**中缅边界**上（98.4°E / 26.4~27.5°N 在缅甸境内），
+ * `clip_to_land` 把它裁到了 27.60°N 才开始。这是对的 —— 山岭不能画到国界外 ——
+ * 所以这里量的是裁后结果，不是原始数据。想把它拉长只能整体东移，
+ * 那会把第 5 条推进四川盆地，得不偿失。
+ */
+check(
+  "**5 条同时可见**的纬度区间够高（≥1.8°，≈26 px）—— 不然能「数出 5 条」的地方只有一条窄缝",
+  spanHi - spanLo >= 1.8,
+  `${spanLo.toFixed(2)}~${spanHi.toFixed(2)}°N，${(spanHi - spanLo).toFixed(2)}° ≈ ` +
+    `${((spanHi - spanLo) * PX_PER_DEG).toFixed(0)} px 高`
+);
 
 check("每条山脉至少 6 个折线点（太少的话脊会立不起来）",
   RANGES.every((r) => r.line.length >= 6),
@@ -676,11 +774,30 @@ check("classGrade：放错会拉低评级（不是只看总分）", (() => {
 
 const BM = require("./_basemap.cjs");
 
-check("底图三选一，且只有遥感影像依赖联网", (() => {
+// v1.4.0 加了第四种（当时叫「浅色地形」），v1.5.0 去掉那层白之后改名「原色地形」。
+// 种类和顺序都是产品对外的样子，所以这里写死 ——
+// 加一种就得来改这条，这是故意的（别改成 "length >= 3"，那样新底图漏配也没人发现）。
+check("底图四选一，且只有遥感影像依赖联网", (() => {
   const kinds = BM.BASEMAPS.map((b) => b.kind);
   const online = BM.BASEMAPS.filter((b) => b.online).map((b) => b.kind);
-  return kinds.join(",") === "relief,hillshade,satellite" && online.join(",") === "satellite";
+  return kinds.join(",") === "relief,soft,hillshade,satellite" && online.join(",") === "satellite";
 })(), BM.BASEMAPS.map((b) => `${b.kind}${b.online ? "(联网)" : ""}`).join(" "));
+
+/*
+ * 名字也写死。理由是 v1.5.0 真的踩过：底图从"淡彩"改成"原色"之后，
+ * `label` 和 `note` 会变成**假话**（按钮上写着「浅色地形」而图一点也不浅），
+ * 而这种错**截图和渲染都测不出来** —— 图上完全正常，只有读过字的人会困惑。
+ */
+check("底图标签：soft 已改名「原色地形」，note 不再承诺「由淡转浓」", (() => {
+  const label = BM.BASEMAPS.find((b) => b.kind === "soft").label;
+  const note = BM.BASEMAPS.find((b) => b.kind === "soft").note;
+  return label === "原色地形" && !/淡彩|由淡转浓|浅色/.test(note);
+})(), `soft → ${BM.BASEMAPS.find((b) => b.kind === "soft").label}｜${BM.BASEMAPS.find((b) => b.kind === "soft").note}`);
+
+check("四张底图标签两两不同，且都非空（避免改名时复制粘贴撞车）", (() => {
+  const ls = BM.BASEMAPS.map((b) => b.label);
+  return ls.every((s) => typeof s === "string" && s.length > 0) && new Set(ls).size === ls.length;
+})(), BM.BASEMAPS.map((b) => b.label).join(" / "));
 
 check("Mercator 纵向换算自洽：lat → y → lat 可逆", [0, 17, 25.3, 36, 45.8, 54, 70].every((lat) => {
   return Math.abs(BM.mercYToLat(BM.latToMercY(lat)) - lat) < 1e-9;
@@ -996,6 +1113,483 @@ check("全部待塑归位后 `allSettled` 为真（结算判定的依据，与�
   }
   return S.allSettled(s) === true && s.placed.length === 27;
 })(), "");
+
+/* ===================== 10) 图鉴会话：不需要答题的完整体（v1.3.0） ===================== */
+
+const ATLAS = S.createAtlasSession(ALL_IDS);
+
+check("图鉴：38 条地形**不重不漏**，整幅图都在图上（点了就有讲解可看）", (() => {
+  const set = new Set(ATLAS.preset);
+  return (
+    ATLAS.preset.length === ALL_IDS.length &&
+    set.size === ALL_IDS.length &&
+    ALL_IDS.every((id) => S.isSettled(ATLAS, id) === true)
+  );
+})(), `preset ${ATLAS.preset.length} 条`);
+
+check("图鉴：零待塑 ⇒ `requiredCount` 为 0，**判不出「做完了」**（不弹结算、不上报）", (() => {
+  /*
+   * App 里的结算条件是 `total > 0 && placed.length === total`。
+   * 图鉴的 total 恒为 0，所以这一条不是"界面上不显示结算面板"，
+   * 而是那个判定根本不会成立 —— 差别在于后者不依赖界面写对。
+   */
+  return S.requiredCount(ATLAS) === 0 && S.allSettled(ATLAS) === false;
+})(), "结算的第一道条件就挡死了");
+
+check("图鉴：无人 ⇒ 加分 / 扣分 / 提示 / 换人一律空转（分数在结构上根本不会产生）", (() => {
+  const c = S.commitCorrect(ATLAS, "taihang", "line");
+  return (
+    S.currentId(ATLAS) === S.NO_CURRENT &&
+    ATLAS.order.length === 0 &&
+    c.gained === 0 &&
+    c.session === ATLAS &&
+    ATLAS.placed.length === 0 &&
+    S.commitWrong(ATLAS) === ATLAS &&
+    S.commitHint(ATLAS, "taihang") === ATLAS &&
+    S.advance(ATLAS) === ATLAS
+  );
+})(), "哨兵 −1 挡住所有提交");
+
+check("图鉴：成绩单为空 ⇒ 平台上不会留下图鉴的任何记录", (() => {
+  return S.resultsOf(ATLAS, 0).length === 0 && Object.keys(ATLAS.owner).length === 0;
+})(), "");
+
+/* ===================== 地名标注候选表（v1.4.0） ===================== */
+
+console.log("\n===== 地名标注：谁该被标、什么顺序（pickLabels）=====");
+
+/*
+ * 这套规则从 App.tsx 的 useMemo 里搬出来，就是为了能这样测。
+ * 它们坏掉的样子截图看不出来：少一个名字、图鉴里一个名字都没有、
+ * 两个同名标签互相压 —— 画面上都"看着挺正常"。
+ */
+const SRC = [
+  { id: "a", name: "甲高原", anchor: [80, 30], scale: 1 },
+  { id: "b", name: "乙盆地", anchor: [100, 30], scale: 1 },
+  { id: "c", name: "丙山脉", anchor: [110, 40], scale: 0.86 },
+  { id: "d", name: "丁山脉", anchor: null, scale: 0.86 }
+];
+
+check(
+  "只标**已经在图上**的：没放上来的一个都不标，顺序 = 数据顺序（避让优先级要稳定）",
+  (() => {
+    const out = LB.pickLabels(SRC, (id) => id === "a" || id === "c", null);
+    return out.length === 2 && out.map((l) => l.text).join("/") === "甲高原/丙山脉";
+  })(),
+  LB.pickLabels(SRC, (id) => id === "a" || id === "c", null).map((l) => l.text).join("/")
+);
+
+check(
+  "刚放对 / 刚点开的那一条排在**第一位**（否则它的名字会被邻居的名字挤掉）",
+  (() => {
+    const out = LB.pickLabels(SRC, () => true, "c");
+    return out.length === 3 && out[0].text === "丙山脉";
+  })(),
+  LB.pickLabels(SRC, () => true, "c").map((l) => l.text).join("/")
+);
+
+check(
+  "优先级那一条**不在场上**时直接忽略（不能凭空冒出一个名字）",
+  (() => {
+    const out = LB.pickLabels(SRC, (id) => id !== "c", "c");
+    return !out.some((l) => l.text === "丙山脉") && out.length === 2;
+  })(),
+  LB.pickLabels(SRC, (id) => id !== "c", "c").map((l) => l.text).join("/")
+);
+
+check(
+  "优先级那一条**不会被画两遍**（两个同名标签会互相压，还会白占一次避让名额）",
+  (() => {
+    const out = LB.pickLabels(SRC, () => true, "b");
+    return out.length === 3 && out.filter((l) => l.text === "乙盆地").length === 1;
+  })(),
+  `共 ${LB.pickLabels(SRC, () => true, "b").length} 条`
+);
+
+check(
+  "没有锚点的条目跳过（画不出位置，不能让它占掉别人的避让名额）",
+  (() => {
+    const out = LB.pickLabels(SRC, () => true, null);
+    return out.length === 3 && !out.some((l) => l.text === "丁山脉");
+  })(),
+  LB.pickLabels(SRC, () => true, null).map((l) => l.text).join("/")
+);
+
+check(
+  "字号系数原样透传：山脉 0.86 / 地形区 1（细长的脉体不能被三个大字整个压住）",
+  (() => {
+    const out = LB.pickLabels(SRC, () => true, null);
+    return out.find((l) => l.text === "甲高原").scale === 1 &&
+      out.find((l) => l.text === "丙山脉").scale === 0.86;
+  })(),
+  LB.pickLabels(SRC, () => true, null).map((l) => `${l.text}:${l.scale}`).join(" ")
+);
+
+/*
+ * 图鉴场景。这是**判据必须用 isSettled 而不是 isPlaced** 的地方：
+ * 图鉴的 `required` 是空的，38 条全是预置的，按 isPlaced 过滤会一个名字都不剩 ——
+ * 而图鉴恰恰是最需要名字的地方。用真实数据跑，顺带抓"某条 anchor 是空的"。
+ */
+const ALL_SRC = [
+  ...regions.AREAS.map((a) => ({ id: a.id, name: a.name, anchor: a.anchor, scale: 1 })),
+  ...regions.RANGES.map((r) => ({ id: r.id, name: r.name, anchor: r.anchor, scale: 0.86 }))
+];
+check(
+  "图鉴场景：38 条全在图上 ⇒ **38 个名字一个不少**（真实数据，不是造的）",
+  (() => {
+    const out = LB.pickLabels(ALL_SRC, () => true, null);
+    return out.length === 38 && out.every((l) => l.text && Number.isFinite(l.lon) && Number.isFinite(l.lat));
+  })(),
+  `标出 ${LB.pickLabels(ALL_SRC, () => true, null).length} / 38 个`
+);
+
+/* ===================== 11) 地图点击的命中判定（v1.5.3） ===================== */
+
+const pick = require("./_pick.cjs");
+
+/*
+ * 目标形状与 `App.tsx` 的 `Item` 同构：`pickFeature` 只认"有没有 area / range"。
+ *
+ * ⚠️ "在锚点处点一下命中自己"**不能**当主要判据。锚点带那条规则（名字优先）让它
+ * 在数学上必然成立（自己到自己的距离是 0，必定是最近的那个锚点），是句同义反复。
+ * 真正要锁住的是"按形状走"的那两条路径对**每一条**要素都有覆盖，所以下面用
+ * **逐格采样**算覆盖率，不拿锚点说事。
+ */
+const TARGETS = [
+  ...AREAS.map((a) => ({ id: a.id, name: a.name, anchor: a.anchor, area: a })),
+  ...RANGES.map((r) => ({ id: r.id, name: r.name, anchor: r.anchor, range: r }))
+];
+const AREA_ONLY = TARGETS.filter((t) => t.area);
+const hitAt = (targets, lon, lat) => pick.pickFeature(lon, lat, targets, region);
+const r2 = (v, d = 2) => Number(v.toFixed(d));
+const lonAt = (i) => geo.CHINA_DEM.lon0 + (i / (W - 1)) * (geo.CHINA_DEM.lon1 - geo.CHINA_DEM.lon0);
+const latAt = (j) => geo.CHINA_DEM.lat1 - (j / (H - 1)) * (geo.CHINA_DEM.lat1 - geo.CHINA_DEM.lat0);
+
+/* ---- ① 覆盖：每条要素在图上有多少"按形状就能点中"的位置 ---- */
+
+const COVER = (() => {
+  const stat = new Map(TARGETS.map((t) => [t.id, { name: t.name, shape: 0, anchor: 0 }]));
+  let land = 0;
+  let none = 0;
+  for (let j = 0; j < H; j += 4) {
+    for (let i = 0; i < W; i += 4) {
+      if (!mask[j * W + i]) {
+        continue;
+      }
+      land++;
+      const h = hitAt(TARGETS, lonAt(i), latAt(j));
+      if (!h) {
+        none++;
+        continue;
+      }
+      const row = stat.get(h.item.id);
+      if (h.via === "anchor") {
+        row.anchor++;
+      } else {
+        row.shape++;
+      }
+    }
+  }
+  const rows = [...stat.values()].sort((a, b) => a.shape - b.shape);
+  return {
+    rows,
+    land,
+    hit: land - none,
+    thinnest: rows[0],
+    anchorHits: rows.reduce((s, r) => s + r.anchor, 0)
+  };
+})();
+
+check(
+  "【主判据】38 条**每一条**在图上都有一片「按形状就能点中」的地方（最瘦的一条也不少于 5 处采样点）",
+  COVER.thinnest.shape >= 5,
+  `最瘦的「${COVER.thinnest.name}」${COVER.thinnest.shape} 处（采样步长 4 格）`
+);
+
+check(
+  "锚点带只占命中里很小一部分 —— 名字优先是为救那一个冲突，不是主路径",
+  COVER.anchorHits / COVER.hit < 0.08,
+  `锚点带 ${COVER.anchorHits} / 命中 ${COVER.hit} = ${r2((COVER.anchorHits / COVER.hit) * 100, 1)}%`
+);
+
+note(
+  "可点面积最薄的 5 条（都是窄山脉，本来就细）",
+  COVER.rows
+    .slice(0, 5)
+    .map((r) => `${r.name} ${r.shape}`)
+    .join(" / ")
+);
+
+/* ---- ② 地块：与落点判定同源（查同一张区域位图） ---- */
+
+const GRID_SAMPLE = (() => {
+  const byGrid = new Map(AREAS.map((a) => [a.gridId, a]));
+  let sample = 0;
+  let bad = 0;
+  for (let j = 0; j < H; j += 3) {
+    for (let i = 0; i < W; i += 3) {
+      const gid = region[j * W + i];
+      if (!gid) {
+        continue;
+      }
+      sample++;
+      const h = hitAt(AREA_ONLY, lonAt(i), latAt(j));
+      if (!h || h.item.id !== byGrid.get(gid).id) {
+        bad++;
+      }
+    }
+  }
+  return { sample, bad };
+})();
+
+check(
+  "地形区按归属格命中：抽样每一格都命中**它自己**（与 `judgeAreaDrop` 查同一张位图）",
+  GRID_SAMPLE.sample > 3000 && GRID_SAMPLE.bad === 0,
+  `${GRID_SAMPLE.sample - GRID_SAMPLE.bad} / ${GRID_SAMPLE.sample}`
+);
+
+const CHAIDAMU = (() => {
+  const cd = AREAS.find((a) => a.name.includes("柴达木"));
+  const h = hitAt(TARGETS, cd.anchor[0], cd.anchor[1]);
+  return { cd, id: h.item.id, name: h.item.name, via: h.via };
+})();
+
+check(
+  "小面积优先：柴达木盆地的锚点命中柴达木盆地，而不是把它包在里面的青藏高原",
+  CHAIDAMU.id === CHAIDAMU.cd.id,
+  `命中「${CHAIDAMU.name}」via=${CHAIDAMU.via}`
+);
+
+/* ---- ③ 山带：容差是"画出来的那条带子"，**不是**落点容差 ---- */
+
+const TOL_WINDOW = (() => {
+  /*
+   * 这是本轮最容易写错的一处：落点容差 0.55° 比走带半宽（0.50°，横断 0.28°）宽，
+   * 是刻意留给学生的宽容度。拿它来做命中，山脉就会把手伸到自己带子外面，
+   * 把周围地形区整片吃掉 —— 而且只在边缘一带发生，最难归因。
+   *
+   * 所以逐条山脉从锚点朝 8 个方向往外走，找"在走带外、但还在落点容差内"的点，
+   * 要求这些点上**点不中**这条山脉。
+   */
+  const dirs = [
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+    [0.7, 0.7],
+    [-0.7, 0.7],
+    [0.7, -0.7],
+    [-0.7, -0.7]
+  ];
+  let found = 0;
+  const bad = [];
+  for (const r of RANGES) {
+    let p = null;
+    for (let step = 0.02; step <= TOL + 0.2 && !p; step += 0.02) {
+      for (const d of dirs) {
+        const lon = r.anchor[0] + d[0] * step;
+        const lat = r.anchor[1] + d[1] * step;
+        const dist = geo.distToRange(lon, lat, r);
+        if (dist > geo.corridorHalfDeg(r) + 0.01 && dist <= TOL) {
+          p = { lon, lat, dist };
+          break;
+        }
+      }
+    }
+    if (!p) {
+      continue;
+    }
+    found++;
+    const h = hitAt(TARGETS, p.lon, p.lat);
+    if (h && h.item.id === r.id) {
+      bad.push(`${r.name}→${h.via}`);
+    }
+  }
+  return { found, bad };
+})();
+
+check(
+  "【关键】山脉走带之外、落点容差之内**不命中**那条山脉（点击容差 ≠ 落点容差 0.55°）",
+  TOL_WINDOW.found === RANGES.length && TOL_WINDOW.bad.length === 0,
+  `${TOL_WINDOW.found} / ${RANGES.length} 条都找到了探针点，误命中 ${TOL_WINDOW.bad.length} 条` +
+    (TOL_WINDOW.bad.length ? "：" + TOL_WINDOW.bad.join(" ") : "")
+);
+
+/* ---- ④ 名字优先：那个实测出来的冲突 ---- */
+
+const NAME_WINS = (() => {
+  const plain = AREAS.find((a) => a.name.includes("长江中下游"));
+  const dabie = RANGES.find((r) => r.name === "大别山");
+  const d = geo.distToRange(plain.anchor[0], plain.anchor[1], dabie);
+  const band = geo.corridorHalfDeg(dabie);
+  const h = hitAt(TARGETS, plain.anchor[0], plain.anchor[1]);
+  const R = pick.ANCHOR_RADIUS_DEG;
+  // 全图最近的两个锚点（决定锚点带的**上界**：再大就会两个锚点互抢）
+  let minPair = Infinity;
+  for (let i = 0; i < TARGETS.length; i++) {
+    for (let j = i + 1; j < TARGETS.length; j++) {
+      const dd = geo.distToPoint(TARGETS[i].anchor[0], TARGETS[i].anchor[1], TARGETS[j].anchor);
+      if (dd < minPair) {
+        minPair = dd;
+      }
+    }
+  }
+  // 被"别人的走带"盖住的锚点里，离脊线**最远**的那一个（0.31°）—— 决定锚点带的**下界**
+  let deepestAnchor = 0;
+  let deepestWho = "";
+  for (const r of RANGES) {
+    for (const a of AREAS) {
+      const dd = geo.distToRange(a.anchor[0], a.anchor[1], r);
+      if (dd <= geo.corridorHalfDeg(r) && dd > deepestAnchor) {
+        deepestAnchor = dd;
+        deepestWho = `${a.name} 落在「${r.name}」走带里`;
+      }
+    }
+  }
+  return { plain, dabie, d, band, hit: h, R, minPair, deepestAnchor, deepestWho };
+})();
+
+check(
+  "【用户会先试这一下】点「长江中下游平原」那几个字，弹出的是长江中下游平原，不是大别山",
+  NAME_WINS.hit.item.id === NAME_WINS.plain.id && NAME_WINS.d <= NAME_WINS.band,
+  `锚点离大别山脊线 ${r2(NAME_WINS.d)}° ≤ 走带半宽 ${r2(NAME_WINS.band)}°（几何上确实被盖住）` +
+    ` ⇒ 命中「${NAME_WINS.hit.item.name}」via=${NAME_WINS.hit.via}`
+);
+
+check(
+  "锚点带半径卡在两个实测边界之间：救得回被盖住的锚点，又不让两个锚点互抢",
+  NAME_WINS.R > NAME_WINS.deepestAnchor && NAME_WINS.R < NAME_WINS.minPair / 2,
+  `半径 ${r2(NAME_WINS.R, 3)}°，下界 ${r2(NAME_WINS.deepestAnchor)}°（${NAME_WINS.deepestWho}）、` +
+    `上界 ${r2(NAME_WINS.minPair / 2)}°（最近的两个锚点相距 ${r2(NAME_WINS.minPair)}°）`
+);
+
+/* ---- ⑤ 答题场景的安全边界：只点得开"已经在图上的" ---- */
+
+const QUIZ = S.createSession(THREE, "relay", PLAN_RANGE); // 11 个地形区预置、27 条山脉待塑
+const quizCand = TARGETS.filter((t) => S.isSettled(QUIZ, t.id));
+
+check(
+  "答题模式的候选 = 本局预置 + 学生放对的（正是「已经填好、图上有对的要素和文字」那句）",
+  quizCand.length === 11 &&
+    quizCand.every((t) => t.area) &&
+    S.isSettled(QUIZ, "qingzang") &&
+    !S.isSettled(QUIZ, "taihang"),
+  `候选 ${quizCand.length} 条：${quizCand.map((t) => t.name).join(" / ")}`
+);
+
+const QUIZ_PENDING = (() => {
+  const bad = [];
+  for (const r of RANGES) {
+    const h = hitAt(quizCand, r.anchor[0], r.anchor[1]);
+    if (h && h.item.id === r.id) {
+      bad.push(r.name);
+    }
+  }
+  const tai = RANGES.find((x) => x.name === "太行山脉");
+  const probe = hitAt(quizCand, tai.anchor[0], tai.anchor[1]);
+  return { bad, tai, probe };
+})();
+
+check(
+  "【用户要的那条】答题时点**还没塑**的山脉，命中不到它（那一片归它脚下的地形区，或干脆没有）",
+  QUIZ_PENDING.bad.length === 0,
+  `27 条待塑山脉里，${
+    QUIZ_PENDING.probe ? `例：太行山脉 ⇒ 命中「${QUIZ_PENDING.probe.item.name}」` : "点下去什么都没弹"
+  }`
+);
+
+const QUIZ_SETTLED = (() => {
+  const qz = AREAS.find((a) => a.name.includes("青藏高原"));
+  for (let j = 40; j < H; j += 7) {
+    for (let i = 60; i < W; i += 7) {
+      if (region[j * W + i] !== qz.gridId) {
+        continue;
+      }
+      const lon = lonAt(i);
+      const lat = latAt(j);
+      if (RANGES.some((r) => geo.distToRange(lon, lat, r) <= geo.corridorHalfDeg(r) + 0.1)) {
+        continue;
+      }
+      const h = hitAt(quizCand, lon, lat);
+      if (h && h.item.id === qz.id && h.via === "grid") {
+        return { ok: true, lon, lat };
+      }
+    }
+  }
+  return { ok: false };
+})();
+
+check(
+  "答题时点**已经在图上**的地形区 ⇒ 命中它自己（能点开看，不用回卡片栏翻）",
+  QUIZ_SETTLED.ok,
+  "取的是「离所有名字和走带都远」的一块，走的是地块那条路径"
+);
+
+check(
+  "图鉴模式：38 条**全部**可点（`createAtlasSession` 把 38 条全设成预置 ⇒ `isSettled` 全真）",
+  TARGETS.filter((t) => S.isSettled(ATLAS, t.id)).length === 38,
+  "同一句 `isSettled` 同时满足图鉴与答题两条需求"
+);
+
+/* ---- ⑥ 空白处：不能凭空弹一条出来 ---- */
+
+const BLANK = (() => {
+  const sea = hitAt(TARGETS, 150, 30);
+  for (let j = 0; j < H; j += 2) {
+    for (let i = 0; i < W; i += 2) {
+      if (!mask[j * W + i] || region[j * W + i]) {
+        continue;
+      }
+      const lon = lonAt(i);
+      const lat = latAt(j);
+      if (RANGES.some((r) => geo.distToRange(lon, lat, r) <= geo.corridorHalfDeg(r) + 0.05)) {
+        continue;
+      }
+      return { sea: sea === null, land: hitAt(TARGETS, lon, lat) === null, lon, lat };
+    }
+  }
+  return { sea: sea === null, land: false };
+})();
+
+check(
+  "海上、以及不属于任何地形区又离山很远的陆地：点下去什么都没有",
+  BLANK.sea && BLANK.land,
+  BLANK.lat ? `例：${r2(BLANK.lon, 3)}E ${r2(BLANK.lat, 3)}N ⇒ null（太平洋 150E 30N 也是 null）` : "找不到空白陆地点"
+);
+
+/* ---- ⑦ 守门：走带宽度 ---- */
+
+const CORRIDOR_BITE = (() => {
+  const tot = new Map();
+  const cut = new Map();
+  for (let j = 0; j < H; j += 2) {
+    for (let i = 0; i < W; i += 2) {
+      const gid = region[j * W + i];
+      if (!gid) {
+        continue;
+      }
+      tot.set(gid, (tot.get(gid) || 0) + 1);
+      const lon = lonAt(i);
+      const lat = latAt(j);
+      for (const r of RANGES) {
+        if (geo.distToRange(lon, lat, r) <= geo.corridorHalfDeg(r)) {
+          cut.set(gid, (cut.get(gid) || 0) + 1);
+          break;
+        }
+      }
+    }
+  }
+  return AREAS.map((a) => ({
+    name: a.name,
+    pct: ((cut.get(a.gridId) || 0) / (tot.get(a.gridId) || 1)) * 100
+  })).reduce((a, b) => (b.pct > a.pct ? b : a));
+})();
+
+check(
+  "山脉走带盖住一个地形区的比例不超过 35%（再宽就会让「点这块地」变得别扭）",
+  CORRIDOR_BITE.pct < 35,
+  `最多的是「${CORRIDOR_BITE.name}」${r2(CORRIDOR_BITE.pct, 1)}% —— 那些格画的就是山带，点它们讲山脉是对的`
+);
 
 /* ===================== 汇总 ===================== */
 

@@ -419,6 +419,30 @@ input:focus {
   stroke-linejoin: miter;
 }
 
+/* PK 模式的轮廓配色不同（原始 `strokeWidth={3}` 内联属性搬到 CSS，
+   统一由 `.silhouette-path` 这一族规则决定描边粗细）。 */
+.pk-map .silhouette-path {
+  stroke-width: 3;
+}
+
+/* 极小的省级行政区（实测只命中香港、澳门）：
+   `stroke-width` 是 viewBox 单位、而取景框是按要素自身 bbox 单独缩放的，
+   于是要素越小、屏幕上的描边越粗 —— 澳门旧版是「描边 22.4 px / 形状短边 17.8 px = 125.8%」，
+   即整个轮廓被描边糊成一块实心色块。实测数据（取景框 512×300、描边 2/3 单位）：
+     澳门 形状 17.8×27.0 px  描边 22.4 px = 125.8%
+     香港 形状 101.7×83.6 px 描边 16.7 px =  20.0%
+     上海 形状 124.7×146.4 px 描边 10.8 px =  8.7%（偏粗但认得出，不动）
+   `non-scaling-stroke` 让 stroke-width 改按**屏幕像素**解释，于是这条线在任何缩放下都是 1.5 px。
+
+   ⚠ 两个渲染点都必须覆盖（单人 .silhouette-wrap / 双人 .pk-map），
+   且选择器权重 (0,3,0) 要高于上面那条 `.pk-map .silhouette-path`，
+   否则 PK 模式下小要素仍是 3 单位的粗边 —— 漏掉一处不会有任何报错。 */
+.silhouette-wrap .silhouette-path.is-tiny,
+.pk-map .silhouette-path.is-tiny {
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
 .hint-area {
   min-height: 40px;
   display: flex;

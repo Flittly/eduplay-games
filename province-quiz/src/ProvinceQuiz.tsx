@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import provinceData from "./data/provinces.json";
 import { PROVINCE_HINTS } from "./hints";
+import { silhouettePathClass, silhouetteViewBox } from "./silhouette";
 
 export interface PlayerInfo {
   studentId: number;
@@ -104,12 +105,6 @@ function formatTime(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function silhouetteViewBox(feature: Feature): string {
-  const [minX, minY, maxX, maxY] = feature.bbox;
-  const pad = Math.max(maxX - minX, maxY - minY) * 0.08 + 12;
-  return `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`;
 }
 
 export default function ProvinceQuiz({
@@ -503,7 +498,7 @@ export default function ProvinceQuiz({
                   <path
                     d={currentQuestion.d}
                     fillRule="evenodd"
-                    className="silhouette-path"
+                    className={silhouettePathClass(currentQuestion)}
                   />
                 </svg>
               </div>

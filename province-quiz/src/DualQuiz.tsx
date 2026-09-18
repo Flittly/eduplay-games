@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import provinceData from "./data/provinces.json";
 import { PROVINCE_HINTS } from "./hints";
+import { silhouettePathClass, silhouetteViewBox } from "./silhouette";
 import type { PlayerInfo } from "./ProvinceQuiz";
 
 interface Feature {
@@ -41,12 +42,6 @@ function shuffle<T>(items: T[]): T[] {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
-}
-
-function silhouetteViewBox(feature: Feature): string {
-  const [minX, minY, maxX, maxY] = feature.bbox;
-  const pad = Math.max(maxX - minX, maxY - minY) * 0.08 + 12;
-  return `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`;
 }
 
 const TOTAL_QUESTIONS = 10;
@@ -508,7 +503,12 @@ export default function DualQuiz({ roster, onBack }: DualQuizProps) {
             role="img"
             aria-label={`请识别 ${target.name}`}
           >
-            <path d={target.d} fill="#d4a843" stroke="#1a1a1a" strokeWidth={3} />
+            <path
+              d={target.d}
+              fill="#d4a843"
+              stroke="#1a1a1a"
+              className={silhouettePathClass(target)}
+            />
           </svg>
           <p>这是哪个省级行政区？</p>
           {hints.slice(0, 1).map((hint) => (

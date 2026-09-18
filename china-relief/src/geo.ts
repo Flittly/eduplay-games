@@ -187,6 +187,77 @@ export function distToPolyline(
   return best;
 }
 
+/**
+ * 一条山脉离某点多远 —— 支持**一列平行山岭**（v1.4.0，目前只有横断山脉）。
+ *
+ * 横断山脉在数据里是 5 条平行的南北向山岭（高黎贡山 / 怒山 / 云岭 /
+ * 沙鲁里山 / 大雪山），`range.line` 只代表其中一条（主脊）。凡是"这条山脉在哪儿"
+ * 的判断都必须按**到最近那一条**的距离算：
+ *
+ *   · 按主脊算 ⇒ 另外 4 条岭形同虚设，学生把卡片拖到最东边的大雪山上
+ *     会被判成"离这条山脉的走向还差得远"；
+ *   · 塑形场同理 ⇒ 只有主脊那一溜会隆起，另外 4 条岭在地图上根本不出现。
+ *
+ * 两条都会让"一列平行山岭"这件事在游戏里彻底消失，且**完全静默** ——
+ * 画面上只是"看着比课本上稀疏一点"，看不出是程序把 5 条当成 1 条了。
+ */
+export function distToRange(
+  lon: number,
+  lat: number,
+  range: RangeDef,
+  lonScale = CHINA_DEM.lonScale
+): number {
+  const lines = range.lines && range.lines.length > 0 ? range.lines : [range.line];
+  let best = Infinity;
+  for (const l of lines) {
+    const d = distToPolyline(lon, lat, l, lonScale);
+    if (d < best) {
+      best = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * 两点之间的距离（度）。经度同样按 cos(36°) 折算 —— 与 `distToPolyline` 一个口径，
+ * 免得"锚点带"在东西方向被拉长成一个椭圆。
+ */
+export function distToPoint(
+  lon: number,
+  lat: number,
+  point: [number, number],
+  lonScale = CHINA_DEM.lonScale
+): number {
+  const dx = (lon - point[0]) * lonScale;
+  const dy = lat - point[1];
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/* --------------------------- 走带走廊的宽度 --------------------------- */
+
+/**
+ * 走带走廊的默认半宽（度）：这个半宽以内塑形按 1 算，往外 FADE 度渐隐到 0。
+ *
+ * 这两个数**同时**决定两件事，所以定义在这里、只有这一份：
+ *   · `App.tsx` 的 `buildRidge` 按它把山脉塑到地图上（画出来的那条带子多宽）；
+ *   · `pick.ts` 的点击命中按它判"点在没点在这条山脉上"。
+ * 各写一份的话，两个数迟早会走偏 —— 而走偏的样子是**静默**的：
+ * 图上看着是条 0.5° 宽的带子，点它却命不中（或者反过来，点在带子外面也命中）。
+ */
+export const RIDGE_LIFT_HALF_DEG = 0.42;
+export const RIDGE_LIFT_FADE_DEG = 0.08;
+
+/**
+ * 一条山脉在地图上**铺开的半径**（度，含外侧渐隐）。
+ *
+ * 这就是"命中判定必须与视觉同源"的落点：能点中的范围 = 画出来的范围。
+ * 横断山脉那种一列平行山岭在数据里带了更窄的 `lift_half_deg`（0.20），
+ * 于是它的可点范围自动收窄，不需要命中这一侧再写一条特例。
+ */
+export function corridorHalfDeg(range: { lift_half_deg?: number }): number {
+  return (range.lift_half_deg ?? RIDGE_LIFT_HALF_DEG) + RIDGE_LIFT_FADE_DEG;
+}
+
 /* ----------------------------- 落点判定 ----------------------------- */
 
 export interface DropVerdict {
@@ -228,6 +299,9 @@ export function judgeAreaDrop(
  *
  * 光看"离目标折线 < 阈值"不够 —— 太行山和燕山、太行山和秦岭都会互相蹭到，
  * 于是再加一条"最近的那条必须是它"，学生就不可能在燕山上交太行山的卷。
+ *
+ * 两个距离都走 `distToRange`（v1.4.0）：横断山脉是一列平行山岭，
+ * 要是按主脊那一条算，学生拖到最东边的大雪山上会被判成"不是它"。
  */
 export function judgeRangeDrop(
   lon: number,
@@ -240,7 +314,7 @@ export function judgeRangeDrop(
   if (!target) {
     return { ok: false, message: "数据里没有这条山脉" };
   }
-  const dTarget = distToPolyline(lon, lat, target.line);
+  const dTarget = distToRange(lon, lat, target);
   if (dTarget > tolDeg) {
     return { ok: false, message: "离这条山脉的走向还差得远，再找找" };
   }
@@ -250,7 +324,7 @@ export function judgeRangeDrop(
     if (r.id === targetId) {
       continue;
     }
-    const d = distToPolyline(lon, lat, r.line);
+    const d = distToRange(lon, lat, r);
     if (d < dNearest) {
       dNearest = d;
       nearest = r;
