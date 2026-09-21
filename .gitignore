@@ -11,4 +11,7 @@ dist/
 *.log
 **/*.log
 
+# 本地工作区（AI 记忆、临时脚本、验证证据、跑测产物）——只留本地，不进版本库
+# 注意：本目录曾以 git add 提交过 12 个文件；.gitignore 对已跟踪文件无效，
+# 需用 `git rm -r --cached .workbuddy` 把它撤出索引后规则才会生效。
 .workbuddy/
