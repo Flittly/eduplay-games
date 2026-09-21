@@ -12,6 +12,8 @@ dist/
 **/*.log
 
 # 本地工作区（AI 记忆、临时脚本、验证证据、跑测产物）——只留本地，不进版本库
-# 注意：本目录曾以 git add 提交过 12 个文件；.gitignore 对已跟踪文件无效，
-# 需用 `git rm -r --cached .workbuddy` 把它撤出索引后规则才会生效。
-.workbuddy/
+# 注意 1：该目录曾用 git add 提交过 12 个文件。.gitignore 对【已跟踪】文件无效，
+#         规则一直在却不生效；必须 `git rm -r --cached .workbuddy` 撤出索引才生效。
+# 注意 2：写 `.workbuddy*` 而不是 `.workbuddy/` —— 除目录外还要盖住同级的临时文件，
+#         如 china-relief/.workbuddy_tmp_photo_sources.bak 这种 `git status` 里的漏网项。
+.workbuddy*
