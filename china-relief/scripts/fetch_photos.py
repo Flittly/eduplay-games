@@ -109,6 +109,14 @@ ITEMS = [
      "query": "华北平原 麦田 一望无际 航拍", "kw": ["华北平原", "麦田", "平原"]},
     {"id": "changjiang", "commons": ["Yangtze River Delta", "Poyang Lake", "Taihu", "Middle Yangtze"], "name": "长江中下游平原", "group": "三大平原",
      "query": "长江中下游平原 水乡 稻田 河网 航拍", "kw": ["长江中下游", "平原", "水乡", "稻田"]},
+    # ---- 丘陵（v2.1.0 补） ----
+    # ⚠️ 这一条是**漏了**才补的，不是"照片难找"：v2.0.1 新加东南丘陵时
+    #    只改了 regions.ts，没往这份 ITEMS 里加，于是 `./assets/photos/dongan.jpg`
+    #    从来不存在，介绍卡里永远显示"实景照片待补充"。
+    #    **判据**：任何一次往 AREAS/RANGES 里加新条目，都必须同步这里加一行 ——
+    #    否则只有点开卡片才看得出来（`game.test.cjs` 现在有断言盯着这个）。
+    {"id": "dongan", "commons": ["Hills of Jiangxi", "Hills of Zhejiang", "Hills of Hunan"], "name": "东南丘陵", "group": "丘陵",
+     "query": "东南丘陵 江南丘陵 红壤 梯田 江西 田园", "kw": ["东南丘陵", "江南丘陵", "丘陵", "梯田"]},
     # ---- 山脉 ----
     {"id": "altai", "commons": ["Altai Mountains", "Kanas Lake"], "name": "阿尔泰山脉",
      "query": "新疆 阿尔泰山 喀纳斯 雪山 秋色", "kw": ["阿尔泰", "喀纳斯", "新疆"]},
@@ -378,6 +386,14 @@ COMMONS_PICK = {
     "zhungeer": ["新疆乌尔禾魔鬼城景观.jpg"],
     "liupanshan": ["Liupan Mountains from the observation deck (20260201152712).jpg"],
     "dongbei": ["三江平原 - panoramio - zhanyoun.jpg", "Tongjiang - aerial - P1040677.JPG"],
+    # 东南丘陵（v2.1.0 补）：赣中吉安永丰县的丘陵—河谷盆地景观。
+    # 检索「Hills of Jiangxi / Wuyuan」捞回来的多是徽派村落、油菜花特写、梯田近景
+    # （画面主体是房子和人，读不出"丘陵"）、以及阴天灰雾的全景 —— 都不合教材口径。
+    # 这一张：低缓浑圆的山脊线层层退远、山前是连片梯田水田，一眼就是"丘陵"。
+    # ⚠️ 标题必须**逐字符照抄**（逗号后的空格也照抄）——`titles=` 精确匹配，
+    #    多一个空格就 pageid=-1、`commons_by_title` 返回空，而 fetch_one 会把它
+    #    报成 `pick-fail`（看着像"网络不好"），于是静默地又缺一张图。
+    "dongan": ["Countryside in Sima town,Yongfeng county, Ji'an city,Jiangxi province,China.JPG"],
 }
 
 

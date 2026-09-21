@@ -1,12 +1,12 @@
 {
   "name": "@eduplay/china-relief",
   "private": true,
-  "version": "1.5.3",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test:data": "rolldown src/game.ts --format cjs --file scripts/_game.cjs && rolldown src/session.ts --format cjs --file scripts/_session.cjs && rolldown src/plan.ts --format cjs --file scripts/_plan.cjs && rolldown src/basemap.ts --format cjs --file scripts/_basemap.cjs && rolldown src/geo.ts --format cjs --file scripts/_geo.cjs && rolldown src/labels.ts --format cjs --file scripts/_labels.cjs && rolldown src/pick.ts --format cjs --file scripts/_pick.cjs && rolldown src/data/regions.ts --format cjs --file scripts/_regions.cjs && node scripts/game.test.cjs",
+    "test:data": "rolldown src/game.ts --format cjs --file scripts/_game.cjs && rolldown src/session.ts --format cjs --file scripts/_session.cjs && rolldown src/plan.ts --format cjs --file scripts/_plan.cjs && rolldown src/basemap.ts --format cjs --file scripts/_basemap.cjs && rolldown src/proj.ts --format cjs --file scripts/_proj.cjs && rolldown src/geo.ts --format cjs --file scripts/_geo.cjs && rolldown src/labels.ts --format cjs --file scripts/_labels.cjs && rolldown src/pick.ts --format cjs --file scripts/_pick.cjs && rolldown src/data/regions.ts --format cjs --file scripts/_regions.cjs && node scripts/game.test.cjs && node scripts/typography.test.cjs",
     "test:photos": "python scripts/photo_rules.test.py",
     "test": "npm run test:data && npm run test:photos"
   },

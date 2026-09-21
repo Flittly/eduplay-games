@@ -1,11 +1,12 @@
 {
   "name": "@eduplay/earth-globe",
   "private": true,
-  "version": "1.4.5",
+  "version": "1.4.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build"
+    "build": "tsc --noEmit && vite build",
+    "test:data": "rolldown src/subsolar.ts --format cjs --file scripts/_subsolar.cjs && node scripts/subsolar.test.cjs"
   },
   "dependencies": {
     "react": "^19.2.8",

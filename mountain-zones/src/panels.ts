@@ -20,6 +20,27 @@ const INK_SOFT = "#6f6353";
 const RED = "#b41f16";
 const BLUE = "#2a6f9e";
 
+/**
+ * 字号档位：**必须与 src/styles.css 的 `:root` 一一对应**。
+ *
+ * canvas 读不到 CSS 变量（`getComputedStyle(...).getPropertyValue("--fs-xs")` 每帧解析、
+ * 且首帧可能拿不到值），所以这里镜像一份常量。两边一致性由
+ * `scripts/typography.test.cjs` 机器校验 —— 改了 CSS 忘了改这里会直接判红，
+ * 不会出现"右栏字变大、图里的字没变"这种半拉子状态。
+ *
+ * ⚠️ canvas 的字号是**设备无关像素**（`setup()` 里已经 `setTransform(dpr, ...)`），
+ * 所以直接用 CSS 的 px 数值，不需要再乘 dpr。
+ */
+const FS = {
+  "2xs": 11.5,
+  xs: 13,
+  sm: 14.5,
+  md: 15.5,
+  lg: 17,
+  xl: 21,
+  "2xl": 24
+} as const;
+
 function setup(canvas: HTMLCanvasElement): { g: CanvasRenderingContext2D; w: number; h: number } | null {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = canvas.clientWidth;
@@ -82,7 +103,7 @@ function drawPlanLegend(g: CanvasRenderingContext2D, o: PlanLegendOptions): void
 
   const heading = (x: number, y: number, t: string): number => {
     g.fillStyle = INK;
-    g.font = `700 12px ${ZH}`;
+    g.font = `700 ${FS.md}px ${ZH}`;
     g.textAlign = "left";
     g.textBaseline = "middle";
     g.fillText(t, x, y);
@@ -109,12 +130,12 @@ function drawPlanLegend(g: CanvasRenderingContext2D, o: PlanLegendOptions): void
     g.lineWidth = 1;
     g.strokeRect(colX(0) + 0.5, y - 4.5, 10, 10);
     g.fillStyle = INK;
-    g.font = `400 11.5px ${ZH}`;
+    g.font = `400 ${FS.sm}px ${ZH}`;
     g.textAlign = "left";
     g.textBaseline = "middle";
     g.fillText(def.short, colX(0) + 17, y);
     g.fillStyle = INK_SOFT;
-    g.font = `400 11px ${MONO}`;
+    g.font = `400 ${FS.xs}px ${MONO}`;
     g.textAlign = "right";
     g.fillText(`${Math.round(b.from)}–${Math.round(b.to)} m`, colX(0) + colW, y);
     g.textAlign = "left";
@@ -128,11 +149,11 @@ function drawPlanLegend(g: CanvasRenderingContext2D, o: PlanLegendOptions): void
   // ---- 第 2 栏：本图说明 ----
   const rowAt = (x: number, yy: number, label: string, value: string) => {
     g.fillStyle = INK_SOFT;
-    g.font = `400 11.5px ${ZH}`;
+    g.font = `400 ${FS.sm}px ${ZH}`;
     g.textAlign = "left";
     g.fillText(label, x, yy);
     g.fillStyle = INK;
-    g.font = `700 11.5px ${MONO}`;
+    g.font = `700 ${FS.sm}px ${MONO}`;
     g.textAlign = "right";
     g.fillText(value, x + colW, yy);
     g.textAlign = "left";
@@ -166,7 +187,7 @@ function drawPlanLegend(g: CanvasRenderingContext2D, o: PlanLegendOptions): void
     }
     draw();
     g.fillStyle = INK_SOFT;
-    g.font = `400 11.5px ${ZH}`;
+    g.font = `400 ${FS.sm}px ${ZH}`;
     g.textAlign = "left";
     g.textBaseline = "middle";
     g.fillText(text, colX(2) + 30, y3);
@@ -349,7 +370,23 @@ export function drawPlanMap(canvas: HTMLCanvasElement, o: PlanOptions): void {
   }
 
   // ---- 计曲线的高程注记 ----
-  g.font = "600 11px ui-monospace, Menlo, Consolas, monospace";
+  // 峰顶标注最后才画、而且必须看得见，所以先把它的落点**预留**下来，
+  // 让高程注记绕开它 —— 否则注记垫的那层纸色会正好把一个数字盖掉。
+  const pkX = sx(field.peakI);
+  const pkY = sy(field.peakJ);
+  g.font = `700 ${FS.xs}px ui-sans-serif, system-ui, sans-serif`;
+  const pkLabel = `▲ ${Math.round(field.maxH)} m`;
+  const pkW = g.measureText(pkLabel).width;
+
+  // 已占用的文字框（含垫底纸色）。注记之间也会互相压（实测 6000 被 7000 盖住 66%），
+  // 字号放大后更明显 ⇒ 放不下的直接不画：一个被盖住的数字本来就等于没画。
+  const placed: Array<[number, number, number, number]> = [
+    [pkX + 8, pkY - 8, pkX + 8 + pkW + 6, pkY + 7]
+  ];
+  const isFree = (b: [number, number, number, number]): boolean =>
+    !placed.some((q) => b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
+
+  g.font = `600 ${FS.xs}px ui-monospace, Menlo, Consolas, monospace`;
   g.textAlign = "center";
   g.textBaseline = "middle";
   for (const lv of o.contours) {
@@ -372,18 +409,22 @@ export function drawPlanMap(canvas: HTMLCanvasElement, o: PlanOptions): void {
     }
     const text = `${Math.round(lv.level)}`;
     const tw = g.measureText(text).width;
+    const box: [number, number, number, number] = [px - tw / 2 - 2, py - 7, px + tw / 2 + 2, py + 6];
+    if (!isFree(box)) {
+      continue;
+    }
+    placed.push(box);
     // 给文字垫一层纸色，压住线，避免数字和线糊在一起
     g.fillStyle = rgba(PAPER, 0.86);
-    g.fillRect(px - tw / 2 - 2, py - 7, tw + 4, 13);
+    g.fillRect(box[0], box[1], tw + 4, 13);
     g.fillStyle = INK;
     g.fillText(text, px, py);
   }
 
   // ---- 峰顶标记 ----
-  const pi = field.peakI;
-  const pj = field.peakJ;
-  const px = sx(pi);
-  const py = sy(pj);
+  // 复用上面预留的 pk* —— 位置和文字只在一处算，改了一边不会和预留框对不上。
+  const px = pkX;
+  const py = pkY;
   g.strokeStyle = RED;
   g.fillStyle = RED;
   g.lineWidth = 2;
@@ -393,15 +434,13 @@ export function drawPlanMap(canvas: HTMLCanvasElement, o: PlanOptions): void {
   g.lineTo(px + 5, py + 4);
   g.closePath();
   g.fill();
-  g.font = "700 11px ui-sans-serif, system-ui, sans-serif";
+  g.font = `700 ${FS.xs}px ui-sans-serif, system-ui, sans-serif`;
   g.textAlign = "left";
   g.textBaseline = "middle";
-  const label = `▲ ${Math.round(field.maxH)} m`;
-  const lw = g.measureText(label).width;
   g.fillStyle = rgba(PAPER, 0.9);
-  g.fillRect(px + 8, py - 8, lw + 6, 15);
+  g.fillRect(px + 8, py - 8, pkW + 6, 15);
   g.fillStyle = RED;
-  g.fillText(label, px + 11, py);
+  g.fillText(pkLabel, px + 11, py);
 
   // ---- 指北针 ----
   g.strokeStyle = INK;
@@ -416,7 +455,7 @@ export function drawPlanMap(canvas: HTMLCanvasElement, o: PlanOptions): void {
   g.lineTo(nx + 5, ny + 6);
   g.closePath();
   g.fill();
-  g.font = "700 10px ui-sans-serif, system-ui, sans-serif";
+  g.font = `700 ${FS["2xs"]}px ui-sans-serif, system-ui, sans-serif`;
   g.textAlign = "center";
   g.fillText("N", nx, ny + 16);
 
@@ -435,11 +474,17 @@ export function drawPlanMap(canvas: HTMLCanvasElement, o: PlanOptions): void {
   g.moveTo(bx, by - 4); g.lineTo(bx, by + 4);
   g.moveTo(bx + barPx, by - 4); g.lineTo(bx + barPx, by + 4);
   g.stroke();
-  g.font = "600 10px ui-sans-serif, system-ui, sans-serif";
+  g.font = `600 ${FS["2xs"]}px ui-sans-serif, system-ui, sans-serif`;
   g.textAlign = "left";
   g.textBaseline = "bottom";
+  // 垫一层纸色 —— 和海拔注记用同一套语言。
+  // 不垫的话比例尺文字直接压在地形明暗与等高线上，会被线穿过（放大后"10 km"糊成一团）。
+  const barLabel = `${barKm} km`;
+  const barLw = g.measureText(barLabel).width;
+  g.fillStyle = rgba(PAPER, 0.9);
+  g.fillRect(bx + 2, by - 6 - FS["2xs"], barLw + 4, FS["2xs"] + 3);
   g.fillStyle = INK;
-  g.fillText(`${barKm} km`, bx + 4, by - 5);
+  g.fillText(barLabel, bx + 4, by - 5);
 
   // ---- 外框 ----
   g.strokeStyle = INK;
@@ -514,7 +559,7 @@ export function drawProfile(canvas: HTMLCanvasElement, o: ProfileOptions): void 
   g.lineWidth = 1;
   const gridStep = span > 6000 ? 2000 : 1000;
   const first = Math.ceil(lo / gridStep) * gridStep;
-  g.font = "600 10px ui-monospace, Menlo, Consolas, monospace";
+  g.font = `600 ${FS["2xs"]}px ui-monospace, Menlo, Consolas, monospace`;
   g.fillStyle = INK_SOFT;
   g.textAlign = "right";
   g.textBaseline = "middle";
@@ -573,7 +618,7 @@ export function drawProfile(canvas: HTMLCanvasElement, o: ProfileOptions): void 
     g.stroke();
     g.setLineDash([]);
     g.fillStyle = color;
-    g.font = "700 10px ui-sans-serif, system-ui, sans-serif";
+    g.font = `700 ${FS["2xs"]}px ui-sans-serif, system-ui, sans-serif`;
     g.textAlign = "left";
     g.textBaseline = "bottom";
     g.fillText(text, padL + 4, y - 2);
@@ -582,7 +627,7 @@ export function drawProfile(canvas: HTMLCanvasElement, o: ProfileOptions): void 
   drawMarker(o.treeline, "#3f6b3a", `林线 ${Math.round(o.treeline)} m`, true);
 
   // ---- 各自然带的海拔区间（右侧竖排标签） ----
-  g.font = "600 10px ui-sans-serif, system-ui, sans-serif";
+  g.font = `600 ${FS["2xs"]}px ui-sans-serif, system-ui, sans-serif`;
   g.textAlign = "right";
   g.textBaseline = "middle";
   for (const b of o.bands) {
@@ -623,7 +668,7 @@ export function drawProfile(canvas: HTMLCanvasElement, o: ProfileOptions): void 
   g.lineTo(padL + plotW, padT + plotH);
   g.stroke();
   g.fillStyle = INK;
-  g.font = "600 10px ui-sans-serif, system-ui, sans-serif";
+  g.font = `600 ${FS["2xs"]}px ui-sans-serif, system-ui, sans-serif`;
   g.textAlign = "left";
   g.textBaseline = "top";
   g.fillText("海拔 m", padL + 4, padT + 2);

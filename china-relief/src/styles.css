@@ -13,6 +13,36 @@
   --cinnabar: #bd3b2d;
   --jade: #33756a;
   --sky: #9dc0da;
+
+  /*
+   * ── 字号档位表（v2.0.2）────────────────────────────────────────────
+   *
+   * 改之前这里散着 **16 个不同的 px 值、69 处声明**（9/10/11/12/12.5/13/14/15/
+   * 17/19/20/21/22/24/27/30）。散点的后果不是"难看"，而是**改不动**：
+   * 用户说"字体都太小了"，没有任何一处能代表"整体"，于是每一轮只能挑一个
+   * 显眼的地方调（上一轮就只把「南海诸岛」那四个字放大了）—— 这正是 v2.0.2
+   * 用户反馈"只放大了南海诸岛"的机制性原因。
+   *
+   * 收敛成 7 档之后，"哪个更重要"一眼看得出来，整体抬一档就是改 7 个数。
+   *
+   * 档位取值的两条硬约束（教室场景：投影仪 + 后排）：
+   *   · 最小档 ≥ 12px —— 低于这个数在投影仪上就糊了；
+   *   · 最大/最小 ≥ 2.5 —— 层级要拉得开（32 / 12 = 2.67）。
+   *
+   * ⚠ 单位是**屏幕 px**。canvas 读不到 CSS 变量（每帧 getComputedStyle 既慢、
+   *   首帧还可能拿到 null），所以在 `terrain.ts` 顶部**镜像了一份同值常量 `FS`**，
+   *   两边由 `scripts/typography.test.cjs` 逐档锁死 —— 改这里就必须同步改那边。
+   * ⚠ SVG 里的 `font-size` 是**用户单位**、随容器缩放，**不属于这一族**。
+   *   本作的 SVG（南海附图）里没有文本，所以暂时没有这一档；将来若要加，
+   *   另起一个不叫 `--fs-*` 的 token（见 skill `game-typography-scale` §3）。
+   */
+  --fs-2xs: 12px; /* 单位后缀（米 / %）、影像出处署名、名单小字 */
+  --fs-xs: 13.5px; /* 说明文字、标签、表头、chip、次级小按钮 —— 用得最多的一档 */
+  --fs-sm: 15.5px; /* 正文段落、清单项、地图插图标题 */
+  --fs-md: 17.5px; /* 主按钮、卡片正文、小标题 */
+  --fs-lg: 20.5px; /* 侧栏标题、关闭键、面板 h2 */
+  --fs-xl: 24px; /* 大号读数、结算卡标题 */
+  --fs-2xl: 32px; /* 大厅主标题、得分大数、结算评级 */
 }
 
 * {
@@ -63,12 +93,41 @@ button {
   overflow: hidden;
 }
 
-.cr-tiles img {
+/*
+ * 子块 = 一个「本地矩形 + 单应变换 + 裁切窗口」（v2.0.0，见 basemap.ts 的
+ * `SUB_SIZE` / `solveQuadMatrix`）。
+ *
+ * 宽高和 matrix3d 都在 JSX 里按子块单独写死：
+ *   · 本地矩形固定摆在舞台原点（`left/top: 0` + `transform-origin: 0 0`），
+ *     这样 `matrix3d` 的四点对应关系才是"本地 (0,0) / (s,0) / (s,s) / (0,s)"
+ *     → "投影后的 TL / TR / BR / BL"；
+ *   · 一旦给 left/top 填别的值，等于在单应前面又套了一层平移，
+ *     四个角就对不上了（而且错得很像"影像有点糊"，不好归因）。
+ */
+.cr-tile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  /* 裁切发生在变换**之前**的本地区间里，所以裁出来的正是那个四边形 */
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+
+.cr-tile img {
   position: absolute;
   display: block;
-  /* 瓦片本身是位图，相邻块之间要有一丝丝重叠，否则缩放取整后会露出白发丝线 */
+  /*
+   * ⚠ 内层 img 比外层大 TILE_SUBDIV 倍（= 铺满整张 256px 瓦片），必须把最大宽高
+   * 解掉。全局或浏览器默认的 `max-width: 100%` 会把它压回外层宽度，
+   * 于是每个子块都显示**整张**瓦片 —— 画面上是同一块影像重复铺 9 遍，
+   * 看起来只像"影像糊了/错位"，不像配置错。
+   */
+  max-width: none;
+  max-height: none;
   image-rendering: auto;
   user-select: none;
+  pointer-events: none;
 }
 
 .cr-canvas {
@@ -139,26 +198,90 @@ button {
 }
 
 .cr-hud-num {
-  font-size: 24px;
+  font-size: var(--fs-2xl);
   font-weight: 900;
   line-height: 1.05;
   letter-spacing: -0.02em;
 }
 
 .cr-hud-num small {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--ink-faint);
 }
 
 .cr-hud-label {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--ink-faint);
   letter-spacing: 0.12em;
 }
 
 /* ---------------------------- 拖动幽灵卡 ---------------------------- */
+
+/*
+ * 拖动时的**落点准星**（v2.1.0 需求 3）。
+ *
+ * 判定点 = 指针位置（`onUp` 里的 `toLonLat(event.clientX, event.clientY)`，
+ * 即 `drag.x / drag.y`），而幽灵卡画在指针的 (+14, -18) 处 —— 学生看着
+ * "卡片盖住了那块地"，实际判定点却在卡片左上方十几像素之外。
+ * 容差只有十几像素的时候，这个视觉差足以让人觉得"明明对准了却判错"。
+ * 准星把判定点显式画出来：**看到哪儿就是判到哪儿**。
+ *
+ * 为什么不是把幽灵卡挪到指针正中：卡片宽度随名字长短变（"长江中下游平原"
+ * 比"巫山"宽一倍多），居中会让判定点落在卡片中心 —— 而卡片中心随名字漂移，
+ * 反而更难说清"到底按哪儿算"。准星是一个**不随内容变**的标记。
+ *
+ * 它不泄漏答案：准星一直钉在指针上，既不显示目标位置，也不显示"现在算不算对"
+ * （提前变色就等于告诉学生答案在那儿）。`is-off` = 指针不在画布内，松手不判定。
+ */
+.cr-drop-pin {
+  position: fixed;
+  z-index: 41;
+  width: 30px;
+  height: 30px;
+  /* 圆心落在指针上，而不是左上角 —— 这一条就是整个准星的意义所在 */
+  margin: -15px 0 0 -15px;
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  /* 深色地形（影像底图、阶梯色面）上也要看得见 */
+  box-shadow: 0 0 0 1.5px rgba(247, 242, 232, 0.85);
+  pointer-events: none;
+}
+
+/* 十字延伸到环外，让"这一点"比一个圆圈更明确 */
+.cr-drop-pin::before,
+.cr-drop-pin::after {
+  content: "";
+  position: absolute;
+  background: var(--ink);
+}
+
+.cr-drop-pin::before {
+  left: -7px;
+  right: -7px;
+  top: 50%;
+  height: 2.5px;
+  margin-top: -1.25px;
+}
+
+.cr-drop-pin::after {
+  top: -7px;
+  bottom: -7px;
+  left: 50%;
+  width: 2.5px;
+  margin-left: -1.25px;
+}
+
+.cr-drop-pin.is-off {
+  border-color: var(--ink-faint);
+  opacity: 0.5;
+}
+
+.cr-drop-pin.is-off::before,
+.cr-drop-pin.is-off::after {
+  background: var(--ink-faint);
+}
 
 .cr-ghost {
   position: fixed;
@@ -169,7 +292,7 @@ button {
   background: var(--paper-2);
   border: 3px solid var(--ink);
   box-shadow: 4px 4px 0 rgba(36, 31, 24, 0.4);
-  font-size: 15px;
+  font-size: var(--fs-md);
   font-weight: 900;
   pointer-events: none;
   white-space: nowrap;
@@ -177,7 +300,7 @@ button {
 
 .cr-ghost small {
   margin-top: 2px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--ink-faint);
 }
@@ -218,7 +341,7 @@ button {
   border: 3px solid var(--ink);
   background: var(--paper-2);
   box-shadow: 5px 5px 0 rgba(36, 31, 24, 0.35);
-  font-size: 15px;
+  font-size: var(--fs-md);
   font-weight: 800;
   text-align: center;
 }
@@ -264,7 +387,7 @@ button {
   background: #fdf3dd;
   color: #7a4f0d;
   box-shadow: 5px 5px 0 rgba(36, 31, 24, 0.35);
-  font-size: 14px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 1.5;
 }
@@ -292,15 +415,97 @@ button {
   height: 100%;
 }
 
+/*
+ * ⚠⚠ 这条 `vector-effect` 是 v2.0.2 修掉的一个**静默失效** —— 别挪回 `<g>` 上。
+ *
+ * `vector-effect` **不是继承属性**：写在 `<g>` 上对子 `<path>` 完全没有效果。
+ * 而代码里原本正是写在 `<g>` 上（`<g … vectorEffect="non-scaling-stroke">`），
+ * 于是 `strokeWidth={0.9}` 被当成 **0.9 个用户单位**：小图 17.762 用户单位宽映射到
+ * 124px ⇒ 缩放 6.98 倍 ⇒ **实际描边 6.3px**；十段线 `strokeWidth={2}` 更是 **14px**。
+ *
+ * 后果：196 块岛礁里 180 块屏幕尺寸 < 3px，被 6.3px 的深色描边**整块吃掉**，
+ * 全变成深色块；十段线也涨成粗条。两者外观一致 ⇒ 整张图是一团分不清的深色斑。
+ * 用户的原话是"看南海诸岛的图特别奇怪" —— 真因就是这个，**与配色无关**。
+ * （实证：把 `vector-effect` 只写在 `<g>` 上的版本，与完全关掉它的版本长得一模一样。）
+ *
+ * 修法：挪到 path 层。用一条 CSS 规则覆盖全部 206 条 path，比在 JSX 里逐个加属性干净。
+ */
+.cr-nanhai svg path {
+  vector-effect: non-scaling-stroke;
+}
+
+/*
+ * 岛礁：中绿实心 + **一条细描边**。
+ *
+ * 三段历史，别把中间那段又走回去：
+ *  · v1.5.3 用近白 (#f2f5f0) —— 缩到 2px 在浅蓝海上完全看不见（所以那版"图是空的"）；
+ *  · v2.0.0 换浅绿 (#dfe8d5) 其实没解决问题，只是"看着比白的好一点"；
+ *  · v2.0.2 先改成中绿实心、不加边。**结果岛礁在 1:1 下又几乎看不见了** ——
+ *    196 块礁没有一块超过 3px，纯填充在浅蓝上被抗锯齿糊平。
+ *    （实测：188px 框、2 倍放大才勉强看出四组岛礁。）
+ *
+ * 现在的做法 = 地图上画陆地的通行画法：**面色 + 深边**。
+ * 关键是配 `paint-order: stroke fill`：描边画在填充**下面**，
+ * 于是 2px 的小礁不会被 1px 的描边整块吃掉（它是"深点带一点绿心"），
+ * 而大块陆地就是"绿地 + 深边"。**没有 paint-order 的话小礁会退化成纯深点。**
+ *
+ * ⚠ 这里的 `stroke-width: 1` 是**屏幕 px**（靠 path 层的 non-scaling-stroke 兜住）。
+ *   这一条修之前是 0.9，本来是"用户单位"⇒ 实际 6.1px，正是"整张图一团深色"的元凶。
+ */
+.cr-nanhai .cr-nanhai-islands path {
+  fill: #63804f;
+  stroke: #33422a;
+  stroke-width: 1;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+}
+
+/*
+ * 十段线：暗红 + **butt 端头**。
+ *
+ * ⚠ `stroke-linecap: round` 会把每一小段渲染成**圆点** —— 十段线的数据本来就是
+ * "脊线折线"（每一段只有 0.01° 宽），round 端头一加，线就变成一串和岛礁长得
+ * 一模一样的点。这是"分不清哪是线、哪是岛"的第二个原因（第一个是上面的描边缩放）。
+ * 换 butt（平头）之后每一段读起来才是"一划"。
+ *
+ * 颜色改暗红是为了与绿色的岛礁分家：本作"线"一律用暗红（阶梯分界线也是赭红），
+ * "面"才用绿。南海断续线用暗红也符合中国地图的通行画法。
+ */
+.cr-nanhai .cr-nanhai-dashes path {
+  fill: none;
+  stroke: #8f2f24;
+  stroke-width: 2.4;
+  stroke-linecap: butt;
+}
+
+/*
+ * 「南海诸岛」四个字：仍在**小图正中**（v2.0.0 需求 2 明确要求，别挪）。
+ *
+ * v1.5.3：`left:3px; bottom:1px` 压左下角，9px 小字还被岛礁盖住。
+ * v2.0.0：改绝对居中 + 11px + 三层白描边 —— 小图正中那一片是空海（西沙与南沙
+ *   之间），不挡岛礁，而且是这张附图最自然的标题位。
+ * v2.0.2：白描边换成**纸色底板**。原因：词压在岛礁上时，白晕只把字的边缘与背景
+ *   拉开一点点，远看（投影仪后排）仍然糊；底板是硬边界，且与本作"纸张 + 粗墨边"
+ *   的语言一致。字号跟档位表走（`--fs-sm`）—— 小图放大到 188px 之后，
+ *   15.5px 才算配得上。
+ *
+ * `pointer-events: none`：小图整块是可点的舞台区域，别让四个字变成"死区"。
+ */
 .cr-nanhai span {
   position: absolute;
-  left: 3px;
-  bottom: 1px;
-  font-size: 9px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: var(--fs-sm);
   font-weight: 800;
+  line-height: 1;
   color: var(--ink);
   letter-spacing: 0.06em;
-  text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+  white-space: nowrap;
+  pointer-events: none;
+  background: rgba(247, 242, 232, 0.93);
+  border: 1.5px solid var(--ink);
+  padding: 2px 8px;
 }
 
 /* ------------------------------ 侧边栏 ------------------------------ */
@@ -321,14 +526,14 @@ button {
 
 .cr-side-head h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--fs-xl);
   font-weight: 900;
   letter-spacing: 0.04em;
 }
 
 .cr-side-head p {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   line-height: 1.6;
   color: var(--ink-soft);
 }
@@ -346,7 +551,7 @@ button {
   border: 2px solid var(--line);
   background: var(--paper-2);
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   cursor: pointer;
 }
@@ -382,7 +587,7 @@ button {
   border-left-color: var(--c, var(--ochre));
   background: var(--paper-2);
   box-shadow: 3px 3px 0 rgba(36, 31, 24, 0.22);
-  font-size: 15px;
+  font-size: var(--fs-md);
   font-weight: 800;
   text-align: left;
   cursor: grab;
@@ -420,7 +625,7 @@ button {
 .cr-card-tag {
   padding: 1px 6px;
   border: 1px solid currentColor;
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-style: normal;
   font-weight: 700;
   opacity: 0.7;
@@ -428,7 +633,7 @@ button {
 
 .cr-card-ok {
   color: #2f6b46;
-  font-size: 17px;
+  font-size: var(--fs-lg);
 }
 
 .cr-side-foot {
@@ -445,7 +650,7 @@ button {
   border: 2px solid var(--ink);
   background: transparent;
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   cursor: pointer;
 }
@@ -456,7 +661,7 @@ button {
 }
 
 .cr-roster {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--ink-faint);
 }
 
@@ -511,7 +716,7 @@ button {
   border: 2px solid var(--ink);
   background: var(--paper-2);
   color: var(--ink);
-  font-size: 19px;
+  font-size: var(--fs-lg);
   font-weight: 900;
   line-height: 1;
   cursor: pointer;
@@ -549,13 +754,13 @@ button {
   gap: 6px;
   padding: 16px;
   color: var(--ink-soft);
-  font-size: 19px;
+  font-size: var(--fs-lg);
   font-weight: 900;
   text-align: center;
 }
 
 .cr-sheet-photo-fallback small {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   line-height: 1.6;
   color: var(--ink-faint);
@@ -582,7 +787,7 @@ button {
   align-items: baseline;
   gap: 9px;
   margin: 0 0 10px;
-  font-size: 21px;
+  font-size: var(--fs-xl);
   font-weight: 900;
 }
 
@@ -590,14 +795,14 @@ button {
   padding: 2px 7px;
   border: 2px solid var(--ochre);
   color: var(--ochre);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-style: normal;
   font-weight: 800;
 }
 
 .cr-sheet-body p {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   line-height: 1.85;
   color: var(--ink-soft);
 }
@@ -608,7 +813,7 @@ button {
   border: 2px solid var(--ochre);
   background: #fdf3dd;
   color: #7a4f0d;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   cursor: pointer;
 }
@@ -634,7 +839,7 @@ button {
 
 .cr-sheet-foot .cr-primary {
   padding: 10px 28px;
-  font-size: 15px;
+  font-size: var(--fs-md);
 }
 
 /* ------------------------------- 结算 ------------------------------- */
@@ -664,7 +869,7 @@ button {
 
 .cr-over-card h2 {
   margin: 0 0 14px;
-  font-size: 24px;
+  font-size: var(--fs-2xl);
   font-weight: 900;
 }
 
@@ -674,7 +879,7 @@ button {
   padding: 7px 22px;
   border: 3px solid var(--ink);
   background: var(--ochre-soft);
-  font-size: 27px;
+  font-size: var(--fs-2xl);
   font-weight: 900;
   letter-spacing: 0.14em;
 }
@@ -689,7 +894,7 @@ button {
 
 .cr-over-comment {
   margin: 0 0 18px;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   line-height: 1.75;
   color: var(--ink-soft);
 }
@@ -715,12 +920,12 @@ button {
 
 .cr-over-stats b {
   display: block;
-  font-size: 21px;
+  font-size: var(--fs-xl);
   font-weight: 900;
 }
 
 .cr-over-stats span {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--ink-faint);
   letter-spacing: 0.06em;
 }
@@ -736,7 +941,7 @@ button {
   border: 3px solid var(--ink);
   background: var(--ink);
   color: var(--paper);
-  font-size: 15px;
+  font-size: var(--fs-md);
   font-weight: 800;
   cursor: pointer;
 }
@@ -765,19 +970,19 @@ button {
 
 .notice-card h2 {
   margin: 0 0 10px;
-  font-size: 20px;
+  font-size: var(--fs-xl);
 }
 
 .notice-card p {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   line-height: 1.7;
   color: var(--ink-soft);
 }
 
 .notice-sub {
   color: var(--ink-faint) !important;
-  font-size: 12px !important;
+  font-size: var(--fs-xs) !important;
 }
 
 .notice-actions {
@@ -789,7 +994,7 @@ button {
   border: 3px solid var(--ink);
   background: var(--ink);
   color: var(--paper);
-  font-size: 14px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   cursor: pointer;
 }
@@ -846,8 +1051,10 @@ button {
   /*
    * 两种模式都贴左下角（那一块是海，取景里没有陆地 —— 正是用户说的"空地"）。
    * v1.5.1 只搬了答题模式，图鉴里因为知识卡占着左下角而留在右上；
-   * v1.5.2 起图鉴里也搬过来，改成**卡片往上让**（见 `.cr-sheet.is-atlas`
+   * v1.5.2 起图鉴里也搬过来，改成**卡片往上让**（见 `.cr-sheet.is-docked`
    * 的 `--cr-corner-reserve`，那个数就是照着这里的高度算的）。
+   * v2.0.0 起答题模式的居中模态也改成同一个左下角停靠卡，于是这一条
+   * 不再有"只对图鉴成立"的例外了。
    *
    * `bottom` 取 38 而不是 14，是给底下那行「影像来源」小字让位：
    * 它是 `bottom: 10px` + 10px 字号，真机实测占 y 968~989、**高 22px**，
@@ -865,12 +1072,12 @@ button {
 }
 
 /*
- * 图鉴模式：**还是同一个左下角**，只把左边距对齐到知识卡（v1.5.2）。
+ * 图鉴模式：**还是同一个左下角**，只把左边距对齐到知识卡。
  *
  * 上一版（v1.5.1）这里是"整个容器挪回右上角"的例外，理由是图鉴左下角归知识卡
- * （`.cr-sheet.is-atlas` 贴左下，卡片底部那行「上一条 / 下一条 / 关闭」正好压在
+ * （`.cr-sheet.is-docked` 贴左下，卡片底部那行「上一条 / 下一条 / 关闭」正好压在
  * 按钮条会占的位置上）。v1.5.2 用户的意见是"图鉴里也搬" —— 那就不是让按钮条
- * 继续躲，而是**卡片往上让**，让法见下面 `.cr-sheet.is-atlas` 的 `--cr-corner-reserve`。
+ * 继续躲，而是**卡片往上让**，让法见上面 `.cr-sheet.is-docked` 的 `--cr-corner-reserve`。
  *
  * 所以两处左下角现在共用同一条 `left / bottom`，这里只多 4px：卡片是
  * `margin-left: 18px`（4px 墨框 + 14px 视觉留白），按钮条跟着挪到 18，
@@ -901,7 +1108,7 @@ button {
 .cr-basemap-label {
   padding: 7px 9px;
   border-right: 2px solid var(--line);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--ink-faint);
   letter-spacing: 0.12em;
@@ -917,7 +1124,7 @@ button {
   border-right: 2px solid var(--line);
   background: transparent;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   cursor: pointer;
 }
@@ -937,7 +1144,7 @@ button {
 }
 
 .cr-basemap button em {
-  font-size: 9px;
+  font-size: var(--fs-2xs);
   font-style: normal;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -965,7 +1172,7 @@ button {
   padding: 3px 7px;
   border: 2px solid var(--ink);
   background: var(--ochre-soft);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -986,7 +1193,7 @@ button {
   border: 2px solid var(--line);
   background: var(--paper-2);
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   cursor: pointer;
   white-space: nowrap;
@@ -998,7 +1205,7 @@ button {
 }
 
 .cr-chip small {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--ink-faint);
 }
@@ -1034,7 +1241,7 @@ button {
   background: rgba(255, 251, 243, 0.82);
   border: 1px solid var(--line);
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
 }
 
@@ -1074,7 +1281,7 @@ button {
 
 .cr-lobby-head h1 {
   margin: 0;
-  font-size: 30px;
+  font-size: var(--fs-2xl);
   font-weight: 900;
   letter-spacing: 0.05em;
 }
@@ -1082,7 +1289,7 @@ button {
 .cr-lobby-head p {
   max-width: 760px;
   margin: 10px 0 22px;
-  font-size: 14px;
+  font-size: var(--fs-sm);
   line-height: 1.85;
   color: var(--ink-soft);
 }
@@ -1103,7 +1310,7 @@ button {
 
 .cr-lobby-box h2 {
   margin: 0 0 10px;
-  font-size: 15px;
+  font-size: var(--fs-md);
   font-weight: 900;
   letter-spacing: 0.06em;
 }
@@ -1134,12 +1341,12 @@ button {
   padding: 3px 9px;
   border: 2px solid var(--line);
   background: var(--paper);
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 800;
 }
 
 .cr-lobby-roster small {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 600;
   color: var(--ink-faint);
 }
@@ -1176,19 +1383,19 @@ button {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 15px;
+  font-size: var(--fs-md);
   font-weight: 900;
 }
 
 .cr-modes button span {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   line-height: 1.65;
 }
 
 .cr-need-key {
   padding: 1px 5px;
   border: 1px solid currentColor;
-  font-size: 9px;
+  font-size: var(--fs-2xs);
   font-style: normal;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -1197,7 +1404,7 @@ button {
 
 .cr-lobby-tip {
   margin: 10px 0 0;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   line-height: 1.7;
   color: var(--ink-faint);
 }
@@ -1208,7 +1415,7 @@ button {
   border: 2px solid var(--ochre);
   background: #fdf3dd;
   color: #7a4f0d;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   line-height: 1.7;
 }
@@ -1219,7 +1426,7 @@ button {
   border: 0;
   background: transparent;
   color: var(--ochre);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   text-decoration: underline;
   cursor: pointer;
@@ -1228,7 +1435,7 @@ button {
 .cr-start {
   margin-top: 20px;
   padding: 13px 40px;
-  font-size: 17px;
+  font-size: var(--fs-lg);
 }
 
 .cr-start:disabled {
@@ -1245,7 +1452,7 @@ button {
 .cr-key-field {
   display: block;
   margin-top: 16px;
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -1259,7 +1466,7 @@ button {
   background: var(--paper);
   color: var(--ink);
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   letter-spacing: 0.02em;
 }
 
@@ -1273,13 +1480,13 @@ button {
   width: 100%;
   margin: 0 0 18px;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
 
 .cr-rank th {
   padding: 6px 4px;
   border-bottom: 3px solid var(--ink);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--ink-faint);
   letter-spacing: 0.06em;
@@ -1306,7 +1513,7 @@ button {
 
 .cr-over-note {
   margin: 0 0 14px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   line-height: 1.7;
   color: var(--ink-faint);
 }
@@ -1397,11 +1604,11 @@ button {
 }
 
 .cr-modes.is-compact button strong {
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
 
 .cr-modes.is-compact button span {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   line-height: 1.5;
 }
 
@@ -1421,7 +1628,7 @@ button {
 }
 
 .cr-lobby-outline-label {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   font-weight: 900;
   letter-spacing: 0.04em;
 }
@@ -1437,7 +1644,7 @@ button {
   border-right: 2px solid var(--ink);
   background: var(--paper);
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   cursor: pointer;
 }
@@ -1458,14 +1665,14 @@ button {
 
 .cr-lobby-plan {
   margin: 12px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   line-height: 1.8;
   color: var(--ink-soft);
 }
 
 .cr-lobby-plan b {
   color: var(--ochre);
-  font-size: 15px;
+  font-size: var(--fs-md);
 }
 
 /* 操作栏里不需要那段上边距 —— 间距由 .cr-lobby-foot 的 padding 给 */
@@ -1514,7 +1721,7 @@ button {
 }
 
 .cr-hud-atlas-hint {
-  font-size: 12.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   line-height: 1.5;
   color: var(--ink-soft);
@@ -1545,53 +1752,67 @@ button {
 
 .cr-atlas-go {
   padding: 8px 18px;
-  font-size: 14px;
+  font-size: var(--fs-sm);
 }
 
-/* --------------------- 知识卡（图鉴：浮在地图左下角） --------------------- */
+/* --------------------- 介绍卡（v2.0.0 起两种模式都贴左下角） --------------------- */
 
 /*
- * 与答题模式那张居中模态共用卡片内部版式，只改摆放方式：无遮罩、贴左下角。
- * 图鉴的重点恰恰是"一边对着地图看它在哪、一边读它是什么"，
- * 居中模态会把刚聚焦出来的那一块正好压住（地图铺满舞台，居中卡片盖的是中原一带）。
+ * 与卡片内部版式共用，只改摆放方式：无遮罩、贴左下角。
+ *
+ * ## 为什么 v2.0.0 把答题模式的居中模态也改成这里
+ *
+ * 用户的原话是"中国地图往右边再偏移一些位置，这样弹窗介绍出现的时候
+ * 就不会遮挡地图"。居中模态无论怎么挪都会压住地图正中那一片 ——
+ * 而那正是学生刚放对、最想看的"我刚塑好的那一块"。所以两种模式统一：
+ * 卡片停靠在左下角，地图同时右移让出左边这一条（App 的 `introInset`
+ * → `geo.mapLayout` 的 `insetLeft`）。
+ *
+ * `is-docked` 是**摆放方式**（两种模式都挂），`is-atlas` 只剩"图鉴专属微调"
+ * 的语义（目前用来对齐左内边距）。分开命名是因为：以后答题模式若想
+ * 单独调宽度，改 `is-docked` 下面的规则不会顺带改到图鉴。
  *
  * `pointer-events: none` 是关键：`.cr-sheet` 是 `inset: 0` 的全屏层
  * （相对 `.cr-root`，连右边的目录栏也一起盖住）。不放开指针事件的话，
- * 卡片一出现，侧栏里的"下一条"就点不动了 —— 而"逐条点过去"正是图鉴的主用法。
- * 代价是点空白处不再能关卡片，但图鉴有关闭按钮、也接 ESC，不缺这一条。
+ * 卡片一出现，侧栏里的"下一条"就点不动了 —— 而"逐条点过去"正是图鉴的主用法；
+ * 答题模式下同样重要：学生可以一边读讲解一边接着拖下一张卡。
+ * 代价是点空白处不再能关卡片，但卡片有关闭按钮、也接 ESC，不缺这一条。
  */
-.cr-sheet.is-atlas {
+.cr-sheet.is-docked {
   align-items: flex-end;
   justify-content: flex-start;
   padding: 0;
   background: transparent;
   pointer-events: none;
   /*
-   * v1.5.2：图鉴里三条浮层也占左下角，所以卡片得**往上让**出这一段。
+   * 三条浮层（v2.0.0 起是**四条**）占着左下角，所以卡片得**往上让**出这一段。
    *
-   * 176 = 浮层的 `bottom: 38`（给「影像来源」小字让的，见 `.cr-corner` 那段注释）
-   *       + 三条浮层最高形态的总高 130（真机实测 48 / 35 / 35，加 2 个 6px 间隙）
+   * 217 = 浮层的 `bottom: 38`（给「影像来源」小字让的，见 `.cr-corner` 那段注释）
+   *       + 四条浮层最高形态的总高 171（真机实测 48 / 35 / 35 / 35，
+   *         加 3 个 6px 间隙 = 153+18 = 171）
    *       + 8px 气口
    *
    * 这是按**最坏情况**算的：密钥没配时「底图」条多一行「需密钥」才有 48px，
    * 配好之后整叠矮 13px，实际间隙只会更大，不会反过来压住卡片。
-   * 反过来说 —— 谁要往 `.cr-corner` 里加第四条，必须回来重算这个数；
-   * `geom.js` 能把 `.cr-corner` 的真实高度量出来，用不着猜。
+   *
+   * ⚠ 这个数**每次往 `.cr-corner` 里加一条都要回来重算**（v2.0.0 加「阶梯」
+   *   就是从 176 改到 217）。`geom.js` 能把 `.cr-corner` 的真实高度量出来，
+   *   用不着猜，也别凭记忆。
    *
    * ⚠ 这个数只在"按钮条与卡片同底"时成立。实测 `.cr-stage`、`.cr-root`、
    *   `.cr-sheet` 三者的底边都是 1000（差 0），所以一个常量就够；哪天
    *   `.cr-root` 加了 padding、或浮层改成挂在别处，得重算。
    */
-  --cr-corner-reserve: 176px;
+  --cr-corner-reserve: 217px;
   /* 上让的终点：图鉴顶栏底边（实测 y=72）+ 8px 气口 —— 别钻进顶栏底下 */
   --cr-card-top-gap: 80px;
 }
 
-.cr-sheet.is-atlas .cr-sheet-card {
+.cr-sheet.is-docked .cr-sheet-card {
   pointer-events: auto;
   width: min(392px, 100%);
   /*
-   * 上让：底边从"离底 18px"抬到"离底 176px"，正好落在三条浮层顶边之上。
+   * 上让：底边从"离底 18px"抬到"离底 217px"，正好落在四条浮层顶边之上。
    *
    * `max-height` 必须跟着一起减 —— 卡片是**贴底生长**的（`align-items: flex-end`），
    * 底边钉死之后高度就是唯一的位移方向；只改 margin 不改 max-height 的话，
@@ -1602,17 +1823,17 @@ button {
   margin: 0 0 var(--cr-corner-reserve) 18px;
 }
 
-.cr-sheet.is-atlas .cr-sheet-photo {
+.cr-sheet.is-docked .cr-sheet-photo {
   aspect-ratio: 16 / 9;
   max-height: 22vh;
 }
 
-.cr-sheet.is-atlas .cr-sheet-body {
+.cr-sheet.is-docked .cr-sheet-body {
   padding: 14px 16px 16px;
 }
 
-.cr-sheet.is-atlas .cr-sheet-body h2 {
-  font-size: 19px;
+.cr-sheet.is-docked .cr-sheet-body h2 {
+  font-size: var(--fs-lg);
 }
 
 /* 序号推到标题行右端，与目录里的 #n 一一对应 */
@@ -1621,20 +1842,20 @@ button {
   white-space: nowrap;
 }
 
-.cr-sheet.is-atlas .cr-sheet-foot {
+.cr-sheet.is-docked .cr-sheet-foot {
   display: flex;
   align-items: center;
   gap: 8px;
   text-align: left;
 }
 
-.cr-sheet.is-atlas .cr-sheet-foot .cr-ghost-btn {
+.cr-sheet.is-docked .cr-sheet-foot .cr-ghost-btn {
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
 
-.cr-sheet.is-atlas .cr-sheet-foot .cr-primary {
+.cr-sheet.is-docked .cr-sheet-foot .cr-primary {
   margin-left: auto;
   padding: 8px 18px;
-  font-size: 14px;
+  font-size: var(--fs-sm);
 }

@@ -1,9 +1,13 @@
 /**
  * 山河塑形 · 中国地形（v1.3.0）
  *
- * 玩法：右侧卡片栏里是四大高原、四大盆地、三大平原和 27 条山脉。
+ * 玩法：右侧卡片栏里是四大高原、四大盆地、三大平原、东南丘陵和 27 条山脉。
  * 把卡片拖到地图上正确的位置，那块地就按**真实高程**分层设色塑出来；
- * 拖错了弹回并说明偏到哪儿去了。全部归位后，中国地势三级阶梯会自己长出来。
+ * 拖错了弹回并说明偏到哪儿去了。
+ *
+ * 另有「阶梯」图层可随时开关（v2.0.0 加）：按教材的两条山脉连线
+ * （昆仑山—阿尔金山—祁连山—横断山 / 大兴安岭—太行山—巫山—雪峰山）
+ * 把全国划成三级，各级铺一层半透明色、并标上名字。
  *
  * ## 为什么"塑出来的高度"要用真实 DEM
  *
@@ -113,20 +117,20 @@ import {
   type RangeDef
 } from "./data/regions";
 import {
-  CHINA_DEM,
   GRID_H,
   GRID_W,
+  PROJ_GRID,
   RIDGE_LIFT_FADE_DEG,
   RIDGE_LIFT_HALF_DEG,
-  decodeAltitude,
-  decodeLandMask,
-  decodeRegionGrid,
+  buildTerrainData,
   distToPolyline,
   insideChina,
   judgeAreaDrop,
   judgeRangeDrop,
-  mapLayout
+  mapLayout,
+  ringRadiusDeg
 } from "./geo";
+import { gridToLonLat, projectBounds } from "./proj";
 import { distanceHint, type Grade } from "./game";
 import {
   addSeconds,
@@ -150,6 +154,8 @@ import {
 } from "./session";
 import {
   BASEMAPS,
+  SUB_SIZE,
+  TILE_SUBDIV,
   TIANDITU_ATTRIBUTION,
   TIANDITU_KEY_PAGE,
   layoutTiles,
@@ -222,8 +228,19 @@ const RIDGE_PEAK_M = 900;
  * （见 `pick.ts` 的文件头：能点中的范围必须等于画出来的范围）。
  * 别在本地再写一份：两份数走偏的样子是静默的。
  */
-/** 山脉落点容差（度）：约 55 km，够宽松到不刁难学生，又拦得住"随手一丢" */
-const RANGE_TOL_DEG = 0.55;
+/**
+ * 山脉落点容差（度）：约 95 km ≈ 屏幕上 15 px，与地形区的基础容差（`AREA_DROP_TOL_DEG`）**同档**。
+ *
+ * v2.0.0 定的是 0.55°（约 61 km / 10 px）—— 与地形区那 0.42° 一样，
+ * 折到屏幕上就是"指针抖一下就越界"，学生感觉不到有容差（用户 v2.1.0 的反馈：
+ * "必须要拖动到完全对应的位置才能够加载"）。两种题型一起抬到 0.85°：
+ * 学生不用去猜"这次是哪种松紧"，也免得改一处忘一处。
+ *
+ * 放大容差不会让两条山脉互相吃掉 —— `judgeRangeDrop` 里那条"最近的那条必须是它"
+ * 就是为此存在的（太行山与燕山在北部相撞、太行山与秦岭在南部相蹭，
+ * 没有这一条时容差一放大就会互相抢）。
+ */
+const RANGE_TOL_DEG = 0.85;
 
 /**
  * 卡片栏里那一档「只看本局还要塑的」。
@@ -272,14 +289,19 @@ interface ChinaReliefProps {
 
 export default function ChinaRelief({ roster, standalone, onFinish }: ChinaReliefProps) {
   /* ------------------------------ 数据 ------------------------------ */
-  const data = useMemo(
-    () => ({
-      alt: decodeAltitude(),
-      land: decodeLandMask(),
-      region: decodeRegionGrid()
-    }),
-    []
-  );
+  /**
+   * 地形数据（v2.0.0 起是**两份**，见 geo.ts 的 `TerrainData`）。
+   *
+   * `buildTerrainData()` 把原经纬度栅格重采样到投影网格上，返回
+   * `{ alt, land, region, outside, src }`：
+   *   · `alt / land / region` —— **投影网格**，渲染与塑形场（lift/add/归属图）用；
+   *   · `src.*`               —— **原经纬度栅格**，落点判定（`judgeAreaDrop` /
+   *     `insideChina` / `pickFeature`）用。
+   *
+   * ⚠️ 这两套的下标不是一回事（GRID_W=575 vs SRC_W=480），传错的表现是
+   * "判定整体偏了一百多公里"，而界面上只是"有点不准"。见 geo.ts 的头部注释。
+   */
+  const data = useMemo(() => buildTerrainData(), []);
 
   const items: Item[] = useMemo(() => {
     const a: Item[] = AREAS.map((d) => ({
@@ -393,6 +415,16 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
    */
   const [showLabels, setShowLabels] = useState(true);
   /**
+   * 三级阶梯开关（v2.0.0 加，v2.0.1 重做）。默认**开** —— 用户就是要求
+   * "添加三级阶梯"，默认关掉等于这个功能没做（与轮廓 / 名称两个开关同一个理由）。
+   *
+   * ⚠️ v2.0.1 起它画的**不再是高程等值线**，而是教材上那两条**山脉连线**
+   * （昆仑山—阿尔金山—祁连山—横断山 / 大兴安岭—太行山—巫山—雪峰山），
+   * 三块半透明色面 + 线上三个阶梯名。为什么 v2.0.0 那套按 4000 m / 500 m
+   * 现算的做法整个错了，写在 terrain.ts 的 `STEP_FILL` 那一段。
+   */
+  const [steps, setSteps] = useState(true);
+  /**
    * 标签避让的**优先级第一位**：刚放对的那一条 / 图鉴里刚点开的那一条。
    *
    * 38 个地名在东部密集区会互相压住，而被压住的直接不画（见 terrain.ts 的
@@ -432,6 +464,41 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
 
   const [toast, setToast] = useState<Toast | null>(null);
   const [infoItem, setInfoItem] = useState<Item | null>(null);
+  /**
+   * 介绍卡里那张实景照片加载失败了的是**哪一条**（v2.1.0 需求 2）。
+   *
+   * 存 id 而不是存 `true/false`：这样"换个条目要不要重新判"这件事**不需要复位逻辑**
+   * （没有 effect、也没有"切换时忘了清"的机会）—— 判据就是"这一条的 id 失败过吗"。
+   *
+   * ⚠️ 千万别退回命令式写法。v2.0.2 及以前是
+   * `img.style.display = "none"` + `parent.classList.add("is-missing")`，
+   * 而 React 复用同一个 `<img>` 节点（换条目只改 `src` 这个 prop），
+   * **不会回滚**手写上去的 style / class ⇒ 只要打开过**一个**缺图条目，
+   * 之后所有条目（哪怕照片好好的）都显示「实景照片待补充」。
+   * 用户报的"很多地形我们明明有实景照片但是却依旧无法显示"就是这个 ——
+   * 而那个"缺图条目"正是当时唯一缺图的东南丘陵。
+   *
+   * `scripts/game.test.cjs` 第 12 节有两条断言守它：组件里不许出现
+   * `.style.display =` / `.classList.add(`，且失败态必须按条目 id 走。
+   */
+  const [photoFailedId, setPhotoFailedId] = useState<string | null>(null);
+  /**
+   * 介绍卡打开时，地图要往右让出的那一条（px）—— v2.0.0 需求 6。
+   *
+   * 392 = 卡片宽度上限（`.cr-sheet.is-docked .cr-sheet-card` 的 `min(392px, 100%)`），
+   * 18 = 它离舞台左边缘的边距；再加 8px 气口。
+   *
+   * 让位的做法是**把地图整体往右挪**，不是把左边裁掉 —— 裁掉会让地图
+   * 突然少一块，看起来像坏了。而且画布与影像瓦片层必须吃**同一个**
+   * 数字（都从 `mapLayout` 来），否则影像还停在老位置、地形已经挪走，
+   * 画面上只像是"影像糊了"。
+   *
+   * ⚠️ 这个值不许大到把地图压没：真正的钳制在 `geo.ts` 的 `mapLayout`
+   *    （最多占舞台宽的 38%），这里只表达"想留多宽"。
+   */
+  const introInset = infoItem ? 418 : 0;
+  /** 当前这张介绍卡的照片是不是加载失败过（判据见 `photoFailedId` 的注释） */
+  const photoFailed = infoItem !== null && photoFailedId === infoItem.id;
   const [justPlaced, setJustPlaced] = useState(false);
   const [groupFilter, setGroupFilter] = useState<string>("全部");
   const [drag, setDrag] = useState<{
@@ -504,7 +571,7 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
     }
     let view: TerrainView | null = null;
     try {
-      view = createTerrainView(canvas, data.land);
+      view = createTerrainView(canvas, data);
       viewRef.current = view;
       // 首帧：底图 + 已经预置好的地形（低难度/分类专练时开场就不是空的）
       view.refresh(data.alt, lift, add, false, basemapRef.current, sceneRef.current);
@@ -622,6 +689,26 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
     viewRef.current?.refresh(data.alt, lift, add, false, basemapRef.current, sceneRef.current);
   }, [showLabels, labelList, data, lift, add]);
 
+  /**
+   * 三级阶梯开关：与轮廓 / 名称完全同一类问题 ——
+   * 静止时 rAF 循环什么都不做，没人通知视图改了这一位。
+   */
+  useEffect(() => {
+    sceneRef.current.steps = steps;
+    viewRef.current?.refresh(data.alt, lift, add, false, basemapRef.current, sceneRef.current);
+  }, [steps, data, lift, add]);
+
+  /**
+   * 介绍卡打开 / 关掉时，地图往右让位（v2.0.0 需求 6）。
+   *
+   * 同样只能写进 `sceneRef.current` 这个可变对象（和 outline / focus / labels 一致）——
+   * 布局是在 `refresh()` → `layout()` 里算的，React 不会因为 `sceneRef` 变化重渲染。
+   */
+  useEffect(() => {
+    sceneRef.current.insetLeft = introInset;
+    viewRef.current?.refresh(data.alt, lift, add, false, basemapRef.current, sceneRef.current);
+  }, [introInset, data, lift, add]);
+
   /* ---------------------------- 提示消息 ---------------------------- */
   const toastSeq = useRef(0);
   const say = useCallback((kind: Toast["kind"], text: string) => {
@@ -699,27 +786,33 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
           ha = Math.max(ha, y);
         }
       }
+      /*
+       * 循环范围 = 这条山脉的经纬度包围盒（外扩 pad）**投影之后**的包围盒。
+       *
+       * 不能再用"经度差 ÷ 全图经度差"去算下标：圆锥投影下右上角那一块
+       * 与左下角那一块对应的经纬度完全不同，线性内插出来的窗口会**整块偏掉**
+       * （大兴安岭那种跨 10 个纬度的长山脉最明显），而画面上只是
+       * "这条山脉比课本上短了一截"，看不出是窗口算错了。
+       *
+       * 用 `projectBounds`（沿四条边采样）而不是只投四个角：纬线在圆锥投影下
+       * 是**圆弧**，四角算出的盒子会把南北两端切掉一块。
+       */
+      const b = projectBounds(lo - pad, hi + pad, la - pad, ha + pad);
       const i0 = Math.max(
         0,
-        Math.floor(
-          ((lo - pad - CHINA_DEM.lon0) / (CHINA_DEM.lon1 - CHINA_DEM.lon0)) * (GRID_W - 1)
-        )
+        Math.floor((b.x0 - PROJ_GRID.x0) / PROJ_GRID.d - 0.5)
       );
       const i1 = Math.min(
         GRID_W - 1,
-        Math.ceil(((hi + pad - CHINA_DEM.lon0) / (CHINA_DEM.lon1 - CHINA_DEM.lon0)) * (GRID_W - 1))
+        Math.ceil((b.x1 - PROJ_GRID.x0) / PROJ_GRID.d - 0.5)
       );
       const j0 = Math.max(
         0,
-        Math.floor(
-          ((CHINA_DEM.lat1 - (ha + pad)) / (CHINA_DEM.lat1 - CHINA_DEM.lat0)) * (GRID_H - 1)
-        )
+        Math.floor((PROJ_GRID.y0 - b.y1) / PROJ_GRID.d - 0.5)
       );
       const j1 = Math.min(
         GRID_H - 1,
-        Math.ceil(
-          ((CHINA_DEM.lat1 - (la - pad)) / (CHINA_DEM.lat1 - CHINA_DEM.lat0)) * (GRID_H - 1)
-        )
+        Math.ceil((PROJ_GRID.y0 - b.y0) / PROJ_GRID.d - 0.5)
       );
       // ⚠️ `pad` 只是**循环范围**，取 max(sigma×3, ...) = 0.72°，比走廊本身大；
       // 多扫出来的那些格子 mask 恒为 0、值也写成 0，等于没塑。
@@ -734,18 +827,20 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
       //     1.10 − 2×0.346 = 0.408°。换算成屏幕像素见 README。
       const liftPad = halfDeg + RIDGE_LIFT_FADE_DEG;
       for (let j = j0; j <= j1; j++) {
-        const lat = CHINA_DEM.lat1 - (j / (GRID_H - 1)) * (CHINA_DEM.lat1 - CHINA_DEM.lat0);
         for (let i = i0; i <= i1; i++) {
           const k = j * GRID_W + i;
           if (!data.land[k]) {
             continue;
           }
-          const lon = CHINA_DEM.lon0 + (i / (GRID_W - 1)) * (CHINA_DEM.lon1 - CHINA_DEM.lon0);
+          // 圆锥投影下同一行不再是同一个纬度、同一列也不再是同一个经度，
+          // 所以逐格反投影 —— 这就是 v1.0.0 当初躲开的那个代价，
+          // 但现在只在"一条山脉的包围盒"里付（几千格），不是全图 20 万格。
+          const ll = gridToLonLat(PROJ_GRID, i, j);
           // 到**最近那一条**岭的距离 —— 见 buildRidge 上方的注释。
           // 一行山岭时这就是原来那个数，多条时才是关键。
           let d = Infinity;
           for (const line of lines) {
-            const dd = distToPolyline(lon, lat, line);
+            const dd = distToPolyline(ll.lon, ll.lat, line);
             if (dd < d) {
               d = dd;
             }
@@ -918,19 +1013,39 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
       if (!s0 || isSettled(s0, item.id)) {
         return;
       }
-      if (!insideChina(lon, lat, data.land)) {
+      if (!insideChina(lon, lat, data.src.land)) {
         say("warn", "这是中国之外的海域，把它放到陆地上");
         return;
       }
       if (item.kind === "area" && item.area) {
-        const v = judgeAreaDrop(lon, lat, item.area.gridId, data.region, nameByGridId);
+        /*
+         * ⚠ 这里传的必须是 **`data.src`** 那两份（原经纬度栅格）。
+         *
+         * `judgeAreaDrop` / `insideChina` 内部走的是 `gridIndex()`，认的是
+         * 480 × 358 的判定网格；而 `data.region / data.land` 是重采样之后的
+         * **575 × 386 投影网格**，下标根本不是一回事。传错的表现是落点判定
+         * 整体偏移十几格（一百多公里），而界面上只是"判定有点不准" ——
+         * 见 geo.ts 头部那段两套网格的说明。
+         */
+        const v = judgeAreaDrop(
+          lon,
+          lat,
+          item.area.gridId,
+          data.src.region,
+          nameByGridId,
+          ringRadiusDeg(item.area.ring)
+        );
         if (v.ok) {
           doPlace(item);
           const s1 = flushTime(s0) ?? s0;
           const out = commitCorrect(s1, item.id, "area");
           turnStartRef.current = Date.now();
           setSession(out.session);
-          say("ok", `${item.name} 归位 · ${out.studentName} +${out.gained}${nextHint(out.session)}`);
+          // 宽容命中换一句提示：分数照给，但要让学生知道自己"指得不太准"。
+          // 那句话由 judgeAreaDrop 给（`loose` 时才有的 message），这里只拼名字 ——
+          // 界面层再写一遍就成了两份文案，改的时候必然走偏
+          const lead = v.loose ? `${item.name} ${v.message}` : `${item.name} 归位`;
+          say("ok", `${lead} · ${out.studentName} +${out.gained}${nextHint(out.session)}`);
           // 放对了就讲：把"做对了"和"学到了"缝在一起
           openIntro(item, true);
         } else {
@@ -989,7 +1104,8 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
         return null;
       }
       const cand = items.filter((it) => isSettled(s, it.id));
-      return pickFeature(ll.lon, ll.lat, cand, data.region)?.item ?? null;
+      // 同样是 **`data.src.region`** —— `pick.ts` 内部按判定网格取下标。见 handleDrop 里的注释。
+      return pickFeature(ll.lon, ll.lat, cand, data.src.region)?.item ?? null;
     },
     [items, data]
   );
@@ -1262,26 +1378,40 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
     if (basemap !== "satellite" || !tk || stageBox.w === 0 || stageBox.h === 0) {
       return [];
     }
-    return layoutTiles(mapLayout(stageBox.w, stageBox.h));
-  }, [basemap, tk, stageBox.w, stageBox.h]);
+    // 与画布吃同一个 `introInset`：两边各算一套的话，影像与地形会错开
+    // （见 geo.mapLayout 的注释）。mapLayout 内部对预留量做了钳制。
+    return layoutTiles(mapLayout(stageBox.w, stageBox.h, introInset));
+  }, [basemap, tk, stageBox.w, stageBox.h, introInset]);
 
   // 一批瓦片换了就从零计数（tiles 是 memo 的，只有底图/密钥/尺寸变了才换引用）
   useEffect(() => {
     setTileFail(0);
   }, [tiles]);
 
+  /**
+   * **真正要下载多少张瓦片** —— 不是 `tiles.length`。
+   *
+   * v2.0.0 起 `tiles` 是**子块**（每块瓦片切成 TILE_SUBDIV² 块，见 basemap.ts），
+   * 拿子块数当分母的话"失败过半"这个阈值就变成了"要坏掉 15 块瓦片才切回来"，
+   * 而实际上随便断个网，一块都取不到 —— 阈值形同虚设。
+   */
+  const tileTotal = useMemo(
+    () => new Set(tiles.map((t) => `${t.z}/${t.x}/${t.y}`)).size,
+    [tiles]
+  );
+
   useEffect(() => {
-    if (basemap !== "satellite" || tiles.length === 0) {
+    if (basemap !== "satellite" || tileTotal === 0) {
       return;
     }
-    if (tileFail > tiles.length / 2) {
+    if (tileFail > tileTotal / 2) {
       // 多半是没网，或者密钥不对/没权限。说清楚，并切回去 —— 不留一张空白沙盘
       setSatelliteNote(
         `影像底图取不到（需要联网，且密钥要能访问天地图 img_w 服务）。已切回「分层设色」，地形照常可以塑。`
       );
       setBasemap("relief");
     }
-  }, [tileFail, tiles.length, basemap]);
+  }, [tileFail, tileTotal, basemap]);
 
   /* ------------------------------ 渲染 ------------------------------ */
   const flashPos = useMemo(() => {
@@ -1410,20 +1540,57 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
             于是"塑形"= 把这层米灰毛毡抠掉、露出真实影像 */}
         {tiles.length > 0 ? (
           <div className="cr-tiles" aria-hidden="true">
+            {/*
+              每个**子块**是一个「本地矩形 + 单应变换 + 裁切窗口」（v2.0.0）。
+
+              为什么不是一块瓦片一个 <img>：天地图是 Web Mercator 瓦片，我们的
+              地图是 Albers 圆锥投影，一块瓦片投过来是一条**弧边的斜梯形**
+              （经线是直线、纬线是圆弧），一张矩形的 <img> 贴不上去。
+
+              为什么不是"轴对齐矩形 + 线性拉伸"：那是 v2.0.0 中间试过的一步，
+              实测四角偏差最大 26.8 px、平均 10.3 px —— DOM 里一格地形只有
+              1.885 px，也就是影像和地形错开了十几格。根因不是弧的矢高，而是
+              **弧在画布上是斜的**（θ≈23° 处一段 3.75° 的子块，弧要落下 22 px），
+              而矩形的上边是平的；细分只能让它线性变小，补不回来。
+
+              现在的做法：`basemap.ts` 对每个子块解一个**四点单应变换**
+              （`matrix3d`），把本地矩形精确映到投影后的四边形上 —— 四角偏差
+              归零，只剩内部弧-弦矢高 0.32 px。切开仍然要做：单应只能让四个角
+              对上，四边形内部那条弧还是用弦代替的，弦越短误差越小。
+
+              ⚠️ 内层 img 必须比外层大 `TILE_SUBDIV` 倍（`SUB_SIZE²` 铺满整个
+              瓦片），**且不能被全局的 `max-width: 100%` 之类压回来** —— 那会让
+              每个子块都显示整张瓦片，画面上是"同一块影像重复铺了 9 遍"。
+              `.cr-tile img` 里写了 `max-width/height: none` 就是防这个。
+            */}
             {tiles.map((t) => (
-              <img
-                key={`${t.z}/${t.x}/${t.y}`}
-                src={tiandituTileUrl(t.z, t.x, t.y, tk)}
-                alt=""
-                draggable={false}
+              <div
+                key={`${t.z}/${t.x}/${t.y}/${t.sx}/${t.sy}`}
+                className="cr-tile"
                 style={{
-                  left: `${t.left}px`,
-                  top: `${t.top}px`,
-                  width: `${t.width}px`,
-                  height: `${t.height}px`
+                  // 本地矩形摆在舞台原点，再由 matrix3d 精确搬到投影后的四边形上
+                  width: `${SUB_SIZE}px`,
+                  height: `${SUB_SIZE}px`,
+                  transform: `matrix3d(${t.matrix.map((v) => v.toFixed(8)).join(",")})`
                 }}
-                onError={() => setTileFail((n) => n + 1)}
-              />
+              >
+                <img
+                  src={tiandituTileUrl(t.z, t.x, t.y, tk)}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    // 把整张瓦片按原生分辨率（256 px）铺开，再平移到本子块那一份
+                    left: `${-t.sx * SUB_SIZE}px`,
+                    top: `${-t.sy * SUB_SIZE}px`,
+                    width: `${SUB_SIZE * TILE_SUBDIV}px`,
+                    height: `${SUB_SIZE * TILE_SUBDIV}px`
+                  }}
+                  // 同一块瓦片的 9 个子块共用一张图，出错的也一定是同一张 ——
+                  // 所以只在 (0,0) 这一块上计数，否则失败数会被重复算 9 遍，
+                  // "多少块失败才切回分层设色"这个阈值就失效了
+                  onError={t.sx === 0 && t.sy === 0 ? () => setTileFail((n) => n + 1) : undefined}
+                />
+              </div>
             ))}
           </div>
         ) : null}
@@ -1591,6 +1758,39 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
               不标
             </button>
           </div>
+
+          {/*
+            三级阶梯开关（v2.0.0 加，v2.0.1 重做：现在是三块半透明面 + 两条
+            山脉连线的分界线 + 图上三个阶梯名）。
+
+            ⚠️ 类名 `cr-stepopts` **同样故意与上面两组不同**（跟名称开关一个道理）：
+            回归探针按 `.cr-viewopts button` / `.cr-labelopts button` 分别数按钮，
+            类名一并就会互相蹭。
+
+            ⚠️ 加了这第四条之后，`.cr-sheet.is-docked` 的 `--cr-corner-reserve`
+            （v1.5.2 时它是 `.cr-stage.is-atlas` 上的 176px）**必须重算** ——
+            styles.css 里那段注释明确要求过。
+            新值 217 = 38(底距) + 48+35+35+35(四条最坏高度) + 3×6(间隙) + 8(气口)。
+          */}
+          <div className="cr-basemap cr-stepopts">
+            <span className="cr-basemap-label">阶梯</span>
+            <button
+              type="button"
+              className={steps ? "is-active" : ""}
+              title="画出中国地势三级阶梯：昆仑山—阿尔金山—祁连山—横断山、大兴安岭—太行山—巫山—雪峰山两条分界线，并给三级各铺一层半透明色"
+              onClick={() => setSteps(true)}
+            >
+              显示
+            </button>
+            <button
+              type="button"
+              className={steps ? "" : "is-active"}
+              title="收起阶梯图层，只看地形本身的起伏"
+              onClick={() => setSteps(false)}
+            >
+              隐藏
+            </button>
+          </div>
         </div>
 
         {/*
@@ -1627,21 +1827,41 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
           </>
         )}
 
-        {/* 拖动跟随的幽灵卡 */}
+        {/* 拖动跟随的幽灵卡 + 落点准星 */}
         {drag && drag.moved ? (
-          <div
-            className="cr-ghost"
-            style={{ left: drag.x + 14, top: drag.y - 18, borderColor: drag.item.color }}
-          >
-            <span>{drag.item.name}</span>
-            <small>
-              {drag.lon === null || drag.lat === null
-                ? "拖到地图上"
-                : `${Math.abs(drag.lat).toFixed(1)}°${drag.lat >= 0 ? "N" : "S"} ${Math.abs(
-                    drag.lon
-                  ).toFixed(1)}°${drag.lon >= 0 ? "E" : "W"}`}
-            </small>
-          </div>
+          <>
+            {/*
+              **落点准星**（v2.1.0 需求 3）：判定用的就是指针这一点
+              （`onUp` 里 `toLonLat(event.clientX, event.clientY)`），
+              而幽灵卡画在指针的 (+14, -18) —— 学生看着"卡片压住了那块地"，
+              实际判定点却在卡片左上方十几像素之外。容差只有十几像素的时候
+              （0.42° ≈ 7 px），这个视觉差足以让人以为"我明明对准了却判错"。
+              准星把判定点显式画出来：**看到哪儿，就是判到哪儿**。
+
+              它**不泄漏答案**：准星一直钉在指针上，不显示目标位置，
+              也不显示"当前算不算对"（提前变绿就等于告诉学生答案在那儿）。
+              `is-off` = 指针不在画布内（`drag.lon === null`），松手不会判定 ——
+              准星变灰就是在说这件事。
+            */}
+            <div
+              className={`cr-drop-pin${drag.lon === null ? " is-off" : ""}`}
+              style={{ left: drag.x, top: drag.y }}
+              aria-hidden="true"
+            />
+            <div
+              className="cr-ghost"
+              style={{ left: drag.x + 14, top: drag.y - 18, borderColor: drag.item.color }}
+            >
+              <span>{drag.item.name}</span>
+              <small>
+                {drag.lon === null || drag.lat === null
+                  ? "拖到地图上"
+                  : `${Math.abs(drag.lat).toFixed(1)}°${drag.lat >= 0 ? "N" : "S"} ${Math.abs(
+                      drag.lon
+                    ).toFixed(1)}°${drag.lon >= 0 ? "E" : "W"}`}
+              </small>
+            </div>
+          </>
         ) : null}
 
         {/* 提示轮廓：闪烁的目标锚点 */}
@@ -1786,32 +2006,42 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
         </div>      </aside>
 
       {/*
-        介绍卡。两种形态（v1.3.0）：
-        - 答题模式：居中模态（放对了自动弹 / 点卡片主动看）。遮住地图没关系 ——
-          学生这时该看的是讲解，不是地图；
-        - 图鉴模式：浮在地图左下角的"知识卡"、无遮罩。图鉴的重点恰恰是
-          "一边对着地图看它在哪、一边读它是什么"，居中模态会把刚聚焦出来的
-          那一块正好压住（中国地图铺满整个舞台，居中卡片盖的是中原一带）。
+        介绍卡（v2.0.0 起两种模式都是**左侧停靠卡**）。
+
+        v1.5.3 以前是两种形态：答题模式居中模态（带遮罩），图鉴模式左下浮卡。
+        v2.0.0 用户明确要求"地图往右让位、弹窗在左边、不要遮挡地图" ——
+        居中模态无论如何都会压住地图正中的那一片（正是学生刚塑好、最想看的
+        那一块），所以两种模式统一成停靠卡：卡片贴在左下角，
+        地图同时右移让出左边那一条（`introInset` → `geo.mapLayout`）。
+
+        代价是说清"这是个对话框"的那层遮罩没有了 —— 换来的是
+        "一边看讲解、一边继续塑下一张"也能成立。要关掉有按钮，也有 ESC。
+        `is-atlas` 仍只在图鉴下挂，它现在只用来对齐边距（见 styles.css）。
       */}
       {infoItem ? (
         <div
-          className={`cr-sheet${atlas ? " is-atlas" : ""}`}
+          className={`cr-sheet is-docked${atlas ? " is-atlas" : ""}`}
           role="dialog"
-          aria-modal={atlas ? undefined : true}
           onClick={closeIntro}
         >
           <div className="cr-sheet-card" onClick={(e) => e.stopPropagation()}>
             <button type="button" className="cr-sheet-close" onClick={closeIntro}>
               ×
             </button>
-            <div className="cr-sheet-photo">
+            {/*
+              照片失败态是**声明式**的：`photoFailed` 由 `photoFailedId` 与当前条目比对得出，
+              换条目自动重判，不需要任何复位逻辑。
+              `key={infoItem.id}` 是第二道保险：换条目时让 React **重建** img 节点，
+              免得旧图的解码结果在 src 换掉那一帧还挂在屏幕上。
+              ⚠️ 别退回 `onError` 里改 style / classList —— 见 `photoFailedId` 的注释。
+            */}
+            <div className={`cr-sheet-photo${photoFailed ? " is-missing" : ""}`}>
               <img
+                key={infoItem.id}
                 src={`./assets/photos/${infoItem.id}.jpg`}
                 alt={infoItem.name}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                  e.currentTarget.parentElement?.classList.add("is-missing");
-                }}
+                style={photoFailed ? { display: "none" } : undefined}
+                onError={() => setPhotoFailedId(infoItem.id)}
               />
               <span className="cr-sheet-photo-fallback">
                 {infoItem.name}
@@ -2065,8 +2295,8 @@ function Lobby({
         <header className="cr-lobby-head">
           <h1>山河塑形·中国地形</h1>
           <p>
-            把四大高原、四大盆地、三大平原和 27 条山脉的卡片拖到地图上正确的位置，
-            放对的地方会按真实高程塑出来。全部归位后，中国地势三级阶梯自己长出来。
+            把四大高原、四大盆地、三大平原、东南丘陵和 27 条山脉的卡片拖到地图上
+            正确的位置，放对的地方会按真实高程塑出来。
             <br />
             觉得整幅空白太难，可以把「起始地图」换成随机预置 —— 图上先摆好一部分，
             只补缺的那些；想针对性训练，就把「练习范围」收成某一类。
@@ -2357,29 +2587,72 @@ function KeyPanel({
 }
 
 /**
- * 南海诸岛附图。
+ * 南海诸岛附图（v2.0.0 重做）。
  *
  * 主图取景到 17°N 为止（含海南、台湾）。南海诸岛整体在 17°N 以南，
  * 按国家地图规范必须另附小图表示，否则这份中国地图就是不合规的。
  * 十段线与岛礁都取自同一份国界数据，不是随手画的示意线。
+ *
+ * ## v1.5.3 那版为什么"丑"（逐条查过，见 build_nanhai.py 顶部）
+ *
+ * · viewBox 是 `0 0 19.563 19.000`，但内容只到 x=14.70 —— **右侧 36% 全是空海**；
+ * · 十段线**根本没画**：数据只从 `cn.json`（国界陆地）抽，而十段线在
+ *   `cn_full.json` 的 `adchar="JD"` 那个 feature 里；
+ * · 157 条 path 一律 `fill="#f2f5f0"` 画在 `#9dc0da` 的海上 —— 0.3° 的小岛
+ *   缩到 2px 宽，近白色基本看不见，所以整张图像空的；
+ * · 「南海诸岛」四个字 9px 压在左下角，还被岛礁压住。
+ *
+ * ## 这一版的画法
+ *
+ * · **面归面、线归线**：`islands` 填充，`dashes` 描边。
+ *   十段线每一段只有 0.01° 宽（是断续线的"笔画"），填充出来等于没画，
+ *   所以后端先把细长条提成**脊线折线**再交给这里描边。
+ * · viewBox 已在小图自己的坐标系里收紧到内容包围盒（后端算的），不留空。
+ *
+ * ## v2.0.2 修了什么
+ *
+ * 用户反馈"小图过于小、看南海诸岛的图特别奇怪"。查下来是**两个独立的问题**：
+ *
+ * ① **`vector-effect` 写在 `<g>` 上等于没写**（它不是继承属性）。于是 0.9 被当成
+ *    0.9 个**用户单位**：小图 17.762 用户单位宽映射到 124px ⇒ 缩放 6.98 倍
+ *    ⇒ 实际描边 6.3px；十段线 2 用户单位 ⇒ **14px**。196 块岛礁里 180 块屏幕
+ *    尺寸 < 3px，被粗描边整块吃掉，全成深色块 —— 与十段线的粗条长得一样，
+ *    整张图就是一团分不清的深色斑。**根因是描边缩放，不是配色。**
+ *    现在统一由 styles.css 的 `.cr-nanhai svg path` 兜住（path 层才生效）。
+ * ② **小图本身太小**：124px 宽里要塞下 196 块岛礁 + 十段线 + 四字标题，
+ *    四字标题就占掉 38% 宽。宽度提到 **188px**（+52%），高度由 viewBox 宽高比推出。
+ *
+ * 配色与线型也一并搬到了 styles.css（岛礁中绿实心 / 十段线暗红 butt），
+ * 理由写在那边 —— 这里只留结构。
  */
+const NANHAI_BOX_W = 188;
+
 function NanhaiInset() {
-  const paths = NANHAI.paths;
-  if (paths.length === 0) {
+  const [vx, vy, vw, vh] = NANHAI.viewBox.split(" ").map(Number);
+  if (!(vw > 0 && vh > 0)) {
     return null;
   }
-  const vb = NANHAI.viewBox.split(" ");
-  const w = Number(vb[2]);
-  const h = Number(vb[3]);
-  const boxW = 132;
-  const boxH = (boxW * h) / w;
+  const boxH = (NANHAI_BOX_W * vh) / vw;
   return (
-    <div className="cr-nanhai" style={{ width: boxW, height: boxH }}>
-      <svg viewBox={NANHAI.viewBox} preserveAspectRatio="xMidYMid meet">
-        <rect x={0} y={0} width={w} height={h} fill="#9dc0da" />
-        {paths.map((d, idx) => (
-          <path key={idx} d={d} fill="#f2f5f0" stroke="#5b6b5f" strokeWidth={0.06} />
-        ))}
+    <div className="cr-nanhai" style={{ width: NANHAI_BOX_W, height: boxH }}>
+      <svg viewBox={NANHAI.viewBox} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <rect x={vx} y={vy} width={vw} height={vh} fill="#9dc0da" />
+        {/*
+          ⚠ 别再给这两个 `<g>` 加 `vectorEffect` —— 它**不是继承属性**，写在 `<g>`
+          上对子 path 完全无效（v2.0.2 修掉的正是这个）。线宽/配色见 styles.css。
+        */}
+        <g className="cr-nanhai-islands">
+          {NANHAI.islands.map((d, idx) => (
+            <path key={idx} d={d} />
+          ))}
+        </g>
+        {/* 十段线：脊线描边。端头在 CSS 里定为 butt —— `round` 会把每一小段
+            渲染成圆点，与岛礁长得一模一样（这是"分不清线与岛"的第二个原因） */}
+        <g className="cr-nanhai-dashes">
+          {NANHAI.dashes.map((d, idx) => (
+            <path key={idx} d={d} />
+          ))}
+        </g>
       </svg>
       <span>南海诸岛</span>
     </div>

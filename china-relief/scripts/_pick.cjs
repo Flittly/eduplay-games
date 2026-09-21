@@ -28,38 +28,338 @@ const CHINA_DEM = {
 	maskB64: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADf///gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////9gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAH///////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPAf///////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf9////////////+eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf///////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/////////////////AAAAAAAAAAAAAAAAAAAAAAAAABOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/////////////////gAAAAAAAAAAAAAAAAAAAAAAAAH/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////////gAAAAAAAAAAAAAAAAAAAAAAAAP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////////4AAAAAAAAAAAAAAAAAAAAAAAAP+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////gAAAAAAAAAAAAAAAAAAAAAAAP/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////gAAAAAAAAAAAAAAAAAAAAAAAf/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////////////AAAAAAAAAAAAAAAAAAAAAAAAf/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////wAAAAAAAAAAAAAAAAAAAAAAf//+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////wAAAB+AAAAAAAAAAAAAAAAA///+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////wAAAf8AAAAAAAAAAAAAAAAB///+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////wAAD/wAAAAAAAAAAAAAAAAB////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////////////////gAA//gAAAAAAAAAAAAAAAAB/////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////////////////wAB//gAAAAAAAAAAAAAAAAB/////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//8B///////////////4AH//gAAAAAAAAAAAAAAAAB/////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAch4A///////////////4AX//wAAAAAAAAAAAAAAAAB//////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA4AP///////////////////wAAAAAAAAAAAAAAAAB//////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAP///////////////////wAAAAAAAAAAAAAAAAB//////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////gAAAAAAAAAAAAAAAAA//////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////////////+AAAAAAAAAAAAAABAAA//////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//////////////////8AAAAAAAAAAAAAADwAB//////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////8AAAAAAAAAAAAAAH8AP//////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////8AAAAAAAAAAAAAAH/////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////4AAAAAAAAAAAAAAH/////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////////////////4AAAAAAAAAAAAAAP//////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdwP/////////////////4AAAAAAAAAAAAAAP//////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAN////////////////////wAAAAAAAAAAAAAAf//////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf////////////////////gAAAAAAAAAAAAAAf//////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEf////////////////////wAAAAAAAAAAAAAAf/////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////////wAAAAAAAAAAAAAAf/////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////////wAAAAAAAAAAAAAA///////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////////////////////AAAAAAAAAAAAAAB///////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//////////////////////AAAAAAAAAAAAAAD//////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////////////////AAAAAAAAAAAAAAB//////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////////////+AAAAAAAAAAAAAAD//////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////////////////8AAAAAAAAAAAAAAD//////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////////8AAAAAAAAAAAAAAB//////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAABB//////////////////////4AAAAAAAAAAAAABw//////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////////////////////wAAAAAAAAAAAAAf////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////////////////////wAAAAAAAAAAAAP/////////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////////////////////4fwAAAAAAAAAAAB////////////////+AAAAAAAAAAAAAAAAAAAAAAAfgAf/////////////////////wDgAAAAAAAAAAAD/////////////////wAAAAAAAAAAAAAAAAAAAAAA/wB//////////////////////gAAAAAAAAAAAAAD/////////////////wAAAAAAAAAAAAAAAAAAAAAA//H/////////////////////8AAAAAAAAAAAAAAA/////////////////+AAAAAAAAAAAAAAAAAAAAAB////////////////////////8AAAAAAAAAAAAAAAP/////////////////gAAAAAAAAAAAAAAAAAAAAB////////////////////////8AAAAAAAAAAAAAAAf/////////////////wAAAAAAAAAAAAAAAAAAAAD////////////////////////+AAAAAAAAAAAAAAAP/////////////////4AAAAAAAAAAAAAAAAAAAAD////////////////////////+AAAAAAAAAAAAAAAP//////////////////4AAAAAAAAAAAAAAAAAAAD////////////////////////+AAAAAAAAAAAAAAAP//////////////////4AAAAAAAAAAAAAAAAAAAB/////////////////////////AAAAAAAAAAAAAAAP//////////////////wAAAAAAAAAAAAAAAAAAAB/////////////////////////AAAAAAAAAAAAAAAP//////////////////8AAAAAAAAAAAAAAAAAAAA/////////////////////////AAAAAAAAAAAAAAAH//////////////////+AAAAAAAAAAAAAAAAAAAAP///////////////////////+AAAAAAAAAAAAAAAH//////////////////+AAAAAAAAAAAAAAAAAAAAP///////////////////////+AAAAAAAAAAAAAAAH//////////////////+AAAAAAAAAAAAAAAAAAAA////////////////////////+AAAAAAAAAAAAAAAD//////////////////+AAAAAAAAAAAAAAAAAAAB////////////////////////+AAAAAAAAAAAAAAAD///////////////////AAAAAAAAAAAAAAAAAAAH/////////////////////////AAAAAAAAAAAAAAAD///////////////////AAAAAAAAAAAAAAAAAAAf/////////////////////////AAAAAAAAAAAAAAAB///////////////////gAAAAAAAAAAAAAAAAAA/////////////////////////+AAAAAAAAAAAAAAAH///////////////////wAAAAAAAAAAAAAAAAAD/////////////////////////+AAAAAAAAAAAAAAAP///////////////////4AAAAAAAAAAAAAAAAAD/////////////////////////+AAAAAAAAAAAAAAAP///////////////////8AAAAAAAAAAAAAAAAAD/////////////////////////+AAAAAAAAAAAAAAAf///////////////////8GAAAAAAAAAAAAAAAAP////////////////////////H8AAAAAAAAAAAAAAA///////////////////////AAHwAAAAAAAAAAA/////////////////////////HAAAAAAAAAAAAAAAA///////////////////////////AAAAAAAAAAP/////////////////////////HgAAAAAAAAAAAAAAA///////////////////////////4AAAAAACEkf/////////////////////////BAAAAAAAAAAAAAAAA///////////////////////////8AAAAAAP////////////////////////////BgAAAAAAAAAAAAAAAf///////////////////////////AAAAAH////////////////////////////wAAAAAAAAAAAAAAAAA////////////////////////////8AAAAf////////////////////////////wAAAAAAAAAAAAAAAAD/////////////////////////////gAAB/////////////////////////////gAAAAAAAAAAAAAAAAH/////////////////////////////wAAP///////////////////////////+YAAAAAAAAAAAAAAAAA////////////////////////////////Af////////////////////////////AAAAAAAAAAAAAAAAAD////////////////////////////////B/////////////////////////////AAAAAAAAAAAAAAAAAP////////////////////////////////7///////////////////////////v/gAAAAAAAAAAAAAAAAf////////////////////////////////////////////////////////////H/gAAAAAAAAAAAAAAAH////////////////////////////////////////////////////////////+B/gAAAAAAAAAAAAAAAH/////////////////////////////////////////////////////////////ADAAAAAAAAAAAAAAAAf////////////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAw/////////////////////////////////////////////////////////////4AAAAAAAAAAAAAAAAD//////////////////////////////////////////////////////////////wAAAAAAAAAAAAAAAAD//////////////////////////////////////////////////////////////wAAAAAAAAAAAAAAAAH////////////////////////////////////////////////////////H////+AAAAAAAAAAAAAAAAQH////////////////////////////////////////////////////////A////8AAAAAAAAAAAAAAAB4H///////////////////////////////////////////////////////8Af///wAAAAAAAAAAAAAAAf4v///////////////////////////////////////////////////////8Af///AAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////wA///8AAAAAAAAAAAAAAAB//////////////////////////////////////////////////////////wA///4AAAAAAAAAAAAAAAP//////////////////////////////////////////////////////////wA///wAAAAAAAAAAAAAAAf/////////////////////////////////////////////////////////+AB///gAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////4AD///gAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////AAP///AAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////+AAP//yAAAAAAAAAAAAAAAA/////////////////////////////////////////////////////////8AA//8AAAAAAAAAAAAAAAAD/////////////////////////////////////////////////////////8AA//4AAAAAAAAAAAAAAAAH/////////////////////////////////////////////////////////+AA/+IAAAAAAAAAAAAAAAAD/////////////////////////////////////////////////////////8AAP7gAAAAAAAAAAAAAAAAD/////////////////////////////////////////////////////////4AAH/gAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////////fwAAfxkAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////////OAAB/gkAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////////GAAB+AAAAAAAAAAAAAAAAAAB///////////////////////////////////////////////////////+AAAB4AAAAAAAAAAAAAAAAAAA///////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAA5//////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////////////AAAGAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////////////wAAMAAAAAAAAAAAAAAAAAAAAAf///////////////////////////////////////////////////////wAEAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////wAYAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////4AMAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////8A+AAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////8B/gAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////wD/4QAAAAAAAAAAAAAAAAAAAH///////////////////////////////////////////////////////wH//4AAAAAAAAAAAAAAAAAAAD///////////////////////////////////////////////////////wP///AAAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////////8P///AAAAAAAAAAAAAAAAAAB/////////////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////++AAAAAAAAAAAAAAAAAAAA//////////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAH/////////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAD/////////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAD////////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAD////////////////////////////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAD////////////////////////////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAD////////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAA///////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAB3//////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAD//////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAB//////////////////////////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAAX/////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAP////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAP////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAP////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAH///////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAH///////////////////////////////////////////////////9AAAAAAAAAAAAAAAAAAAAAAAAAAAH////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAD////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAf///////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAH////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAP////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAf////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAf////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAf////////////////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAf////////////////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAf////////////////////////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAAAf////////////////////////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAAAP////////////////////////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAAAH////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAH////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAD////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAD////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAR////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAABx/////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAB7/////////////////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAB//////////////////////////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAB//////////////////////////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAB//////////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAA//////////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAA///////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAP/////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////////////////////////////////////////////kAAAAAAAAAAAAAAAAAAAAAAAAAD////////////////////////////////////////////////////42gAAAAAAAAAAAAAAAAAAAAAAAAB////////////////////////////////////////////////////gQAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////////////////////////////gMAAAAAAAAAAAAAAAAAAAAAAAAAAB///////////////////////////////////////////////////x8AAAAAAAAAAAAAAAAAAAAAAAAAAA+H/////////////////////////////////////////////////48AAAAAAAAAAAAAAAAAAAAAAAAAAAcH/////////////////////////////////////////////////94gAAAAAAAAAAAAAAAAAAAAAAAAAAYH//////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM////////////////////////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////////////////////////////////////////////9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////v//////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////v/////////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////////////D/////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf////3//////4H/D/////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////A//////wD/B/////////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANn/w+ADv////wA/B/////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB8A8ABP////AAMB////////////////////////////9gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8AAH///+AAMB////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB4AAH///wAAAA////////////////////////////4gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4AAH///AAAAA3///////////////////////////5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8AAA//+AAAAAH///////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4AAAf/8AAAAAH///////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAA//4AAAAAH///////////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//4AAAAAH///////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/gAAAAAH///////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYoAAAAAAH//////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////////////sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////////////////////sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////////////////////wAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////////////////////wAAAAQYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////gAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////wAAQBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////////////////////////4AAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////////////////////////4AAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////////////////////wAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////gAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////////////////////AA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////4AB/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////wAD/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////////////////wAD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///////////////////////////gAH/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///////////////////////////AAP/AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////////////////////////+AAP/AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////////////////////////8AAf/AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////////////wAA//BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////////////////////////wAA/+BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////////////////AAA/8BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8H////////////////////////AAB/8BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYH///////////////////////+AAB/8BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////////////////////8AAD/8BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////////////////8ABj/4CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////////////////4ABz/4CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////////////////AABD/4CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////////////////4AABH/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD////////f/////////////8AADH/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////4f/////////////wAAAH/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////4f/////////////wAAAH/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////4G/////////////gAAAD/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////wAD///////////+AAAAD/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////+AAD//////////3QAAAAD/oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///z2wAAH//////////gAAAAAB/IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///hgQAAH/////////+AAAAAAB+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//3gAAAAH/////////4AAAAAAA+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//wAAAAAH////////74AAAAAAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///wAAAAAD////////7wAAAAAAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//wAAAAAD////////4YAAAAAAAOMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//4AAAAAD////////mwAAAAAAAMEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//4AAAAAA///////3gAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/4AAAAAAf//////8AAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf78AAAAAAH/////54AAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPz4AAAAAAAfD///wIAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHH4AAAAAAAAD3/8AAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4AAAAAAAAAH+AAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAAAAAH+AAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAACP8AAAAAAMAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACP8AAAAAAMAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP2AAAAAAIAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAAMAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH8AAAAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH8AAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//gAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//+AAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//+AAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//+AAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//8AAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//8AAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//8AAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/8AAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//gAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/gAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/AAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 };
 //#endregion
+//#region src/data/regions.ts
+const STEP_LINES = [{
+	id: "step12",
+	name: "昆仑山脉—阿尔金山脉—祁连山脉—横断山脉",
+	hiStep: 1,
+	loStep: 2,
+	probeHi: [88, 32.5],
+	probeLo: [83.5, 39.6],
+	line: [
+		[76, 36.2],
+		[80, 36.6],
+		[84, 36.3],
+		[86.5, 36.1],
+		[88, 37.9],
+		[89.6, 38.3],
+		[91.6, 38.7],
+		[93.6, 39],
+		[95, 39.3],
+		[96.2, 38.8],
+		[98.2, 38.3],
+		[100, 37.8],
+		[101.6, 37.3],
+		[103.2, 36.8],
+		[102.4, 34.6],
+		[101, 32.2],
+		[99.6, 30.4],
+		[98.67, 29.6],
+		[98.35, 26.4]
+	],
+	blurb: "第一、二级阶梯的分界线：西起昆仑山脉，向东接阿尔金山脉、祁连山脉，再折向南方沿横断山脉直到云南西部。线以西、以南是第一级阶梯（青藏高原），以东、以北是第二级阶梯。"
+}, {
+	id: "step23",
+	name: "大兴安岭—太行山脉—巫山—雪峰山",
+	hiStep: 2,
+	loStep: 3,
+	probeHi: [105, 35],
+	probeLo: [116, 36],
+	line: [
+		[122.4, 53.1],
+		[122.8, 51.5],
+		[121.8, 49.8],
+		[120.6, 47.8],
+		[119.6, 45.6],
+		[118.7, 43.6],
+		[118.3, 42.6],
+		[116.6, 41.2],
+		[115.8, 40.2],
+		[114.8, 38.5],
+		[114, 37],
+		[113.5, 36],
+		[113, 35.2],
+		[111.8, 33.5],
+		[110.2, 31.8],
+		[109.8, 30.9],
+		[109.5, 30.1],
+		[110.5, 29.2],
+		[110.9, 27.8],
+		[111.2, 26.6],
+		[110, 25.2],
+		[108.5, 23.6],
+		[106.8, 22.6]
+	],
+	blurb: "第二、三级阶梯的分界线：北起大兴安岭，向南接太行山脉、巫山、雪峰山，再沿云贵高原东南缘延伸到中越边境。线以东、以南是第三级阶梯，以西、以北是第二级阶梯。"
+}];
+//#endregion
+//#region src/proj.ts
+/**
+* Albers 等积圆锥投影（中国全图的标准投影）+ 投影网格的定义。
+*
+* ## 为什么换掉原来的「按 cos(36°) 修正的等距圆柱」
+*
+* 等距圆柱把中国画成一个**规规矩矩的矩形**：南北向的经线不收敛，
+* 新疆与黑龙江被横向拉平，南北方向还比东西方向"长"。
+* 课本上那张中国地图是**扇形**（上窄下宽、左右两条边向内收），
+* 因为用的是圆锥投影 —— 这个形状差异是学生一眼就能看出来的，
+* 也是使用者会说"这个投影有点奇怪"的直接原因。
+*
+* ## 换投影的代价，以及它落在哪一层
+*
+* DEM 是**经纬度栅格**。等距圆柱下"栅格 (i,j) ⇒ 画布像素"是纯查表，
+* 换圆锥就得给每个点做反投影 —— 这正是 v1.0.0 当初选等距圆柱的理由
+* （见 geo.ts 的历史注释）。但那个代价其实**只落在渲染层**，而且有个
+* 干净的解法：
+*
+*   **不去逐像素反投影（那是 100 万次三角函数、每帧几十毫秒），
+*   而是在投影平面上重新开一张规则网格**，逐格反投影回经纬度、
+*   从原 DEM 采样一次。于是：
+*
+*   · 渲染层几乎不用改 —— 它拿到的仍是一张**规则矩形网格**，
+*     四邻运算（海岸线描边、档界、晕渲梯度、归属边界）全都继续成立；
+*   · 重采样只在**建表时做一次**（约 20 万格），运行时零成本；
+*   · 而且投影网格是**等积**的 —— "上下左右四个邻居"的实际距离相等。
+*     晕渲的梯度在等距圆柱下其实是错的：那边东西向一格只有 90 km、
+*     南北 111 km，同一个坡度在东西与南北方向算出来差 1.24 倍。
+*
+* 代价是运行时要按投影另算一份 alt/land/region（geo.ts 的 `buildProjected`），
+* 但它是从原数据现算的，不进包、不增体积。
+*
+* ## 为什么落点判定一行都不用改
+*
+* 判定查的是**经纬度**栅格（`REGION_GRID`）—— 投影只影响"画在哪儿"，
+* 不影响"这一格属于谁"。所以 `gridIndex` / `judgeAreaDrop` / `judgeRangeDrop`
+* 原样不动，判定口径与地图数据仍然完全一致。这条很关键：投影一换，
+* 屏幕上每一块地的形状都变了，判定要是也跟着变，就再没有"同源"可言了。
+*
+* ## 参数
+*
+* 中央经线 105°E、双标准纬线 25°N 与 47°N —— 中国全图出版物的标准配置，
+* 全国范围内的形变最小（标准纬线之间面积比 1.000，最远处也在 1% 量级）。
+*
+* 球面公式而不是椭球：本游戏最细的一格是 11.9 km，球体近似的误差在
+* 几十米量级 —— 差三个数量级，没必要上椭球级数。
+*/
+/** 地球平均半径（km）。投影只用来摆位置，这个精度足够 */
+const R_KM = 6371;
+const RAD = Math.PI / 180;
+const ALBERS = {
+	/** 中央经线（东经） */
+	lon0: 105,
+	/** 双标准纬线 */
+	phi1: 25,
+	phi2: 47,
+	/**
+	* 原点纬度。取赤道（0）而不是某个标准纬线，是为了让公式里
+	* `rho0` 有一个固定的物理含义（赤道处的锥面半径），
+	* 而不是"随便选一个纬度、只影响 y 的零点"。
+	*/
+	phi0: 0
+};
+const n = (Math.sin(ALBERS.phi1 * RAD) + Math.sin(ALBERS.phi2 * RAD)) / 2;
+const C = Math.cos(ALBERS.phi1 * RAD) ** 2 + 2 * n * Math.sin(ALBERS.phi1 * RAD);
+/** 锥面在原点纬度处的半径 */
+const RHO0 = Math.sqrt(C - 2 * n * Math.sin(ALBERS.phi0 * RAD)) / n;
+/** 某个纬度对应的锥面半径（球面 Albers） */
+function rhoOf(latDeg) {
+	return Math.sqrt(C - 2 * n * Math.sin(latDeg * RAD)) / n;
+}
+/**
+* 经纬度 → 投影平面（世界单位）。
+*
+* 注意与屏幕坐标的**y 方向相反**：这里 y 向北为正（数学惯例），
+* 屏幕上是"北在上"，所以渲染层会取负（见 geo.ts 的 `latToZ`）。
+* 混着用的话地图会上下颠倒 —— 而且看起来只是"这地图怪怪的"。
+*/
+function project(lon, lat) {
+	const rho = rhoOf(lat);
+	const th = n * (lon - ALBERS.lon0) * RAD;
+	return {
+		x: rho * Math.sin(th) * R_KM / 100,
+		y: -(rho * Math.cos(th) - RHO0) * R_KM / 100
+	};
+}
+/**
+* 经纬度矩形**投影之后**的包围盒。
+*
+* 不能只投四个角：圆锥投影下经纬度矩形的边界是**曲线**
+* （纬线是圆弧，经线是直线），四角算出来的盒子会把上下两条弧切掉一块，
+* 于是地图的南北两端被裁掉、而**看起来只是"取景范围选得紧"**。
+*
+* 所以沿四条边采样。240 段对 480 格的栅格来说已经远超需要
+* （相邻采样点间隔 0.26°，弧的矢高不到 0.001 世界单位 ≈ 100 m）。
+*/
+function projectBounds(lon0, lon1, lat0, lat1, samples = 240) {
+	let x0 = Infinity;
+	let x1 = -Infinity;
+	let y0 = Infinity;
+	let y1 = -Infinity;
+	const put = (lon, lat) => {
+		const p = project(lon, lat);
+		if (p.x < x0) x0 = p.x;
+		if (p.x > x1) x1 = p.x;
+		if (p.y < y0) y0 = p.y;
+		if (p.y > y1) y1 = p.y;
+	};
+	for (let k = 0; k <= samples; k++) {
+		const t = k / samples;
+		const lon = lon0 + (lon1 - lon0) * t;
+		const lat = lat0 + (lat1 - lat0) * t;
+		put(lon, lat0);
+		put(lon, lat1);
+		put(lon0, lat);
+		put(lon1, lat);
+	}
+	return {
+		x0,
+		y0,
+		x1,
+		y1,
+		w: x1 - x0,
+		h: y1 - y0
+	};
+}
+/**
+* 按原 DEM 的格距（km）造一张覆盖 `bounds` 的等积网格。
+*
+* 格距取"原 DEM 在赤道上的格距"（`111.32 km/度 × 0.1116 度`）——
+* 也就是 **11.9 km**（见 geo.ts 的 `CELL_M`）。取更细不会更清楚
+* （源数据就这么粗），只会让建表变慢；取更粗则会丢掉现在能看见的窄河谷。
+*
+* 宽高各**向上取整**，宁可多出一两格把 bounds 包住，也不要裁掉边缘。
+*/
+function makeGrid(bounds, cellKm) {
+	const d = cellKm / 100;
+	const width = Math.max(1, Math.ceil(bounds.w / d));
+	const height = Math.max(1, Math.ceil(bounds.h / d));
+	const padX = (width * d - bounds.w) / 2;
+	const padY = (height * d - bounds.h) / 2;
+	return {
+		width,
+		height,
+		x0: bounds.x0 - padX,
+		y0: bounds.y1 + padY,
+		d,
+		bounds
+	};
+}
+//#endregion
 //#region src/geo.ts
 /**
 * 纯逻辑：投影、DEM / 遮罩 / 区域位图的解码、几何工具。
 *
-* 这一层刻意不依赖 React 与 three.js —— 于是"落点判定对不对""投影正反变换
-* 是否自洽"能用 Node 直接跑回归（scripts/game.test.cjs），
-* 而不必开浏览器截图去看。
+* 这一层刻意不依赖 React 与 canvas —— 于是"落点判定对不对""投影正反变换
+* 是否自洽""投影网格有没有盖住取景范围"能用 Node 直接跑回归
+* （scripts/game.test.cjs），而不必开浏览器截图去看。
 *
-* ## 投影：为什么是"按 cos(36°) 修正的等距圆柱"
+* ## 投影：Albers 等积圆锥（v2.0.0 起，之前是"按 cos(36°) 修正的等距圆柱"）
 *
-* 游戏要把经纬度栅格上的 DEM 逐格搬到三维顶点上，并在同一套索引空间里
-* 做隆起、着色和落点判定。等距圆柱下网格 (i,j) 与顶点 (x,z) 一一对应，
-* 全都退化成查表；换成 Albers 就要给每个顶点做反投影，精度省下的那点形变
-* 远抵不过复杂度。x 方向乘 cos(36°) 之后，南北与东西的**地面米数比例**
-* 与真实一致 —— 这是"中国看起来没有横向拉长"的关键。
+* 为什么换、以及为什么换得起，全部写在 `proj.ts` 的头部注释里，这里只留
+* 一句最要紧的：**投影只影响"画在哪儿"，不影响"这一格属于谁"**。
 *
-* 世界单位取 100 km，好让相机 near/far、光照距离都落在顺手量级。
+* 于是这一层的结构是**两套网格并存**，而且它们各有各的用途、不许混用：
+*
+*   · **原经纬度栅格**（480 × 358，`SRC_W/SRC_H`）—— 判定用。
+*     `regionGrid` / `land` 都在这套网格上，`gridIndex()` 也只认它。
+*     它跟着数据走，永远不变。
+*   · **投影网格**（约 575 × 358，`GRID_W/GRID_H`）—— 渲染用。
+*     在投影平面上均匀划分，逐格反投影回经纬度、从上面那套采样。
+*     它跟着投影参数走，是"地图长什么样"的载体。
+*
+* ⚠️ 混用这两套是这一版最容易犯的错，而且**错得很安静**：
+* 拿投影网格的下标去查 `regionGrid`，落点判定会整体偏移十几格
+* （在图上是一百多公里），界面上的表现只是"判定有点不准"。
+* 所以 `judgeAreaDrop` 的入参刻意叫 `regionGrid` 而 `buildTerrainData`
+* 产出的那份叫 `region`（在 `proj` 字段里）——叫法不同，就不会顺手传错。
+*
+* 世界单位取 100 km（`WORLD_UNIT_KM`），好让相机 near/far、布局数字
+* 都落在顺手量级。
 */
 const KM_PER_DEG = 111.32;
-(CHINA_DEM.lon1 - CHINA_DEM.lon0) * KM_PER_DEG * CHINA_DEM.lonScale / 100;
-(CHINA_DEM.lat1 - CHINA_DEM.lat0) * KM_PER_DEG / 100;
-const GRID_W = CHINA_DEM.width;
-const GRID_H = CHINA_DEM.height;
-/** 经纬度 → 最近的栅格下标（会夹到边界内） */
+/** 原经纬度栅格（判定用） */
+const SRC_W = CHINA_DEM.width;
+const SRC_H = CHINA_DEM.height;
+/**
+* 一格的实际边长（km）。
+*
+* 经度方向算出来的 11.82 km 与纬度方向的 11.82 km **相等** ——
+* 这正是原数据乘 `lonScale = cos(36°)` 的目的（见 china-dem.ts 的元数据）。
+* 投影网格必须沿用这个格距：取更细不会更清楚（源数据就这么粗），
+* 取更粗会丢掉现在能看见的窄河谷。
+*/
+const CELL_KM = (CHINA_DEM.lon1 - CHINA_DEM.lon0) * KM_PER_DEG * CHINA_DEM.lonScale / SRC_W;
+/** 投影网格（渲染用） */
+const PROJ_GRID = makeGrid(projectBounds(CHINA_DEM.lon0, CHINA_DEM.lon1, CHINA_DEM.lat0, CHINA_DEM.lat1), CELL_KM);
+/** 地图在世界坐标里的宽高（世界单位）。含 `makeGrid` 向上取整多出来的那点余量 */
+const SPAN_X = PROJ_GRID.width * PROJ_GRID.d;
+const SPAN_Z = PROJ_GRID.height * PROJ_GRID.d;
+PROJ_GRID.width;
+PROJ_GRID.height;
+PROJ_GRID.x0 + SPAN_X / 2;
+PROJ_GRID.y0 - SPAN_Z / 2;
+/** 经纬度 → 原栅格下标（会夹到边界内）。**判定层专用，不认投影网格** */
 function gridIndex(lon, lat) {
-	const i = Math.round((lon - CHINA_DEM.lon0) / (CHINA_DEM.lon1 - CHINA_DEM.lon0) * (GRID_W - 1));
-	const j = Math.round((CHINA_DEM.lat1 - lat) / (CHINA_DEM.lat1 - CHINA_DEM.lat0) * (GRID_H - 1));
+	const i = Math.round((lon - CHINA_DEM.lon0) / (CHINA_DEM.lon1 - CHINA_DEM.lon0) * (SRC_W - 1));
+	const j = Math.round((CHINA_DEM.lat1 - lat) / (CHINA_DEM.lat1 - CHINA_DEM.lat0) * (SRC_H - 1));
 	return {
-		i: Math.min(GRID_W - 1, Math.max(0, i)),
-		j: Math.min(GRID_H - 1, Math.max(0, j))
+		i: Math.min(SRC_W - 1, Math.max(0, i)),
+		j: Math.min(SRC_H - 1, Math.max(0, j))
 	};
 }
+/**
+* 点落在**开放折线**的哪一侧：+1 / -1。
+*
+* 两步：先找**最近的那一段**定侧，而叉积用的是**未裁剪**的向量。后一步不是
+* 笔误 —— 它天然带"延长线"语义：折线端点之外的点也有确定答案（等价于把两端
+* 沿切线方向延长到无穷）。阶梯分界线正需要这个语义：横断山以南的云南、
+* 雪峰山以南的两广，线本身早就到头了，那两片地还是得判出级别来。
+*
+* 经度方向按 `cos(lat)` 压缩：不压的话纬度 40° 处的"东北方向"会被拉偏，
+* 判定会在北方整体歪掉 —— 而画面上只是"这条线有点斜"，看不出来。
+*
+* ⚠️ 与 `regions_source.py` 的 `side_of` 是**同一套算法**。跨语言的两份实现
+* 靠 `STEP_CITIES`（18 个真实城市）绑在一起：生成数据时 Python 跑一遍
+* （`build_regions.py` 的闸门），`scripts/game.test.cjs` 再跑一遍同一张表，
+* 两边判得不一样就红。改这里务必同步改那边。
+*/
+function sideOfPolyline(line, lon, lat) {
+	const kx = Math.cos(lat * Math.PI / 180);
+	let bestD = Infinity;
+	let bestS = 1;
+	for (let i = 0; i < line.length - 1; i++) {
+		const [ax, ay] = line[i];
+		const [bx, by] = line[i + 1];
+		const px = (lon - ax) * kx;
+		const py = lat - ay;
+		const dx = (bx - ax) * kx;
+		const dy = by - ay;
+		const l2 = dx * dx + dy * dy;
+		const raw = l2 === 0 ? 0 : (px * dx + py * dy) / l2;
+		const t = raw < 0 ? 0 : raw > 1 ? 1 : raw;
+		const d = Math.hypot(px - t * dx, py - t * dy);
+		if (d < bestD) {
+			bestD = d;
+			const cross = dx * py - dy * px;
+			if (cross !== 0) bestS = cross > 0 ? 1 : -1;
+		}
+	}
+	return bestS;
+}
+/**
+* 每条线的两个参考点各在哪一侧 —— 启动时**算一次**，运行时只做一次比较。
+*
+* 「哪一侧算高」不写在代码里，就靠 `probeHi` / `probeLo` 这两个点。
+* 硬编码左右的话，哪天把整条线反向重画（数据里点的顺序反过来，几何上完全等价）
+* 就会**两侧对调** —— 而画面上只是"颜色换个位置"，看着还挺正常。
+*/
+const STEP_ANCHORS = STEP_LINES.map((ln) => ({
+	ln,
+	hi: sideOfPolyline(ln.line, ln.probeHi[0], ln.probeHi[1]),
+	lo: sideOfPolyline(ln.line, ln.probeLo[0], ln.probeLo[1])
+}));
+STEP_ANCHORS.find((a) => a.ln.hiStep === 1 && a.ln.loStep === 2);
+STEP_ANCHORS.find((a) => a.ln.hiStep === 2 && a.ln.loStep === 3);
 /** 点到折线的最近距离（度）。经度按 cos(36°) 折算，避免高纬处"看着近其实远"。 */
 function distToPolyline(lon, lat, line, lonScale = CHINA_DEM.lonScale) {
 	let best = Infinity;
@@ -198,7 +498,8 @@ const ANCHOR_RADIUS_DEG = .375;
 /**
 * @param lon,lat    点击位置（经纬度，由 `terrain.pick()` 从画布坐标反算）
 * @param targets    候选条目（**只放此刻可点开的**）
-* @param regionGrid 区域归属位图（`decodeRegionGrid()` 的结果）
+* @param regionGrid 区域归属位图。传 `buildTerrainData().src.region`
+*                   （**原经纬度栅格**那份，不是投影网格那份）
 */
 function pickFeature(lon, lat, targets, regionGrid) {
 	let bestNamed = null;
@@ -234,7 +535,7 @@ function pickFeature(lon, lat, targets, regionGrid) {
 		distDeg: bestD
 	};
 	const { i, j } = gridIndex(lon, lat);
-	const gridId = regionGrid[j * GRID_W + i];
+	const gridId = regionGrid[j * SRC_W + i];
 	if (!gridId) return null;
 	const area = targets.find((t) => t.area?.gridId === gridId);
 	return area ? {

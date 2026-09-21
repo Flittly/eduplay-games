@@ -15,7 +15,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createEngine, type Engine, type Params, type Snapshot } from "./engine";
-import { DEM_SOURCES } from "./data";
+import { DEM_SOURCES, sourceByTag } from "./data";
+import { CHINA_MAP } from "./data/china-map";
+import { locationByTag } from "./data/locations";
+import LocationMap from "./LocationMap";
 import { drawPlanMap, drawProfile } from "./panels";
 import { ridgeValley, RIDGE_TPI, type ContourLevel } from "./contour";
 import { heightFn } from "./dem";
@@ -483,6 +486,24 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
             </div>
           ) : null}
         </div>
+
+        {snap ? (
+          <div className="mz-group">
+            <div className="mz-group-title">
+              地理位置
+              <b className="mz-num">{locationByTag(snap.mountainTag).province}</b>
+            </div>
+            <LocationMap
+              map={CHINA_MAP}
+              location={locationByTag(snap.mountainTag)}
+              mountainName={snap.name}
+              /* ⚠️ 坐标必须取 DemSource 的真实经纬度，**不能用 snap.lat** ——
+                 snap.lat 是下面那根「纬度」滑杆的值，用它红点会跟着滑杆南北平移。 */
+              realLat={sourceByTag(snap.mountainTag).lat}
+              realLon={sourceByTag(snap.mountainTag).lon}
+            />
+          </div>
+        ) : null}
 
         <div className="mz-group">
           <div className="mz-group-title">

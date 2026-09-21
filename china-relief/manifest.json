@@ -1,7 +1,7 @@
 {
   "gameCode": "china_relief",
   "name": "山河塑形·中国地形",
-  "version": "1.5.3",
+  "version": "2.1.0",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
@@ -10,5 +10,5 @@
   "cover": "web/cover.svg",
   "backendPlugin": null,
   "requiresRoster": true,
-  "description": "全班共用一张中国地图接力塑形：把四大高原、四大盆地、三大平原和 27 条山脉的卡片拖到正确位置，放对就按真实高程隆起并弹出实景讲解，各记各分、可随时换人。可分范围练习，起始地图可随机预置；另有不答题的「图鉴」模式逐条看讲解。底图四种：分层设色、原色地形、地势晕渲、遥感影像。"
+  "description": "把四大高原、四大盆地、三大平原、东南丘陵与 27 条山脉拖到中国地图的正确位置，放对一张就按真实高程隆起并弹出实景讲解。支持轮流答题、指定答题人与图鉴三种模式，适合八年级中国地形教学。"
 }

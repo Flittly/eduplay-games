@@ -23,6 +23,30 @@
   --green: #3f6b3a;
   --blue: #2a6f9e;
   --edge: 3px solid var(--ink);
+
+  /* ---- 字号档位 ----
+     只有 7 档，**不许在别处写裸数字**：改一次全站一起动，层级也永远不会糊。
+     在这之前是 11 个散落值（9.5/10/10.5/11/11.5/12/12.5/13/16/17/20），
+     光 10.5px 就出现 39 次 —— 那种情况下"哪个更重要"是看不出来的。
+
+     教室场景：投影仪 + 后排学生，所以整体比常规 UI 大一档有余；
+     底噪（页脚/图例小标题）也抬到 11.5px，不再有 9px 的文字。 */
+  --fs-2xs: 11.5px; /* 页脚、图例小标题、分组子标题、清单标签 */
+  --fs-xs: 13px;     /* 提示、地图说明、滑杆标签、清单次信息 */
+  --fs-sm: 14.5px;   /* 舞台副标题、图例行、底栏元信息、chip、读数表 */
+  --fs-md: 15.5px;   /* 底栏 tab、分组数值、图鉴名、地图读数 */
+  --fs-lg: 17px;     /* 底栏标题、清单海拔、错误框 */
+  --fs-xl: 21px;     /* 参数栏主标题、舞台山名 */
+  --fs-2xl: 24px;    /* 大号海拔读数 */
+  /* ⚠ 这一条的单位跟上面 7 档**不一样**：是 SVG 用户单位，不是屏幕像素。
+     SVG 里的 font-size 会随地图框宽等比缩放 ⇒ 只有"定了缩放比"才能反推屏幕尺寸。
+     故意不叫 --fs-3xl：那一族是 DOM 的屏幕 px，混进来就会重演
+     "字看着够大、投影出来看不清" 的老问题（24 用在这里，1024 宽下只渲染出 8.5px）。
+     34 的来历：插图框宽 150 用户单位，1024 宽视口下框只渲染 53px ⇒ 缩放比 0.36；
+     要满足"屏幕 em ≥ 12px"需 12 / 0.36 ≈ 33.3，向上取 34。
+     上限则来自几何：4 个汉字 × 34 + 左边距 6 = 142 < 150，刚好放得下。
+     乘出来的实际屏幕尺寸由 .workbuddy/tmp/vcheck-fs/assert_typography.py 的 ⑤ 复核。 */
+  --svg-inset-label: 34px;
 }
 
 * {
@@ -47,11 +71,16 @@ button {
 
 .mz-root {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 336px;
+  /* 右栏宽度：336px 时字号放大后「自然带图鉴」与「提示」频繁折行，
+     面板内容高度冲到 2324px（视口 940 ⇒ 要滚 2.5 屏）。
+     372px 让最长的一行提示少折 1~2 行，滚动量明显下降；
+     代价是三维舞台窄 36px（1440 视口下 1104 → 1068，−3.3%），可接受。 */
+  grid-template-columns: minmax(0, 1fr) 372px;
   /* 底部栏高度：平面等高线图是**正方形**、且受栏高限制（等高线栏矮而宽），
      所以这一行的高度直接决定地图能画多大 —— 268px 时正方形只有 192px。
-     300px 让它到 224px；再高就会挤占三维舞台了。 */
-  grid-template-rows: minmax(0, 1fr) 300px;
+     300px 时 224px；字号整体放大后标签变大，320px 让它到 ~240px，
+     再高就会挤占三维舞台了（舞台 640 → 620）。 */
+  grid-template-rows: minmax(0, 1fr) 320px;
   grid-template-areas:
     "stage panel"
     "bottom panel";
@@ -94,13 +123,13 @@ button {
 }
 
 .mz-stage-name {
-  font-size: 17px;
+  font-size: var(--fs-xl);
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
 .mz-stage-sub {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
@@ -117,7 +146,7 @@ button {
 }
 
 .mz-legend-title {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   color: var(--ink-2);
@@ -128,7 +157,7 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   line-height: 1.7;
 }
 
@@ -160,21 +189,21 @@ button {
 }
 
 .mz-hovercard-alt {
-  font-size: 20px;
+  font-size: var(--fs-2xl);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
 
 .mz-hovercard-belt {
-  font-size: 12px;
+  font-size: var(--fs-md);
   font-weight: 700;
   color: var(--red);
   margin-bottom: 4px;
 }
 
 .mz-hovercard-line {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--ink-2);
   line-height: 1.6;
 }
@@ -200,7 +229,7 @@ button {
   background: rgba(250, 245, 234, 0.97);
   border: 3px solid var(--red);
   color: var(--red);
-  font-size: 13px;
+  font-size: var(--fs-lg);
   overflow: auto;
 }
 
@@ -225,7 +254,7 @@ button {
 
 .mz-bottom-head h2 {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-lg);
   font-weight: 800;
   letter-spacing: 0.06em;
   white-space: nowrap;
@@ -238,7 +267,7 @@ button {
 
 .mz-tab {
   padding: 5px 12px;
-  font-size: 12px;
+  font-size: var(--fs-md);
   font-weight: 700;
   background: var(--paper-2);
   color: var(--ink-2);
@@ -262,7 +291,7 @@ button {
 
 .mz-bottom-meta {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
@@ -315,14 +344,14 @@ button {
 }
 
 .mz-list-level {
-  font-size: 13px;
+  font-size: var(--fs-lg);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   min-width: 58px;
 }
 
 .mz-list-meta {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   color: var(--ink-3);
 }
 
@@ -332,7 +361,7 @@ button {
 
 .mz-list-tag {
   margin-left: auto;
-  font-size: 9px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   padding: 1px 4px;
   border: 1px solid currentColor;
@@ -340,7 +369,7 @@ button {
 
 .mz-list-empty {
   padding: 16px;
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: var(--ink-3);
 }
 
@@ -365,14 +394,14 @@ button {
 }
 
 .mz-title span {
-  font-size: 16px;
+  font-size: var(--fs-xl);
   font-weight: 800;
   letter-spacing: 0.04em;
 }
 
 .mz-title em {
   font-style: normal;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--gold);
   letter-spacing: 0.16em;
@@ -387,7 +416,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   color: var(--ink-2);
@@ -395,7 +424,7 @@ button {
 }
 
 .mz-group-subtitle {
-  font-size: 10px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   color: var(--ink-3);
   margin: 8px 0 5px;
@@ -403,7 +432,7 @@ button {
 
 .mz-num {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--fs-md);
   font-weight: 800;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -411,7 +440,7 @@ button {
 
 .mz-badge {
   margin-left: auto;
-  font-size: 9px;
+  font-size: var(--fs-2xs);
   font-weight: 700;
   padding: 1px 5px;
   background: var(--gold);
@@ -427,7 +456,7 @@ button {
 
 .mz-chip {
   padding: 4px 9px;
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   background: var(--paper-3);
   color: var(--ink);
@@ -437,7 +466,7 @@ button {
 
 .mz-chip.is-small {
   padding: 3px 7px;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
 }
 
 .mz-chip:hover:not(.is-on) {
@@ -451,7 +480,7 @@ button {
 
 .mz-hint {
   margin-top: 7px;
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   line-height: 1.65;
   color: var(--ink-2);
 }
@@ -468,7 +497,7 @@ button {
 .mz-slider > span {
   display: flex;
   align-items: baseline;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--ink-2);
   margin-bottom: 2px;
 }
@@ -513,8 +542,13 @@ button {
   border: 1.5px solid var(--ink);
 }
 
+/* 快捷档位：**必须换行**。不换行时末端那个 chip 在窄右栏下会溢出 0.5px，
+   被 Chrome 向上取整成 1px ⇒ 右栏冒出横向滚动条（1024 宽实测 scrollWidth 313 / clientWidth 312）。
+   ⚠ 溢出量是亚像素级的，DOM 上看不出任何"超宽"，只有一个光秃秃的 "1"；
+   排查得靠逐个分组量 scrollWidth（见 .workbuddy/tmp/vcheck-fs/assert_typography.py 的 ④b）。 */
 .mz-quick {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
 }
@@ -523,7 +557,7 @@ button {
   width: 100%;
   margin-top: 10px;
   padding: 6px;
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   background: var(--paper-3);
   color: var(--ink);
@@ -560,12 +594,12 @@ button {
 }
 
 .mz-dex-name {
-  font-size: 12px;
+  font-size: var(--fs-md);
   font-weight: 800;
 }
 
 .mz-dex-range {
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
@@ -573,7 +607,7 @@ button {
 }
 
 .mz-dex-typical {
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   line-height: 1.62;
   color: var(--ink-2);
 }
@@ -584,7 +618,7 @@ button {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 3px 10px;
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
 }
 
 .mz-readout dt {
@@ -600,14 +634,232 @@ button {
 
 .mz-foot {
   padding: 12px 14px 0;
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   line-height: 1.6;
   color: var(--ink-3);
 }
 
 @media (max-width: 1120px) {
   .mz-root {
-    grid-template-columns: minmax(0, 1fr) 296px;
-    grid-template-rows: minmax(0, 1fr) 264px;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    grid-template-rows: minmax(0, 1fr) 288px;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* 位置图：一座山在中国的哪里                                          */
+/* ------------------------------------------------------------------ */
+/* 主图（国界 / 省界 / 所在省高亮）+ 左下角「南海诸岛」插图 + 闪烁红点。
+   地图矢量来自 scripts/prepare_maps.py（阿里云 DataV / 高德底图数据，合规源），
+   离线随包分发，不依赖任何在线瓦片 —— 教室里没有网络。 */
+
+.mz-locmap {
+  margin-top: 2px;
+}
+
+.mz-locmap-frame {
+  position: relative;
+  width: 100%;
+  border: 2px solid var(--ink);
+  /* 海面用一点冷灰绿，与米色陆地拉开层次；纸面系里唯一的冷色，克制使用 */
+  background: #dfe7e4;
+  overflow: hidden;
+}
+
+.mz-locmap-frame svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 陆地底色：单独一层，铺在省界与高亮**之下**。
+   早先这块填充挂在 .mz-lm-outline 上、又画在省界之后，结果把 34 条省界描边和所在省的
+   金色高亮整块盖住了 —— 而 getComputedStyle 断言照样全绿（样式生效了，只是被压住）。
+   现在拆成两层：底色填充在下，国界描边在上。 */
+.mz-lm-land {
+  fill: #e8dcc0;
+}
+
+/* 国界描边：**必须 fill:none**，否则又会把省界与高亮盖回去（见上） */
+.mz-lm-outline {
+  fill: none;
+  stroke: #4a3f30;
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+}
+
+/* ⚠️ 描边写了 vector-effect: non-scaling-stroke（见 JSX），所以这里的 stroke-width
+   直接就是**屏幕像素**，不随 viewBox 缩放。0.55px 在投影仪上偏淡（教室场景），取 0.8px。 */
+.mz-lm-prov path {
+  fill: none;
+  stroke: #c3ab84;
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+
+/* 所在省：抬到省界之上单独加重。
+   ⚠️ 选择器要写够长度：`.mz-lm-prov path` 是 (0,1,1)，单个 `.mz-lm-prov-on` 是 (0,1,0)，
+   后者会被前者的 `fill:none` 压住 —— 高亮会静默失效。 */
+.mz-lm-prov .mz-lm-prov-on {
+  fill: var(--gold);
+  fill-opacity: 0.62;
+  stroke: var(--ink);
+  stroke-width: 1.2;
+}
+
+.mz-lm-inset-bg {
+  fill: #f6f1e5;
+}
+
+.mz-lm-inset-land {
+  fill: #e8dcc0;
+  stroke: #4a3f30;
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+}
+
+/* 断续线（现行官方口径的十段线）。原始数据是很细的窄条多边形，
+   缩到插图尺寸后填充宽度不足 0.3 px —— 必须靠 stroke 把它撑到看得见的一像素。 */
+.mz-lm-inset-nine {
+  fill: var(--ink);
+  stroke: var(--ink);
+  stroke-width: 0.9;
+  stroke-linejoin: round;
+}
+
+.mz-lm-inset-edge {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+
+/* ⚠ 这里的 px 是 **SVG 用户单位**、不是屏幕像素：插图框宽 150 单位，
+   1024 宽视口下框只渲染 53px ⇒ 用户单位 × 0.36 才约等于屏幕像素。
+   所以字号走 --svg-inset-label（用户单位专用）而**不是** --fs-* 那一族：
+   曾经借用 --fs-2xl(24)，屏幕上只渲染出 8.5px，"南海诸岛"四个字投影后根本看不清。
+   ⚠ 改右栏宽度会连带改这个比例（框变宽 ⇒ 同一字号渲染更大），
+   实测值见 .workbuddy/tmp/vcheck-fs/measure-*.json 的 insetLabel.emPx。 */
+.mz-lm-inset-label {
+  font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: var(--svg-inset-label);
+  font-weight: 700;
+  fill: var(--ink-2);
+  /* 把 `y` 的含义从"基线"改成"文字块顶边"⇒ 上边距与字号解耦。
+     否则基线是固定用户单位偏移，一改字号文字就冒出插图框（实测 24→34 顶出 3.7px）。
+     ⚠ 配套：LocationMap.tsx 里的 `y={iy + 6}` 必须保持"小数值"，不要再写大偏移。 */
+  dominant-baseline: text-before-edge;
+}
+
+.mz-locmap-dot {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.mz-locmap-dot-core,
+.mz-locmap-dot-pulse {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+}
+
+.mz-locmap-dot-core {
+  background: var(--red);
+  border: 2px solid var(--ink);
+  box-shadow: 0 0 0 2px rgba(250, 245, 234, 0.95);
+}
+
+.mz-locmap-dot-pulse {
+  background: var(--red);
+  animation: mz-locmap-pulse 1.9s ease-out infinite;
+}
+
+@keyframes mz-locmap-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  70% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+/* 投影仪上闪烁是想要的效果；但对前庭敏感的学生要能关掉 */
+@media (prefers-reduced-motion: reduce) {
+  .mz-locmap-dot-pulse {
+    animation: none;
+    opacity: 0.3;
+  }
+}
+
+.mz-locmap-tag {
+  position: absolute;
+  /* 与红点（直径 12px）之间留出的间距；字号放大后同步抬到 13px，
+     否则标签会显得"贴着红点"，锚点是同一个。下面的 [data-anchor=end] 必须**同步改**。 */
+  transform: translate(13px, -50%);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  white-space: nowrap;
+  padding: 1px 5px;
+  border: 2px solid var(--ink);
+  background: var(--paper-3);
+  color: var(--ink);
+  pointer-events: none;
+}
+
+.mz-locmap-tag[data-anchor="end"] {
+  transform: translate(calc(-100% - 13px), -50%);
+}
+
+.mz-locmap-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.mz-locmap-readout b {
+  font-size: var(--fs-md);
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.mz-locmap-readout span {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-3);
+}
+
+.mz-locmap-coord {
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.mz-locmap-note {
+  margin: 6px 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* 省界情形（梅里雪山）：单起一行强调，别让它混在普通说明里被读漏 */
+.mz-locmap-border {
+  display: block;
+  margin-top: 3px;
+  font-style: normal;
+  font-weight: 800;
+  color: #8a5a12;
 }

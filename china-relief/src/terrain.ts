@@ -64,16 +64,17 @@
  * 动画停止后补一次全分辨率。与 v0.0.1 在动画期间跳过法线是同一个取舍。
  */
 import {
+  CELL_KM,
   GRID_H,
   GRID_W,
   SPAN_X,
   SPAN_Z,
-  latToZ,
-  lonToX,
+  lonLatToWorld,
   mapLayout,
-  xToLon,
-  zToLat
+  worldToLonLat,
+  type TerrainData
 } from "./geo";
+import { STEP_LINES } from "./data/regions";
 import type { BasemapKind } from "./basemap";
 
 const N = GRID_W * GRID_H;
@@ -88,9 +89,11 @@ const SEA_SHALLOW: RGB = [186, 222, 241];
 const SEA_SHADOW: RGB = [109, 157, 196];
 const COAST: RGB = [74, 109, 138];
 
-/** 未塑形：米灰两色交替成斜纹 */
-const UNSHAPED: RGB = [222, 215, 201];
-const UNSHAPED_ALT: RGB = [211, 203, 187];
+/*
+ * v1.5.0 ~ v1.9 的"未塑形 = 米灰两色交替成斜纹"（`UNSHAPED` / `UNSHAPED_ALT`）
+ * 在 v2.0.0 拆掉了，换成 `GRAY_BAND` 的灰阶地形 —— 理由见那里。
+ * 两个旧常量一并删掉，免得后人 grep 到它们、以为还在用。
+ */
 
 /**
  * 分层设色，7 档离散（卡通风的关键是**减少色阶**，连续插值会糊成照片）。
@@ -128,8 +131,8 @@ const SHADE_DOWN = 0.86;
 /** 档界描边的压暗系数 */
 const EDGE_DARK = 0.66;
 
-/** 一格的地面米数：全国 DEM 是 480×358 铺满 63°×38°，约 11.9 km/格 */
-const CELL_M = 11900;
+/** 一格的地面米数。**从 geo 现读**，不再写死 11900 —— 投影网格的格距就是它算出来的 */
+const CELL_M = CELL_KM * 1000;
 /**
  * 地势晕渲的连续明暗（分层设色改用这个时才是「晕渲底图」）。
  *
@@ -144,6 +147,146 @@ const HS_GAIN = 1.6;
 
 /** 遥感底图下未塑形区的灰纱不透明度：0.72 = 影像还能透出 28% */
 const SAT_VEIL = 184;
+
+/* ------------------- 未塑形区的灰阶地形（v2.0.0） ------------------- */
+
+/**
+ * 未塑形区按**真实高程**画地形，但只画灰度、不画档界与明暗。
+ *
+ * ## 为什么未塑形区现在要画地形
+ *
+ * v1.5.0 定的是"未塑形区一律米灰斜纹"。那条规则在只有「原色地形」一种底图时
+ * 没问题，但用户切到「分层设色」「地势晕渲」时发现**画面纹丝不动**
+ * （实测两张截图 195520 / 195504 字节，肉眼也一样）—— 因为这两张底图的
+ * 区别全在"已塑形区长什么样"，而开局一块都没塑。底图开关于是成了摆设。
+ *
+ * 现在改成：未塑形区也画地形，但**只画灰度**。于是三件事同时成立：
+ *   · 两张底图切过去都能看到中国地形（分层设色＝灰阶分档、地势晕渲＝灰阶+晕渲）；
+ *   · 塑形的反馈变成**上色**（灰 → 彩），比"从无到有"更抓眼；
+ *   · 仍然一眼分得清"我塑的"和"本来就有的"。
+ *
+ * ## 为什么不是"向白插值"（v1.5.0 否掉过的那版）
+ *
+ * 那一版是把彩色向白做**仿射混合** `(1-k)·c + 255k`：它把所有色差**等比**压缩，
+ * 七档相邻色差 97.7 → 37.8（只剩 39%），分层设色事实上失效 —— 这正是它被否的原因。
+ * 灰阶不是这么干的：它换掉的是**色相维度**（饱和度归零），而**明度差是重新给的**，
+ * 相邻两档明度差 14~30，比彩色版的通道差还大。
+ *
+ * ## 为什么是"越高越深"
+ *
+ * 灰阶地形图的惯例（浮雕感），而且正好让**三级阶梯的形态**一眼可见：
+ * 东部平原近白、青藏高原最深。这一条与下面「三级阶梯」那个图层是配套的。
+ */
+const GRAY_BAND: RGB[] = [
+  [240, 238, 233], // ≤200   低地
+  [226, 222, 214], // ≤500
+  [206, 200, 190], // ≤1000
+  [182, 176, 164], // ≤2000
+  [156, 149, 136], // ≤3500
+  [128, 121, 109], // ≤5000
+  [98, 92, 82] //     >5000  高原雪山
+];
+
+/* --------------------- 三级阶梯（v2.0.1 重做） --------------------- */
+
+/**
+ * 三块阶梯面的颜色（下标 = `geo.stepIndexAt` 的返回：0 第三级 / 1 第二级 / 2 第一级）。
+ *
+ * ## v2.0.0 那套「按高程阈值画等值线」为什么整个废掉
+ *
+ * 用户 v2.0.1 的原话是：「阶梯不是这样的阶梯，阶梯是两条线构成的将中国划分为
+ * 三个区域」。这话点得很准 —— 高程等值线只在青藏高原边缘碰巧对得上，别处全错：
+ * 天山、阿尔泰那些 4000 m 上下的山头成了"第一级阶梯"的**飞地**；塔里木盆地、
+ * 内蒙古高原这些**第二级阶梯的主体**大片低于 1000 m，被划进了第三级。
+ * 最要命的是**线不跟着山脉走** —— 教材上那条线是"昆仑山—祁连山"，
+ * 等值线却在地图上自己游来游去，学生拿它跟课本对不上。
+ *
+ * 阶梯是**地理区划**，不是高程分档。界线是那几条山脉的连线，
+ * 判定与数据见 `geo.stepIndexAt` / `data/regions.ts` 的 `STEP_LINES`。
+ *
+ * ## 为什么「面 + 线 + 字」三样都要
+ *
+ * 面回答"这块地在第几级"，线回答"界线究竟从哪几条山脉过"，字回答"哪块是第几级"。
+ * 只画面前两样不行：学生看得出三块颜色不同，却学不到教材上那两条**山脉连线**
+ * 是什么 —— 而那正是这节课要背的东西。所以面上还要标名字，线下还要能被认出来。
+ *
+ * ## 配色为什么是青 / 赭 / 紫
+ *
+ * 地形底图已经占掉绿—黄—褐—灰白一整条色带，海洋还占着蓝。剩下区分度高的
+ * 只有**青、品红、紫**这一圈。三级各取一个，色相拉得够开，于是相邻两级之间
+ * 那条界在灰阶底图上也能一眼看出来。
+ */
+const STEP_FILL: RGB[] = [
+  [78, 156, 178], // 0 = 第三级（平原丘陵）—— 青
+  [214, 128, 92], // 1 = 第二级（高原盆地）—— 赭橙
+  [132, 104, 188] // 2 = 第一级（青藏高原）—— 紫
+];
+
+/**
+ * 面的不透明度。
+ *
+ * 0.32 是"看得清色块、又漏得出地形"的平衡点。再高（0.45+）青藏高原那一大片
+ * 就糊成一块紫，山脊与河谷全被盖掉 —— 而这幅图的**主体信息是地形**，
+ * 阶梯只是参考图层；再低（0.2 以下）灰阶底图上三块就分不出来了。
+ */
+const STEP_FILL_ALPHA = 0.32;
+
+/**
+ * 阶梯标题（级名 + 海拔特征）与它的文字色。
+ *
+ * 位置是**手工挑的**，挑法就是"地图上本来就空着的地方"：避开全部地形区锚点
+ * 与山脉中点。第一级放藏北（`冈底斯` 与 `唐古拉` 之间那块），第二级放
+ * 阿拉善以西的内蒙古高原西部，第三级放黄淮之间。
+ * 海拔特征那三个数是教材原文（4000 m 以上 / 1000~2000 m / 500 m 以下），
+ * 是这一课要记的东西，所以不省。
+ *
+ * ⚠️ 它们**先占避让表**，地名再让开（见 `drawStepTitles`）。
+ */
+const STEP_TITLE: { lon: number; lat: number; text: string; sub: string; ink: string }[] = [
+  { lon: 84.5, lat: 34.0, text: "第一级阶梯", sub: "4000 米以上", ink: "#463072" },
+  { lon: 97.5, lat: 42.0, text: "第二级阶梯", sub: "1000～2000 米", ink: "#7d421c" },
+  { lon: 117.5, lat: 33.5, text: "第三级阶梯", sub: "500 米以下", ink: "#14505f" }
+];
+
+/**
+ * 分界线的颜色与线宽（屏幕 px）。
+ *
+ * 和地名标注同一套路：**先描一圈白再上彩线**。底图从深褐一路到雪白七个档，
+ * 单用浅色会在雪白档上消失、单用深色会在褐档上糊掉 —— 自带衬底才处处可读。
+ *
+ * 深赭红与地形色系协调（褐的邻居），又不会和海岸线的青灰撞。
+ */
+const STEP_EDGE: RGB = [172, 66, 46];
+const STEP_EDGE_HALO = "rgba(255, 255, 255, 0.9)";
+const STEP_EDGE_W = 3.4;
+const STEP_EDGE_HALO_W = 6.4;
+
+/** 标注与阶梯标题共用的字体栈 —— 两处各写一份，改字体时必然漏一个 */
+const LABEL_FONT =
+  '"Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif';
+
+/**
+ * canvas 侧的字号档位表 —— **与 styles.css 的 `--fs-*` 逐档同值**（v2.0.2）。
+ *
+ * 为什么要镜像一份：canvas 读不到 CSS 变量。每帧 `getComputedStyle` 解析既慢，
+ * 首帧还可能拿到 null。所以数值常量在这里再写一份，两边由
+ * `scripts/typography.test.cjs` **逐档锁死** —— 改一边不同步那边就会报红。
+ *
+ * ⚠ canvas 字号是**设备无关像素**：`setup()` 里已经 `setTransform(dpr, …)`，
+ *   所以直接用 CSS 的 px 数值，**不要再乘 dpr**（乘了就大一倍）。
+ * ⚠ `parseFloat(ctx.font)` 拿到的是**字重**（`"700 15.5px …"` → 700）。
+ *   要量实际字号必须从字体串里抠 `(\d+(?:\.\d+)?)px`。
+ */
+const FS = {
+  "2xs": 12,
+  xs: 13.5,
+  sm: 15.5,
+  md: 17.5,
+  lg: 20.5,
+  xl: 24,
+  "2xl": 32
+} as const;
+
 
 /* ------------------------ 原色地形底图（v1.5.0） ------------------------ */
 
@@ -340,6 +483,22 @@ export interface SceneView {
    * 保证学生刚放好的那一块一定能看到名字，而不是被邻居的名字挤掉。
    */
   labels?: LabelDef[];
+  /**
+   * 左侧要预留的像素宽（v2.0.0）。
+   *
+   * 介绍卡弹出时会盖住地图 —— 而学生此刻最想看的恰恰是"我刚放对的那一块"。
+   * 所以卡片一开，地图就整体**右移并收窄**，把左边让出来（而不是裁掉一块）。
+   * 该值同时传给 `geo.mapLayout`，**画布与影像瓦片层必须用同一个数**，
+   * 否则影像和地形会错开（老问题，见 mapLayout 的注释）。
+   */
+  insetLeft?: number;
+  /**
+   * 是否画出中国地势三级阶梯（v2.0.1）。
+   *
+   * 打开时是**三层**：三块半透明色面（在像素混合阶段就掺进颜色里了）、
+   * 两条分界线的矢量折线、图上三个阶梯名 —— 见 `STEP_FILL` 那一段注释。
+   */
+  steps?: boolean;
 }
 
 /* ------------------------------ 接口 ------------------------------ */
@@ -371,7 +530,7 @@ export interface TerrainView {
   dispose(): void;
 }
 
-export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): TerrainView {
+export function createTerrainView(canvas: HTMLCanvasElement, data: TerrainData): TerrainView {
   // 声明成非空类型：TS 不会把 `if (!x) throw` 的窄化带进下面的嵌套函数里
   const ctxMaybe = canvas.getContext("2d");
   if (!ctxMaybe) {
@@ -385,6 +544,16 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
     throw new Error("离屏 Canvas 2D 上下文创建失败");
   }
   const offCtx: CanvasRenderingContext2D = offMaybe;
+
+  /**
+   * 投影网格上的陆地遮罩与"范围外"标记。
+   *
+   * ⚠️ 这里是**投影网格**，不是判定层用的原经纬度栅格（见 geo.ts 的
+   * `buildTerrainData`）。渲染与判定各用一套、名字还像，是这一版最容易
+   * 传错的地方 —— 传错的表现是"判定整体偏了一百多公里"。
+   */
+  const land = data.land;
+  const outside = data.outside;
 
   /* -------------------- 近岸浅滩（只算一次） -------------------- */
   const nearShore = new Uint8Array(N);
@@ -415,25 +584,54 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
     }
   }
 
+  /* ------------------ 三级阶梯（只算一次，v2.0.1） ------------------ */
+  /**
+   * 每格的阶梯级别（0 / 1 / 2）。
+   *
+   * 直接取 `data.step` —— 它在 `buildTerrainData` 反投影那一步**顺带**就算好了
+   * （见 geo.ts 的 `buildTerrainData`）。这里再算一遍等于把 20 万次折线判定做两次。
+   *
+   * ⚠️ 它**不随"学生塑到哪一步"变化**：三级阶梯是地理事实。拿塑形后的高度场去判，
+   * 界线会随着每一次落子在地图上爬。
+   */
+  const stepAll = data.step;
+
   /* ---------------------- 中间数组（复用） ---------------------- */
-  /** 高程（米）；未塑形为 -1，作为"没有地形"的哨兵 */
+  /**
+   * 显示用的地形高度（米）。
+   *
+   * v2.0.0 起它**不再有"没有地形"这个取值**：未塑形的格子也填真实高程
+   * （因为未塑形区现在要画灰阶地形）。是不是"学生塑的"由 `shaped` 单独记 ——
+   * 两件事合成一个哨兵值（老版本的 `-1`）会立刻自相矛盾：
+   * 晕渲要对未塑形区生效、而档界描边只该出现在已塑形区。
+   */
   const hAll = new Float32Array(N);
-  /** 色档；0 = 未塑形 */
+  /** 1 = 这一格已经被塑形（学生塑的或本局预置的） */
+  const shaped = new Uint8Array(N);
+  /** 显示用色档（1..7）。0 = 没有地形可画（海洋 / 图幅之外） */
   const bandAll = new Uint8Array(N);
 
   /**
    * 连续晕渲明暗系数（「地势晕渲」底图用）。
    *
-   * 四邻梯度 → 法线 → 与西北 45° 光矢量点积。邻居若是未塑形（hAll = -1）
-   * 就退回自己的高程，**不能当作 0 米** —— 否则塑形区的边缘会长出一圈
-   * 假断崖（那里根本没落差，只是"还没放"）。
+   * 四邻梯度 → 法线 → 与西北 45° 光矢量点积。邻居若**没有地形**
+   * （海洋 / 图幅之外，`bandAll = 0`）就退回自己的高程，**不能当作 0 米** ——
+   * 否则海岸线会长出一圈假断崖（那里根本没落差，只是"到海里了"）。
+   *
+   * v2.0.0 起未塑形区也有地形了，所以"有没有地形"改看 `bandAll`
+   * 而不是老版本的 `hAll >= 0` 哨兵 —— 那个哨兵现在永远是真，
+   * 晕渲会把海岸线当成 4000 m 的断崖。
    */
   function hillshadeMul(k: number, i: number, j: number): number {
     const h = hAll[k];
-    const hL = i > 0 && hAll[k - 1] >= 0 ? hAll[k - 1] : h;
-    const hR = i < GRID_W - 1 && hAll[k + 1] >= 0 ? hAll[k + 1] : h;
-    const hU = j > 0 && hAll[k - GRID_W] >= 0 ? hAll[k - GRID_W] : h;
-    const hD = j < GRID_H - 1 && hAll[k + GRID_W] >= 0 ? hAll[k + GRID_W] : h;
+    const okL = i > 0 && bandAll[k - 1] > 0;
+    const okR = i < GRID_W - 1 && bandAll[k + 1] > 0;
+    const okU = j > 0 && bandAll[k - GRID_W] > 0;
+    const okD = j < GRID_H - 1 && bandAll[k + GRID_W] > 0;
+    const hL = okL ? hAll[k - 1] : h;
+    const hR = okR ? hAll[k + 1] : h;
+    const hU = okU ? hAll[k - GRID_W] : h;
+    const hD = okD ? hAll[k + GRID_W] : h;
     const zx = (hR - hL) / (2 * CELL_M);
     const zy = (hD - hU) / (2 * CELL_M);
     const norm = Math.sqrt(zx * zx + zy * zy + 1);
@@ -460,9 +658,15 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
       canvas.height = ph;
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // 整张中国地图等比铺满舞台。**与底图瓦片层共用 mapLayout**，
-    // 见 geo.ts 的注释：两边各算一套迟早会错开半个像素。
-    const m = mapLayout(w, h);
+    /*
+     * 整张中国地图等比铺满舞台。**与底图瓦片层共用 mapLayout**，
+     * 见 geo.ts 的注释：两边各算一套迟早会错开半个像素。
+     *
+     * v2.0.0 起多传一个"左侧预留"：介绍卡打开时地图右移让位。
+     * ⚠️ 这个数**必须与 App 传给 `layoutTiles` 的完全一样**，
+     * 否则影像瓦片还停在老位置、地形已经挪走 —— 而画面上只像是"影像糊了"。
+     */
+    const m = mapLayout(w, h, lastScene?.insetLeft ?? 0);
     mapScale = m.mapScale;
     mapX = m.mapX;
     mapY = m.mapY;
@@ -506,6 +710,8 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
     const owner = lastScene?.outline ? gridOwner : null;
     const palette = owner ? lastScene?.ownerColor ?? null : null;
     const focusTag = lastScene?.focus ?? 0;
+    /** 三级阶梯界线开关（v2.0.0）。级别表 `stepAll` 在视图创建时就算好了 */
+    const stepOn = lastScene?.steps === true;
     // 「本格 + 四邻」是否同属一块地。留成局部函数是为了下面那几处分支共用同一判断
     const isOwnerEdge = (k: number, i: number, j: number, own: number): boolean => {
       if (!gridOwner) {
@@ -518,16 +724,25 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
       return left !== own || right !== own || up !== own || down !== own;
     };
 
-    // ---- 第 1 遍：高程（全分辨率，邻居查询要用精确值） ----
+    // ---- 第 1 遍：显示高度 + "是否已塑形"（全分辨率，邻居查询要用精确值） ----
+    /*
+     * ⚠️ 这两件事**必须分开存**（v2.0.0）。
+     * v1.5.0 用一个 `-1` 哨兵同时表达"没塑形"和"没有地形"，那是因为
+     * 未塑形区根本不画地形、两者等价。现在未塑形区要画灰阶地形，
+     * 于是"有地形"永远成立，哨兵失去意义 —— 留着它的表现是
+     * **档界描边会画到未塑形区上去**（`bandAll = 0` 被当成"别人"），
+     * 一层 11.9 km 粗的网罩在整幅底图上。
+     */
     for (let k = 0; k < N; k++) {
       const l = dl[k];
       const a = dAdd[k];
-      hAll[k] = l > 0.02 || a > 1 ? da[k] * l + a : -1;
+      const isShaped = l > 0.02 || a > 1;
+      shaped[k] = isShaped ? 1 : 0;
+      hAll[k] = isShaped ? da[k] * l + a : da[k];
     }
-    // ---- 第 2 遍：色档 ----
+    // ---- 第 2 遍：色档。未塑形区也填 —— 灰阶地形要用同一个档位 ----
     for (let k = 0; k < N; k++) {
-      const hv = hAll[k];
-      bandAll[k] = hv < 0 ? 0 : bandIndexOf(hv);
+      bandAll[k] = land[k] ? bandIndexOf(hAll[k]) : 0;
     }
 
     // ---- 第 3 遍：上色 ----
@@ -566,7 +781,17 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
         let b: number;
         let alpha = 255;
 
-        if (!land[k]) {
+        if (outside[k]) {
+          /* -------- 图幅之外（v2.0.0） --------
+             圆锥投影下经纬度矩形的投影是"扇环"，它的外接矩形四角本来就
+             没有东西。不在这里留透明的话，四角会被画成一大片海蓝，
+             整个投影换了等于白换 —— 屏幕上看起来还是一个矩形。
+             留透明之后，地图就是**扇形**，四角露出舞台背景色。 */
+          r = 0;
+          g = 0;
+          b = 0;
+          alpha = 0;
+        } else if (!land[k]) {
           /* -------- 海洋 --------
              海陆用**同一套原色**（v1.5.0 起；v1.4.0 曾把海也淡掉 45%）。
              这里不再有 `soft` 分支：用户明确要"原本的颜色"。 */
@@ -589,7 +814,7 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
           b = COAST[2];
         } else {
           const hv = hAll[k];
-          if (hv < 0) {
+          if (!shaped[k]) {
             if (soft) {
               /* -------- 原色地形：未塑形区**也画地形**，且用**原色** --------
                  色档取的是**真实高程** `da[k]`（不是塑形后的高度场），
@@ -600,23 +825,29 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
                  提前给出去，学生就分不出"我塑的"和"本来就这样"了。
                  于是这张底图上"塑形"这个动作的反馈就是：**地块的边界与起伏
                  浮出来**，而颜色自始至终不变。 */
-              const sb = BAND_RGB[bandIndexOf(da[k]) - 1];
+              const sb = BAND_RGB[bandAll[k] - 1];
               r = sb[0];
               g = sb[1];
               b = sb[2];
             } else {
-              /* -------- 未塑形：米灰斜纹 -------- */
-              const c = ((i >> 2) + (j >> 2)) & 1 ? UNSHAPED_ALT : UNSHAPED;
-              r = c[0];
-              g = c[1];
-              b = c[2];
-              /*
-               * 遥感底图下这层改成**半透明灰纱**：卫星影像透出约三成，
-               * 于是「换了底图」这件事一眼可见，而"已塑形 = 全彩影像"
-               * 仍然和未塑形拉开明显差别。不做成纯透明是因为那样
-               * 塑形前后就没有判据了 —— 学生会分不清"这块我还没放"
-               * 和"这块本来就长这样"。
-               */
+              /* -------- 灰阶地形（v2.0.0） --------
+                 分层设色 / 地势晕渲 / 遥感影像三种底图下，未塑形区画**灰阶**地形：
+                 能看出"中国地形长什么样"，但一眼就知道"这块还没人塑"。
+                 来龙去脉与配色理由见 `GRAY_BAND` 的注释。
+
+                 仍然不加档界描边（那是"塑好了"的信号），但这一版**加明暗**：
+                 「地势晕渲」这个名字要立得住 —— 切过去得能看出是晕渲；
+                 而「分层设色」保持纯灰阶分档，于是两张底图一眼可辨：
+                   · 分层设色 = 灰阶色块（同档同色，边界是水平分层）
+                   · 地势晕渲 = 灰阶 + 连续光影（山脊山谷浮出来）
+
+                 遥感底图下这层仍带半透明（`SAT_VEIL`）：影像透出约三成，
+                 于是"换了底图"一眼可见，而"已塑形 = 全彩影像"仍然拉得开。 */
+              const gb = GRAY_BAND[bandAll[k] - 1];
+              const mul = basemap === "hillshade" ? hillshadeMul(k, i, j) : 1;
+              r = clamp255(gb[0] * mul);
+              g = clamp255(gb[1] * mul);
+              b = clamp255(gb[2] * mul);
               alpha = basemap === "satellite" ? SAT_VEIL : 255;
             }
           } else {
@@ -717,6 +948,38 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
           }
         }
 
+        /*
+         * ---- 三级阶梯的三块面（v2.0.1） ----
+         *
+         * 在所有地形配色**算完之后**再掺进去。于是"面是半透明的、地形从下面
+         * 透出来"是数学成立的一件事，而不是靠两层绘制叠出来的 —— 那种做法一旦
+         * 绘制顺序或 alpha 搞错，症状是"地形被色块盖死"，而看上去只是"颜色有点怪"。
+         *
+         * ⚠️ 界线**不再在这里画**（v2.0.0 是在这里把 level 边界的格子涂成深赭红）。
+         * 逐格涂出来的线只有 1.65 px 宽，`drawImage` 放大时被双线性插值糊成一条
+         * 渐变带 —— 而分界线是这一课的主角，必须锐利。改走矢量路径，见 `drawStepLines`。
+         */
+        if (stepOn && land[k]) {
+          const c = STEP_FILL[stepAll[k]];
+          if (alpha === 0) {
+            /*
+             * 遥感底图下"已塑形区"是**抠成透明、露出影像**的。这里不能沿用透明，
+             * 否则一切到影像底图，阶梯面就凭空消失（而原因看着像"影像底图不支持阶梯"）。
+             * 改成一片**半透明的面色**：ImageData 是非预乘的，于是这个像素与影像
+             * 合成后正好是"32% 的阶梯色盖在影像上"。
+             */
+            r = c[0];
+            g = c[1];
+            b = c[2];
+            alpha = Math.round(STEP_FILL_ALPHA * 255);
+          } else {
+            // 其余情况（含遥感底图未塑形区的 SAT_VEIL 半透明灰阶）照常掺色
+            r = r * (1 - STEP_FILL_ALPHA) + c[0] * STEP_FILL_ALPHA;
+            g = g * (1 - STEP_FILL_ALPHA) + c[1] * STEP_FILL_ALPHA;
+            b = b * (1 - STEP_FILL_ALPHA) + c[2] * STEP_FILL_ALPHA;
+          }
+        }
+
         px[o] = r;
         px[o + 1] = g;
         px[o + 2] = b;
@@ -729,9 +992,14 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
     ctx.clearRect(0, 0, w, h);
     ctx.drawImage(off, 0, 0, W, H, mapX, mapY, SPAN_X * mapScale, SPAN_Z * mapScale);
     /*
-     * 地名必须画在 `drawImage` **之后**：这里是同一张画布的最上层，
+     * 下面两样都必须画在 `drawImage` **之后**：这里是同一张画布的最上层，
      * 画在前面会被上面这一句整个盖掉 —— 而且完全静默，只是"标签不见了"。
+     *
+     * 顺序是：分界线 → （`drawLabels` 内部的）阶梯标题 → 地名。
+     * 阶梯标题排在分界线之后，因为它自带白描边，压在线上正好把线"切断"一小段，
+     * 反而显得字是浮在地图上的。
      */
+    drawStepLines();
     drawLabels();
   }
 
@@ -759,38 +1027,158 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
    * 深字本来就都读得出来；现在恢复成 R 127~233，又回到"雪白档会吃掉浅字、
    * 褐档会吃掉深字"的老问题 —— 这一段不用改，但别把它当成多余。
    */
-  function drawLabels() {
-    const list = lastScene?.labels;
-    if (!list || list.length === 0) {
+  /**
+   * 画两条阶梯分界线的**矢量折线**（v2.0.1）。
+   *
+   * 为什么要走矢量、而不是像 v2.0.0 那样在像素循环里涂：那张底图是 575×387 的
+   * 网格，放大到画布上每格只有 1.65 px，逐格涂出来的线被双线性插值糊成一条
+   * 渐变带 —— 而分界线是这一课要背的东西，得锐利。
+   *
+   * 白描边 + 彩线的画法与地名标注同一套：底图从深褐到雪白七档，
+   * 单一颜色的线在某一档上必然读不出来。
+   *
+   * 折线**按原样画到端点为止**，不做"延长到海里"：数据里的端点已经落在
+   * 国界附近（横断山南端、雪峰山南延到中越边境），再往外画就出国了。
+   */
+  function drawStepLines(): void {
+    if (!lastScene?.steps) {
       return;
     }
-    const cw = canvas.clientWidth;
-    const ch = canvas.clientHeight;
-    if (!cw || !ch) {
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (const pass of [0, 1] as const) {
+      ctx.lineWidth = pass === 0 ? STEP_EDGE_HALO_W : STEP_EDGE_W;
+      ctx.strokeStyle = pass === 0
+        ? STEP_EDGE_HALO
+        : `rgb(${STEP_EDGE[0]}, ${STEP_EDGE[1]}, ${STEP_EDGE[2]})`;
+      for (const ln of STEP_LINES) {
+        ctx.beginPath();
+        let started = false;
+        for (const [lon, lat] of ln.line) {
+          const p = project(lon, lat);
+          if (!p) {
+            continue;
+          }
+          if (started) {
+            ctx.lineTo(p.x, p.y);
+          } else {
+            ctx.moveTo(p.x, p.y);
+            started = true;
+          }
+        }
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  /**
+   * 画三级阶梯的名字（级名 + 海拔特征），并把包围盒推进 `taken` 占位。
+   *
+   * 字号比地名再大一档：这三个词是开关打开时的主角。文字色用的是**与该级面片
+   * 同一色系的深色**，于是"字"和"它讲的那块地"在视觉上是一组。
+   *
+   * ⚠️ `taken` 由调用方（`drawLabels`）传进来，而且这一批要**先占** ——
+   * 地名让开。反过来（地名先占位）的后果是三个大字被小地名挤掉，
+   * 界面表现是"开关打开了、图上却没有阶梯的名字"，而这正是这次要做的事。
+   *
+   * 字号（v2.0.2）：跟 `mapScale` 走（阶梯名该多大取决于地图画面多大），
+   * 但夹进档位区间 `[--fs-md, --fs-xl]`。**真正起作用的是下限** ——
+   * 实测 1024~1500 宽的视口下 `mapScale * 0.95` 只有 9.2~15.6，全部低于
+   * 旧下限 14，所以"阶梯名一直是 14px"。抬下限（14 → 17.5）才是这轮
+   * "字太小"的正解；系数 0.95 → 1.10 让大屏下也跟着长。
+   */
+  function drawStepTitles(taken: number[], cw: number, ch: number): void {
+    if (!lastScene?.steps) {
       return;
     }
-    /*
-     * 字号：一个字该有多大，取决于"这块地在地图上占多大"，所以跟着 `mapScale` 走 ——
-     * 而不是跟着屏幕宽度走（那会让小窗口里的字相对地图显得巨大）。
-     * 再夹进一个可读区间：投影仪上小于 11 px 就开始糊了，教室后排读不出来。
-     */
-    const base = Math.min(16, Math.max(11, mapScale * 0.72));
+    const size = Math.min(FS.xl, Math.max(FS.md, mapScale * 1.1));
+    const sub = size * 0.62;
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
     ctx.miterLimit = 2;
+    for (const t of STEP_TITLE) {
+      const p = project(t.lon, t.lat);
+      if (!p) {
+        continue;
+      }
+      ctx.font = `700 ${size.toFixed(1)}px ${LABEL_FONT}`;
+      const wTitle = ctx.measureText(t.text).width;
+      ctx.font = `600 ${sub.toFixed(1)}px ${LABEL_FONT}`;
+      const wSub = ctx.measureText(t.sub).width;
+      const halfW = Math.max(wTitle, wSub) / 2 + 8;
+      const halfH = size * 0.62 + sub * 0.62 + 6;
+      const x0 = p.x - halfW;
+      const x1 = p.x + halfW;
+      const y0 = p.y - halfH;
+      const y1 = p.y + halfH;
+      // 出画布的不画：半个字挂在边上比不画还难看（与 `drawLabels` 同一条规则）
+      if (x0 < 2 || y0 < 2 || x1 > cw - 2 || y1 > ch - 2) {
+        continue;
+      }
+      taken.push(x0, y0, x1, y1);
+      const yTitle = p.y - size * 0.52;
+      const ySub = p.y + size * 0.52;
+      ctx.font = `700 ${size.toFixed(1)}px ${LABEL_FONT}`;
+      ctx.lineWidth = Math.max(3, size * 0.3);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.95)";
+      ctx.strokeText(t.text, p.x, yTitle);
+      ctx.fillStyle = t.ink;
+      ctx.fillText(t.text, p.x, yTitle);
+      ctx.font = `600 ${sub.toFixed(1)}px ${LABEL_FONT}`;
+      ctx.lineWidth = Math.max(2.4, sub * 0.34);
+      ctx.strokeText(t.sub, p.x, ySub);
+      ctx.fillStyle = "#3a322a";
+      ctx.fillText(t.sub, p.x, ySub);
+    }
+    ctx.restore();
+  }
+
+  function drawLabels() {
+    const cw = canvas.clientWidth;
+    const ch = canvas.clientHeight;
+    if (!cw || !ch) {
+      return;
+    }
     /** 已占位的包围盒，按 x0,y0,x1,y1 四个一组摊平存（避免每帧建对象） */
     const taken: number[] = [];
+    /*
+     * ⚠️ 阶梯标题要在**下面那个提前 return 之前**画。`list` 为空（开局一条都还没
+     * 落位）时地名一个都不画，但阶梯图层开着就得有名字 —— 否则开关一打开却
+     * 什么都看不到，看着就像功能坏了。
+     */
+    drawStepTitles(taken, cw, ch);
+
+    const list = lastScene?.labels;
+    if (!list || list.length === 0) {
+      return;
+    }
+    /*
+     * 字号：一个字该有多大，取决于"这块地在地图上占多大"，所以跟着 `mapScale` 走 ——
+     * 而不是跟着屏幕宽度走（那会让小窗口里的字相对地图显得巨大）。
+     * 再夹进档位区间 `[--fs-xs, --fs-md]`。
+     *
+     * ⚠️ **下限才是决定可读性的那一个数**（v2.0.2 实测）：1024~1500 宽的视口下
+     *    `mapScale * 0.72` 只有 7.0~11.8，**几乎一律被夹到旧下限 11** ——
+     *    所以"地图上的字一直是 11px"，投影仪后排自然读不出来。这轮把下限
+     *    抬到 `--fs-xs`（13.5），并把系数 0.72 → 0.85（×1.18），大屏下也一起长。
+     */
+    const base = Math.min(FS.md, Math.max(FS.xs, mapScale * 0.85));
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.miterLimit = 2;
     for (const lb of list) {
       const p = project(lb.lon, lb.lat);
       if (!p) {
         continue;
       }
       const size = base * (lb.scale ?? 1);
-      ctx.font =
-        `700 ${size.toFixed(1)}px "Noto Sans CJK SC", "Source Han Sans SC", ` +
-        `"Microsoft YaHei", "PingFang SC", sans-serif`;
+      ctx.font = `700 ${size.toFixed(1)}px ${LABEL_FONT}`;
       const halfW = ctx.measureText(lb.text).width / 2 + 3;
       const halfH = size * 0.72 + 2;
       const x0 = p.x - halfW;
@@ -849,16 +1237,19 @@ export function createTerrainView(canvas: HTMLCanvasElement, land: Uint8Array): 
     if (wx < -SPAN_X / 2 || wx > SPAN_X / 2 || wz < -SPAN_Z / 2 || wz > SPAN_Z / 2) {
       return null;
     }
-    return { lon: xToLon(wx), lat: zToLat(wz) };
+    // 圆锥投影下 x/z 不再各自线性对应经纬度，必须走真正的反投影
+    // （v2.0.0 之前这里是 `xToLon(wx)` / `zToLat(wz)` 两个独立函数）
+    return worldToLonLat(wx, wz);
   }
 
   function project(lon: number, lat: number) {
     if (!canvas.clientWidth) {
       return null;
     }
+    const p = lonLatToWorld(lon, lat);
     return {
-      x: mapX + (lonToX(lon) + SPAN_X / 2) * mapScale,
-      y: mapY + (latToZ(lat) + SPAN_Z / 2) * mapScale
+      x: mapX + (p.x + SPAN_X / 2) * mapScale,
+      y: mapY + (p.z + SPAN_Z / 2) * mapScale
     };
   }
 

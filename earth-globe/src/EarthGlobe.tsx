@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import Knob, { type KnobTick } from "./Knob";
+import SubsolarCurve from "./SubsolarCurve";
 
 export interface PlayerInfo {
   studentId: number;
@@ -15,6 +16,12 @@ export interface LayerState {
   white: boolean;
   /** 夜面底图：城市夜间灯光（NASA 夜间灯光影像），只贴在背光的一侧 */
   nightLights: boolean;
+  /**
+   * 关闭黑夜效果：整球按白天受光着色，晨昏线那一侧的黑色掩膜不再出现。
+   * 用途是"看清地表全貌" —— 讲解地形/地名时，黑掉的那半边会把内容挡住。
+   * 与 `nightLights` 是**包含**关系：黑夜关掉后夜面不存在，夜灯自然也没了意义。
+   */
+  nightOff: boolean;
   grid: boolean;
   equator: boolean;
   tropics: boolean;
@@ -38,7 +45,12 @@ interface MarkerInfo {
 }
 
 /** 主视图的视角预设。极地俯视不再是主视角模式——v1.4.3 起改为左下角两个独立子图。 */
-type ViewKey = "orbit" | "top" | "earth";
+/**
+ * 视角：前三档都是「把镜头摆到某个固定机位上」（目标点＝太阳或地球），
+ * `free` 是第四档 —— 不动镜头、只解锁：允许平移，于是目标点可以离开太阳/地球，
+ * 旋转与滚轮都绕着这个新目标点发生，也就成了在太空里任意移动。
+ */
+type ViewKey = "orbit" | "top" | "earth" | "free";
 
 const DEG = Math.PI / 180;
 const EARTH_TILT = 23.44;
@@ -505,6 +517,8 @@ export interface VisibilityState {
   hasTex: boolean;
   /** 夜间灯光底图开关是否生效（夜面是否在叠加城市灯光） */
   nightLights: boolean;
+  /** 黑夜效果是否被关掉（整球按白天受光着色） */
+  nightOff: boolean;
   /** 夜面灯光贴图是否已加载成功 */
   hasNight: boolean;
   /** 五带文字标注（北寒带…南寒带）是否显示 */
@@ -751,6 +765,7 @@ function buildEngine(container: HTMLDivElement): Engine {
       uHasNight: { value: 0 },
       uWhite: { value: 0 },
       uNight: { value: 1 },
+      uNoNight: { value: 0 },
       uDayColor: { value: new THREE.Color(0x2a4d7f) },
       uSunDir: { value: new THREE.Vector3(1, 0, 0) }
     },
@@ -770,6 +785,7 @@ function buildEngine(container: HTMLDivElement): Engine {
       uniform float uHasNight;
       uniform float uWhite;
       uniform float uNight;
+      uniform float uNoNight;
       uniform vec3 uDayColor;
       uniform vec3 uSunDir;
       varying vec2 vUv;
@@ -778,6 +794,11 @@ function buildEngine(container: HTMLDivElement): Engine {
       void main() {
         float d = dot(normalize(vNormalW), normalize(uSunDir));
         float dayAmt = smoothstep(-0.10, 0.10, d);
+        // 「关闭黑夜」：把昼夜混合系数直接钉在 1 ⇒ 整球都用白天色着色。
+        // 不用为它单独写一条 mix 分支，因为下面夜灯那一项乘的是 (1.0 - dayAmt)，
+        // dayAmt 变成 1 之后灯光增益自然归零 —— 一个开关同时关掉黑面与城市灯光，
+        // 不会出现"黑夜没了、灯还亮在半空"的中间态。
+        if (uNoNight > 0.5) { dayAmt = 1.0; }
         // 纯白模式优先：不贴影像，用纯白球面呈现，昼夜明暗与晨昏线依然保留，
         // 便于在球面上手绘晨昏线、标注点位。
         vec3 day = uWhite > 0.5
@@ -1770,8 +1791,27 @@ function buildEngine(container: HTMLDivElement): Engine {
     return viewState.current === "earth";
   }
 
+  /**
+   * 自由视角的开关：只改 OrbitControls 的「允许做什么」，不动相机本身。
+   *  - `enablePan`：唯一的解锁项。OrbitControls 的平移会把 camera 与 target **同量**搬走，
+   *    于是 target 可以离开太阳与地球；之后左键旋转、滚轮推近都绕着这个新 target 发生，
+   *    也就是「在太空里任意移动」，而不是「绕着太阳/地球放大缩小」。
+   *    这里刻意不自己写 WASD/滚轮飞行：沿视线前进与 dolly 在数学上是同一件事
+   *    （都是 camera 沿 target→camera 轴移动，target 不动），自己写只会多出一份
+   *    与 `controls.update()` 抢状态的代码。
+   *  - 距离上下限放宽：默认 1.4~62 是为「看太阳系」定的；自由视角下要能贴近地表也能退到
+   *    星空外，放宽到 0.5~170（`camera.far` 是 400，不会裁掉）。
+   */
+  function setFreeRoam(on: boolean) {
+    controls.enablePan = on;
+    controls.screenSpacePanning = true;
+    controls.minDistance = on ? 0.5 : 1.4;
+    controls.maxDistance = on ? 170 : 62;
+  }
+
   function applyOrbitView() {
     viewState.current = "orbit";
+    setFreeRoam(false);
     camera.up.copy(WORLD_UP);
     controls.target.set(0, 0, 0);
     const d = ORBIT_A * 2.65;
@@ -1782,6 +1822,7 @@ function buildEngine(container: HTMLDivElement): Engine {
 
   function applyTopView() {
     viewState.current = "top";
+    setFreeRoam(false);
     camera.up.copy(WORLD_UP);
     controls.target.set(0, 0, 0);
     camera.position.set(0.0016, ORBIT_A * 2.95, 0.0016);
@@ -1791,6 +1832,7 @@ function buildEngine(container: HTMLDivElement): Engine {
 
   function applyEarthView() {
     viewState.current = "earth";
+    setFreeRoam(false);
     camera.up.copy(WORLD_UP);
     controls.target.copy(earthPos);
     // 镜头放在 sunDir 的侧向：视线垂直于太阳方向，晨昏线纵贯画面中央。
@@ -1801,6 +1843,20 @@ function buildEngine(container: HTMLDivElement): Engine {
     camera.position.copy(earthPos).addScaledVector(side, 3.0);
     controls.update();
     onViewChange?.("earth");
+  }
+
+  /**
+   * 自由视角：**不动相机**，只解锁平移 —— 当前看的是地球特写就从地球开始挪，
+   * 看的是公转全景就从太阳开始挪，不会因为切视角把镜头弹到别处。
+   * 自动旋转在这里必须关掉：它绕 target 匀速转，会让「停在某处观察」做不到。
+   */
+  function applyFreeView() {
+    viewState.current = "free";
+    setFreeRoam(true);
+    engine.autoRotateWanted = false;
+    controls.autoRotate = false;
+    controls.update();
+    onViewChange?.("free");
   }
 
   /* ---- 极地俯视子图（左下角两个独立小画布，不动主视图相机） ----
@@ -2153,6 +2209,8 @@ function buildEngine(container: HTMLDivElement): Engine {
         applyOrbitView();
       } else if (key === "top") {
         applyTopView();
+      } else if (key === "free") {
+        applyFreeView();
       } else {
         applyEarthView();
       }
@@ -2254,6 +2312,7 @@ function buildEngine(container: HTMLDivElement): Engine {
       white: earthMaterial.uniforms.uWhite.value === 1,
       hasTex: earthMaterial.uniforms.uHasTex.value === 1,
       nightLights: earthMaterial.uniforms.uNight.value === 1,
+      nightOff: earthMaterial.uniforms.uNoNight.value === 1,
       hasNight: earthMaterial.uniforms.uHasNight.value === 1,
       climateLabels: zoneLabelGroup.visible
     }),
@@ -2291,6 +2350,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     },
     focusLatLon: (lat: number, lon: number, distance = 3) => {
       viewState.current = "earth";
+      setFreeRoam(false);
       const dir = localFromLatLon(lat, lon).applyQuaternion(tiltGroup.quaternion).normalize();
       controls.target.copy(earthPos);
       camera.position.copy(earthPos).addScaledVector(dir, distance);
@@ -2414,6 +2474,12 @@ interface LayerDef {
   key: keyof LayerState;
   label: string;
   color: string;
+  /**
+   * 这一项在当前状态下是否失效：返回原因字符串则置灰并显示原因。
+   * 置灰**必须给出原因** —— 「点了没反应」比「点不动、并写明为什么」更难懂，
+   * 用的人只会以为功能坏了。返回 null 表示可用。
+   */
+  disabledIn?: (layers: LayerState) => string | null;
 }
 
 /** 图层按用途分组，避免十几个开关堆成一坨不好找 */
@@ -2422,7 +2488,13 @@ const LAYER_GROUPS: { title: string; items: LayerDef[] }[] = [
     title: "地球表面",
     items: [
       { key: "texture", label: "地球影像", color: "#3f6b4f" },
-      { key: "nightLights", label: "夜间灯光（夜面城市灯光）", color: "#ffcf5a" },
+      {
+        key: "nightLights",
+        label: "夜间灯光（夜面城市灯光）",
+        color: "#ffcf5a",
+        disabledIn: (l) => (l.nightOff ? "已关闭黑夜，夜面与城市灯光一起消失" : null)
+      },
+      { key: "nightOff", label: "关闭黑夜（整球均匀受光）", color: "#8ecbff" },
       { key: "white", label: "纯白地球（不贴影像）", color: "#ffffff" },
       { key: "climate", label: "五带（热·温·寒）", color: "#ff6b3d" },
       { key: "timezone", label: "全球时区（24 个）", color: "#5a86ff" },
@@ -2453,10 +2525,15 @@ const LAYER_GROUPS: { title: string; items: LayerDef[] }[] = [
   }
 ];
 
-const VIEW_DEFS: { key: ViewKey; label: string }[] = [
+const VIEW_DEFS: { key: ViewKey; label: string; hint?: string }[] = [
   { key: "orbit", label: "公转全景" },
   { key: "top", label: "俯视轨道" },
-  { key: "earth", label: "地球特写" }
+  { key: "earth", label: "地球特写" },
+  {
+    key: "free",
+    label: "自由视角",
+    hint: "按住右键拖动＝在太空中平移（目标点跟着走，从此不再以太阳或地球为中心）；左键拖动＝转身，滚轮＝朝视线前方进退。"
+  }
 ];
 
 export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
@@ -2471,6 +2548,9 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     texture: true,
     // 夜面灯光默认开启：黑的那一侧直接是城市灯光，昼夜对比一目了然
     nightLights: true,
+    // 黑夜效果默认**保留**（和 v1.4.6 一致）：昼夜交替本来就是这颗球要讲的主线，
+    // 「关闭黑夜」是讲解地形时的临时手电筒，不该默认打开。
+    nightOff: false,
     white: false,
     grid: true,
     equator: true,
@@ -2495,15 +2575,29 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   const [spinning, setSpinning] = useState(false);
   const [rotating, setRotating] = useState(true);
   const [spinDeg, setSpinDeg] = useState(0);
-  /** 各浮动栏的最小化状态：把画面尽量让给地球 */
+  /** 各浮动栏的最小化状态：把画面尽量让给地球。左栏三块自 v1.4.8 起合成一栏，故只剩一个键 */
   const [open, setOpen] = useState({
-    knobs: true,
+    rail: true,
     panel: true,
-    poles: true,
     hint: true
   });
   const togglePanel = (key: keyof typeof open) =>
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+  /**
+   * 左栏「演示台」内部三节各自的展开状态（v1.4.8 合并进来时保留）。
+   *
+   * 为什么合成一栏之后还留分节折叠：分开时这三块各有自己的收起按钮，矮屏
+   * （1120×740 实测）下把上面两块收掉就能把「极地投影」顶进可视区。若合成一栏后
+   * 只留整栏一个开关，这条已经存在、课堂上用得上的操作路径就没了 ——
+   * 合并是为了整齐，不该顺手砍掉能力。分节标题本身即开关，视觉层级与右栏一致。
+   */
+  const [railOpen, setRailOpen] = useState({
+    knobs: true,
+    subsolar: true,
+    poles: true
+  });
+  const toggleRailSection = (key: keyof typeof railOpen) =>
+    setRailOpen((prev) => ({ ...prev, [key]: !prev[key] }));
   /** 自转旋钮拖动中的即时值（优先于引擎回传值，保证指针跟手） */
   const [spinDragValue, setSpinDragValue] = useState<number | null>(null);
   /** 引擎回传的时钟信息：直射经线 + 标记点地方时 */
@@ -2583,6 +2677,13 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       },
       readMarker: () => (markerLastRef.current ? { ...markerLastRef.current } : null),
       setNu: (value: number) => engine.setOrbitNu(value),
+      /**
+       * 走 React 状态改公转位置 —— 与拖「公转位置」旋钮、点节气按钮**同一条路**。
+       * ⚠ 与上面的 `setNu` 不是一回事：`setNu` 只改引擎姿态，React 侧的 nu 不动，
+       * 于是左侧的直射点读数与曲线会停在旧值上。那是像素搜索需要的能力（只转姿态、不惊动 UI），
+       * 但它**不是用户能走到的状态** —— 凡是验「读数/曲线跟着 ν 走」的用例必须用这个钩子。
+       */
+      setOrbit: (value: number) => setNu(value),
       readState: () => ({
         nu: engine.readNu(),
         decl: engine.readDeclination()
@@ -2604,6 +2705,58 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         localHoursAt(lon, engine.readSubsolarLon()),
       readMarkerDebug: () => engine.readMarkerDebug(),
       readVisibility: () => engine.readVisibility(),
+      /**
+       * 屏幕点 → 该点处的昼夜因子输入 `d = dot(法线, 光照方向)`，与着色器**同源**
+       * （着色器就是拿 `vNormalW` 与 `uSunDir` 点乘再喂 smoothstep）。
+       *
+       * 为什么需要它：要断言"白天区域不该被关黑夜影响"，先得知道**哪些点是白天**。
+       * 靠像素亮度猜不行 —— 亮度 = mix(夜面色, 白天贴图色, dayAmt)，
+       * 把"贴图本身多亮"混了进来：实测贴图亮的过渡带点亮度能到 159，
+       * 比贴图暗的纯白天点还亮，于是"按亮度取最亮的 25%"取到的正是过渡带点。
+       *
+       * 有了 d，"该不该变"就完全确定：
+       *   d > 0.1  ⇒ dayAmt 恒为 1（纯白天，关黑夜不该有任何变化）
+       *   d < −0.1 ⇒ dayAmt 恒为 0（纯夜面，关黑夜必须变亮）
+       *   ±0.1 之间是晨昏线过渡带（本来就会部分变亮，不该混进上面两类断言）
+       * 未命中球面的点返回 null（盘外的星空）。
+       */
+      readSunDot: (pts: { x: number; y: number }[]) => {
+        const rect = engine.renderer.domElement.getBoundingClientRect();
+        const camera = engine.camera;
+        const center = engine.earthAnchor.position;
+        const radius = engine.earthMesh.getWorldScale(new THREE.Vector3()).x;
+        const sunDirW = (engine.earthMaterial.uniforms.uSunDir.value as THREE.Vector3)
+          .clone()
+          .normalize();
+        return pts.map((p) => {
+          const ndc = new THREE.Vector3(
+            (p.x / rect.width) * 2 - 1,
+            -(p.y / rect.height) * 2 + 1,
+            0.5
+          ).unproject(camera);
+          const origin = camera.position;
+          const dir = ndc.sub(origin).normalize();
+          // 射线与球求交。球体的法线就是径向（世界空间）—— spin/tilt 的旋转对圆球不影响法线，
+          // 所以这里不需要把它们还原回来。
+          const oc = origin.clone().sub(center);
+          const b = oc.dot(dir);
+          const c = oc.dot(oc) - radius * radius;
+          const disc = b * b - c;
+          if (disc < 0) {
+            return null;
+          }
+          const t = -b - Math.sqrt(disc);
+          if (t < 0) {
+            return null;
+          }
+          const normal = origin
+            .clone()
+            .addScaledVector(dir, t)
+            .sub(center)
+            .normalize();
+          return +normal.dot(sunDirW).toFixed(4);
+        });
+      },
       readZoneLabels: () => engine.readZoneLabels(),
       readLatLabels: () => engine.readLatLabels(),
       readCamDebug: () => {
@@ -2616,6 +2769,7 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         const eqR = (Math.abs(a.x - b.x) / 2) * (rect.width / 2);
         const dist = engine.camera.position.distanceTo(engine.earthAnchor.position);
         const silhouette = eqR * (Math.asin(Math.min(1, 1 / dist)) / Math.atan(Math.min(1, 1 / dist)));
+        const target = engine.controls.target;
         return {
           view: engine.readGeometry().view,
           earthScreen: {
@@ -2627,7 +2781,16 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
             +engine.camera.position.x.toFixed(3),
             +engine.camera.position.y.toFixed(3),
             +engine.camera.position.z.toFixed(3)
-          ]
+          ],
+          // 自由视角相关：三个数各自回答一个问题 ——
+          // 能不能平移、平移把 target 搬到哪了、到现在这个 target 的距离是多少
+          panEnabled: engine.controls.enablePan,
+          autoRotate: engine.controls.autoRotate,
+          minDistance: engine.controls.minDistance,
+          maxDistance: engine.controls.maxDistance,
+          target: [+target.x.toFixed(3), +target.y.toFixed(3), +target.z.toFixed(3)],
+          camTargetDistance: +engine.camera.position.distanceTo(target).toFixed(3),
+          earthTargetDistance: +target.distanceTo(engine.earthAnchor.position).toFixed(3)
         };
       },
       setLayers: (patch: Partial<LayerState>) =>
@@ -2674,15 +2837,17 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     };
   }, []);
 
-  // 极地俯视子图：面板展开时把两块宿主 div 交给引擎挂画布，收起时摘掉。
-  // 依赖 open.poles——收起时宿主 div 会被 React 卸载，必须同步 detach，
-  // 否则引擎拿着已脱离 DOM 的画布继续每帧渲染。
+  // 极地投影子图：两块宿主 div 挂上去时把画布交给引擎，卸载时摘掉。
+  // 依赖 polesMounted 而不是某一个开关 —— v1.4.8 起宿主 div 的存亡取决于
+  // 「整栏展开」与「极地投影这一节展开」**两个条件同时成立**，少算一个就会出现
+  // 「宿主已经卸载、引擎还拿着脱离 DOM 的画布每帧渲染」。
+  const polesMounted = open.rail && railOpen.poles;
   useEffect(() => {
     const engine = engineRef.current;
     if (!engine) {
       return;
     }
-    if (open.poles) {
+    if (polesMounted) {
       if (northPoleHostRef.current) {
         engine.attachPoleView("north", northPoleHostRef.current);
       }
@@ -2691,7 +2856,7 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       }
     }
     return () => engine.detachPoleViews();
-  }, [open.poles]);
+  }, [polesMounted]);
 
   // 图层开关
   useEffect(() => {
@@ -2719,6 +2884,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     engine.applySurface({ texture: layers.texture, white: layers.white });
     // 夜面灯光底图开关（贴图本身在加载完成后由 applySurface 挂上）
     engine.earthMaterial.uniforms.uNight.value = layers.nightLights ? 1 : 0;
+    // 关闭黑夜：着色器把昼夜混合系数钉在 1，夜面与城市灯光一并消失
+    engine.earthMaterial.uniforms.uNoNight.value = layers.nightOff ? 1 : 0;
   }, [layers]);
 
   // 公转轨道与地球标签只在公转视角显示（特写时轨道会横穿地球、标签会遮挡画面）
@@ -2759,8 +2926,24 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     engineRef.current?.setOrbitNu(nu);
   }, [nu, spinning]);
 
+  /** 这一项在当前状态下失效的原因（null＝可用）。置灰与守卫共用，避免两处判断各写一份 */
+  function layerDisabledReason(key: keyof LayerState, state: LayerState): string | null {
+    for (const group of LAYER_GROUPS) {
+      const item = group.items.find((i) => i.key === key);
+      if (item?.disabledIn) {
+        return item.disabledIn(state);
+      }
+    }
+    return null;
+  }
+
   function toggleLayer(key: keyof LayerState) {
     setLayers((prev) => {
+      // 置灰的项在 UI 上已经点不动，这里再挡一道：拖动/键盘等路径绕过 checkbox 时
+      // 也不该切出一个"开了却没效果"的状态。
+      if (layerDisabledReason(key, prev)) {
+        return prev;
+      }
       const next = { ...prev, [key]: !prev[key] };
       // 「地球影像」与「纯白地球」互斥：勾选其一会自动取消另一个，避免同时亮着却看不出效果
       if (key === "white" && next.white) {
@@ -2785,10 +2968,16 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   function applyView(key: ViewKey) {
     engineRef.current?.setView(key);
     setView(key);
-    if (key === "earth") {
-      // 特写用于讲解昼夜与自转，关掉自动旋转以保持取景稳定
+    if (key === "earth" || key === "free") {
+      // 特写用于讲解昼夜与自转、自由视角用于「停在某处观察」，两者都要求取景稳定 ⇒ 关自动旋转
       setAutoRotate(false);
     }
+  }
+
+  /** 点直射点曲线跳到那一天：与点「夏至」按钮走同一条路（先停公转演示，再设 ν） */
+  function jumpToNu(value: number) {
+    setSpinning(false);
+    setNu(Math.round(value * 10) / 10);
   }
 
   function resetView() {
@@ -2845,25 +3034,63 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   const nearestSeasonText =
     nearestD < 1.0 ? `正处${nearestSeasonLabel}` : `临近${nearestSeasonLabel}`;
   const spinKnobValue = spinDragValue === null ? spinDeg : spinDragValue;
+  /** 当前视角的操作提示（只有需要额外说明的视角才写，其余为 undefined） */
+  const viewHint = VIEW_DEFS.find((item) => item.key === view)?.hint;
+  /**
+   * 两极此刻是极昼还是极夜 —— 由直射点纬度直接决定，不需要另算太阳高度角：
+   * 直射点在北半球 ⇒ 北极圈内整日不落（极昼）、南极圈内整日不升（极夜）；二分日两极昼夜平分。
+   * 放在极地投影那两行读数上，是因为这两张图存在的意义就是看极昼极夜的范围。
+   */
+  const polarState = (north: boolean) => {
+    if (Math.abs(declination) < 0.05) {
+      return "昼夜平分";
+    }
+    const day = declination > 0;
+    return (north ? day : !day) ? "极昼" : "极夜";
+  };
 
   return (
     <div className="globe-app">
       <div className="globe-canvas" ref={mountRef} />
 
-      {/* 自转 / 公转旋钮独立成左侧旋钮台：从右栏抽出来，右手拖旋钮、左手不挡画面，
-          同时把右栏留给参数读数。整块可用右上角按钮收起，把画面让给地球。 */}
-      <div className={open.knobs ? "globe-knobs" : "globe-knobs is-collapsed"}>
+      {/* 左栏「演示台」（.globe-rail）：一栏三节 —— 公转与自转 / 太阳直射点回归运动 / 极地投影。
+          v1.4.8 之前这里是三张各自带边框、各自带收起按钮的独立卡片，三处不齐：
+          ① 右边缘不齐：实测 .globe-knobs / .globe-subsolar 的右边缘都在 214，
+             而 .globe-poles 是 width:auto，缩到画布宽只有 170，右边白白空出 44px；
+          ② 标题三套风格（.knob-name / .subsolar-title / .pole-title），层级看不出来；
+          ③ 三张卡各自再排一遍内边距，竖向净多出 100px 以上。
+          现在合成**一张卡 + 三个 <section> + 统一的 h2**：边框、内边距、分节虚线、
+          h2 的字级/字距/颜色全部与右栏「控制台」共用同一套 CSS 规则
+          （见 styles.css 里 .globe-panel / .globe-rail 的合并选择器），
+          每节正文一律占满内容宽、左边缘与 h2 对齐 —— 右栏的「整齐」就是这么来的。 */}
+      <div className={open.rail ? "globe-rail" : "globe-rail is-collapsed"}>
         <button
           type="button"
           className="panel-toggle"
-          title={open.knobs ? "收起旋钮台" : "展开旋钮台"}
-          onClick={() => togglePanel("knobs")}
+          title={open.rail ? "收起演示台" : "展开演示台"}
+          onClick={() => togglePanel("rail")}
         >
-          {open.knobs ? "—" : "旋钮 ＋"}
+          {open.rail ? "—" : "演示台 ＋"}
         </button>
-        {open.knobs && (
+        {open.rail && (
           <>
-        <div className="knob-card">
+        {/* ① 自转 / 公转旋钮：整块从右栏抽出来放左边 —— 右手拖旋钮、左手不挡画面，
+            右栏留给参数读数。 */}
+        <section>
+          <h2>
+            <button
+              type="button"
+              className="rail-section-toggle"
+              aria-expanded={railOpen.knobs}
+              onClick={() => toggleRailSection("knobs")}
+            >
+              <span>公转与自转</span>
+              <span className="rail-section-caret">{railOpen.knobs ? "▾" : "▸"}</span>
+            </button>
+          </h2>
+          {railOpen.knobs && (
+            <>
+        <div className="knob-block">
           <Knob
             value={nu}
             size={116}
@@ -2889,7 +3116,7 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
           </button>
         </div>
 
-        <div className="knob-card">
+        <div className="knob-block">
           <Knob
             value={spinKnobValue}
             size={116}
@@ -2924,33 +3151,61 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         <p className="knob-deck-hint">
           按住圆盘绕中心拖动即可自由转动；旋钮刻度为二分二至 / 四象限。
         </p>
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </section>
 
-      {/* 左下角：极地俯视子图。北极朝下看 = 从北极正上方看球心，南极反之。
-          两块独立小画布各自配一台沿地轴的相机，与主视图互不影响；
-          画布由引擎在挂载时塞进宿主 div（WebGL 上下文归引擎管，随面板卸载）。 */}
-      <div className={open.poles ? "globe-poles" : "globe-poles is-collapsed"}>
-        <button
-          type="button"
-          className="panel-toggle"
-          title={open.poles ? "收起俯视图栏" : "展开俯视图栏"}
-          onClick={() => togglePanel("poles")}
-        >
-          {open.poles ? "—" : "俯视图 ＋"}
-        </button>
-        {open.poles && (
-          <div className="pole-body">
-            <div className="pole-view">
-              <span className="pole-title">北极朝下看</span>
+        {/* ② 太阳直射点回归运动（2D 曲线）：横轴与上面「公转位置」旋钮同一个量，
+            所以转旋钮时曲线上的橙点与三维画面里光柱打到的纬度永远一致。 */}
+        <section>
+          <h2>
+            <button
+              type="button"
+              className="rail-section-toggle"
+              aria-expanded={railOpen.subsolar}
+              onClick={() => toggleRailSection("subsolar")}
+            >
+              <span>太阳直射点回归运动</span>
+              <span className="rail-section-caret">{railOpen.subsolar ? "▾" : "▸"}</span>
+            </button>
+          </h2>
+          {railOpen.subsolar && <SubsolarCurve nu={nu} onJump={jumpToNu} />}
+        </section>
+
+        {/* ③ 极地投影：两台相机分别位于地轴南北两端、沿地轴看向球心，各自一块独立小画布，
+            与主视图互不影响；画布由引擎在挂载时塞进宿主 div（WebGL 上下文归引擎管）。
+            两行读数给出此刻两极是极昼还是极夜 —— 这两张图存在的意义就是看极昼极夜的范围。 */}
+        <section>
+          <h2>
+            <button
+              type="button"
+              className="rail-section-toggle"
+              aria-expanded={railOpen.poles}
+              onClick={() => toggleRailSection("poles")}
+            >
+              <span>极地投影</span>
+              <span className="rail-section-caret">{railOpen.poles ? "▾" : "▸"}</span>
+            </button>
+          </h2>
+          {railOpen.poles && (
+            <>
+              <div className="readout-row">
+                <span>自北极俯视</span>
+                <strong>{polarState(true)}</strong>
+              </div>
               <div className="pole-canvas" ref={northPoleHostRef} />
-            </div>
-            <div className="pole-view">
-              <span className="pole-title">南极朝上看</span>
+              <div className="readout-row">
+                <span>自南极俯视</span>
+                <strong>{polarState(false)}</strong>
+              </div>
               <div className="pole-canvas" ref={southPoleHostRef} />
-            </div>
-          </div>
+              <p className="knob-hint">
+                相机位于地轴两端、沿地轴俯视球心：经线在极点交汇成一点，自转方向自北极看是逆时针、自南极看是顺时针。
+              </p>
+            </>
+          )}
+        </section>
+          </>
         )}
       </div>
 
@@ -2971,18 +3226,24 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
             <div className="layer-group" key={group.title}>
               <div className="layer-group-title">{group.title}</div>
               <ul className="layer-list">
-                {group.items.map((item) => (
+                {group.items.map((item) => {
+                  const disabledReason = layerDisabledReason(item.key, layers);
+                  return (
                   <Fragment key={item.key}>
-                    <li>
-                      <label>
+                    <li className={disabledReason ? "is-disabled" : undefined}>
+                      <label title={disabledReason ?? undefined}>
                         <input
                           type="checkbox"
                           checked={layers[item.key]}
+                          disabled={disabledReason !== null}
                           onChange={() => toggleLayer(item.key)}
                         />
                         <span className="layer-chip" style={{ background: item.color }} />
                         <span className="layer-label">{item.label}</span>
                       </label>
+                      {disabledReason && (
+                        <span className="layer-disabled-note">{disabledReason}</span>
+                      )}
                     </li>
                     {/* 五带的图例与使用说明直接跟在「五带」这一项下面：
                         它解释的就是上面这个开关，放在图层列表末尾会和「时区」「星空」等
@@ -3017,7 +3278,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
                       </li>
                     )}
                   </Fragment>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -3130,6 +3392,7 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
               {autoRotate ? "自动旋转：开" : "自动旋转：关"}
             </button>
           </div>
+          {viewHint && <p className="teach-note">{viewHint}</p>}
         </section>
 
         <section>
@@ -3166,7 +3429,7 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         </button>
         {open.hint && (
           <span className="hint-text">
-            拖动旋转 · 滚轮缩放 · 旋钮调自转与公转 · 切「地球特写」点击球面读经纬度与地方时
+            拖动旋转 · 滚轮缩放 · 旋钮调自转与公转 · 「地球特写」点球面读经纬度 · 「自由视角」右键拖动在太空移动
           </span>
         )}
       </footer>

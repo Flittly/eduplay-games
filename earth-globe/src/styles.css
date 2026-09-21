@@ -79,59 +79,105 @@ input {
   background: #dccfae;
 }
 
-/* 收起后：整块缩成一个小胶囊，只留按钮本身 */
-.globe-knobs.is-collapsed,
+/* ---------- 左侧「演示台」：一栏三节 ---------- */
+/* 这里原先是一个 flex 容器套三张各自带边框、各自带收起按钮的独立卡片
+   （旋钮台 / 直射点 / 极地俯视）。不齐的地方有三处，v1.4.8 一并修掉：
+   ① 右边缘不齐：.globe-knobs 与 .globe-subsolar 的右边缘都在 214，而 .globe-poles
+      是 width:auto，缩到画布宽只有 170 —— 同一栏里差 44px；
+   ② 标题三套风格（.knob-name / .subsolar-title / .pole-title），看不出层级；
+   ③ 每张卡再排一遍自己的内边距，竖向净多出 100px 以上。
+   现在与右栏「控制台」共用同一套外观规则（下面 section/h2 用合并选择器，改一处两边同步）。 */
+.globe-rail {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  bottom: 16px;
+  /* 宽度 210 是量出来的，别随手改：边框 6 + 内边距 28 + 滚动条 6 + 图表 170 ≈ 210。
+     矮屏下这一栏一定超出栏高、一定会出现滚动条，所以按「有滚动条」这一档算宽度
+     （滚动条 6px 由下面的 ::-webkit-scrollbar 定死）。图表 viewBox 宽 172，实际拿到 170，
+     等比缩到 0.988 —— 刻度字从 8px 变成 7.9px，肉眼无差别，且图表本就是 width:100% 自适应。 */
+  width: 210px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 3px solid #2b2620;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  padding: 12px 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ⚠ 不要在这里写 `scrollbar-width: thin`：标准属性一旦非 auto 就会**顶掉**下面的
+   `::-webkit-scrollbar` 宽度，实测滚动条从 6px 变成 10px，图表跟着从 172 缩到 168（字变小）。 */
+.globe-rail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.globe-rail::-webkit-scrollbar-thumb {
+  background: rgba(43, 38, 32, 0.28);
+}
+
+/* 收起后：整栏缩成一个小胶囊，只留按钮本身 */
+.globe-rail.is-collapsed,
 .globe-panel.is-collapsed,
-.globe-poles.is-collapsed,
 .globe-hint.is-collapsed {
   width: auto;
   min-width: 0;
   height: auto;
   padding: 4px;
-  gap: 0;
 }
 
-/* 右栏靠 top+bottom 同时拉高，收起时必须放开 bottom，否则会占满整条高度 */
+/* 左栏与右栏都靠 top+bottom 同时拉高，收起时必须放开 bottom，否则会占满整条高度 */
+.globe-rail.is-collapsed,
 .globe-panel.is-collapsed {
   bottom: auto;
 }
 
-.globe-knobs.is-collapsed,
-.globe-poles.is-collapsed {
-  align-items: flex-start;
-}
-
-.globe-knobs.is-collapsed .panel-toggle,
+.globe-rail.is-collapsed .panel-toggle,
 .globe-panel.is-collapsed .panel-toggle,
-.globe-poles.is-collapsed .panel-toggle,
 .globe-hint.is-collapsed .panel-toggle {
   position: static;
   font-size: 11px;
   padding: 0 8px;
 }
 
-/* ---------- 左侧旋钮台（自转 / 公转） ---------- */
-.globe-knobs {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  width: 174px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
+/* 分节标题即折叠开关：字级 / 字距 / 颜色与右栏 h2 完全一致（见 .globe-panel h2 合并选择器），
+   只在标题后面多一个折角 ▾/▸ —— 所以左栏的信息层级与右栏是同一套，不是另一套。 */
+.rail-section-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.knob-card {
+.rail-section-toggle:hover {
+  color: #a05a1c;
+}
+
+.rail-section-caret {
+  font-size: 10px;
+  letter-spacing: 0;
+  opacity: 0.7;
+}
+
+/* ---------- 旋钮块（第一节里的两块）---------- */
+/* 不再自带边框与阴影：外层 .globe-rail 已经是那张卡，块再套一层框就成了「卡中卡」 */
+.knob-block {
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: var(--paper);
-  color: var(--ink);
-  border: 3px solid #2b2620;
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
-  padding: 10px 12px 12px;
+}
+
+.knob-block + .knob-block {
+  margin-top: 12px;
 }
 
 .knob-head {
@@ -143,24 +189,27 @@ input {
   margin-top: 6px;
 }
 
-.knob-card .knob-sub {
+.knob-block .knob-sub {
   font-size: 11px;
   align-self: flex-start;
   text-align: left;
 }
 
-.knob-card .spin-btn {
+.knob-block .spin-btn {
   margin-top: 8px;
   padding: 7px 0;
   font-size: 12px;
 }
 
+/* ⚠ 这行字以前是浅色（rgba(242,232,213,.7)），因为那时它落在卡片**外面**的深色太空底上；
+   合并进卡之后底色变成纸色 var(--paper)，浅字会直接看不见 —— 跟着 .knob-hint 走深色。 */
 .knob-deck-hint {
+  margin-top: 10px;
   font-size: 10px;
   line-height: 1.65;
   font-weight: 700;
   text-align: center;
-  color: rgba(242, 232, 213, 0.7);
+  color: rgba(43, 38, 32, 0.66);
 }
 
 /* ---------- 控制面板 ---------- */
@@ -178,13 +227,18 @@ input {
   overflow-y: auto;
 }
 
-.globe-panel section + section {
+/* 左右两栏共用同一套分节节奏：分节之间一道虚线，节标题同一套字级/字距/颜色。
+   合并选择器是有意的 —— 左栏「演示台」与右栏「控制台」的整齐程度由此锁死在同一组数值上，
+   以后改任何一边的字号，两边会一起动，不可能只改出一边的不齐。 */
+.globe-panel section + section,
+.globe-rail section + section {
   margin-top: 14px;
   border-top: 2px dashed rgba(43, 38, 32, 0.35);
   padding-top: 12px;
 }
 
-.globe-panel h2 {
+.globe-panel h2,
+.globe-rail h2 {
   font-size: 13px;
   letter-spacing: 0.14em;
   color: var(--brown);
@@ -226,6 +280,21 @@ input {
 
 .layer-label {
   font-weight: 800;
+}
+
+/* 失效的图层项：置灰并写明原因（只置灰不说为什么，用的人只会以为功能坏了） */
+.layer-list li.is-disabled label {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.layer-disabled-note {
+  display: block;
+  margin: 2px 0 0 22px;
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 700;
+  color: rgba(43, 38, 32, 0.5);
 }
 
 /* 图层分组 */
@@ -405,6 +474,11 @@ input {
   background: var(--gold);
 }
 
+/* 视角说明（只有需要额外讲操作的「自由视角」才有） */
+.view-actions + .teach-note {
+  margin-top: 8px;
+}
+
 /* 四季切换 */
 .season-grid {
   display: grid;
@@ -536,43 +610,138 @@ input {
   color: #2b2620;
 }
 
-/* ---------- 左下角：极地俯视 ---------- */
-.globe-poles {
-  position: absolute;
-  left: 16px;
-  bottom: 16px;
-  width: auto;
-  display: flex;
-  flex-direction: column;
-  background: var(--paper);
-  color: var(--ink);
-  border: 3px solid #2b2620;
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
-  padding: 8px 10px 10px;
+/* ---------- 太阳直射点回归运动曲线（第一节下面的第二节） ---------- */
+/* 原来这里还有一圈自己的卡框与卡内标题（.globe-subsolar / .subsolar-head / .subsolar-title /
+   .subsolar-value），合并进「演示台」后由 section + h2 + .readout-row 承担，已删除 ——
+   同一栏里不该同时存在两套标题层级和两层边框。 */
+.readout-row + .subsolar-svg {
+  margin-top: 4px;
 }
 
-.pole-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.pole-title {
+.subsolar-svg {
   display: block;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  color: var(--brown);
-  margin-bottom: 3px;
+  cursor: grab;
+  /* 必须是 none 而不是 manipulation：拖动橙点时浏览器不能拿去做滚屏/缩放的手势，
+     否则触屏上一拖就变成上下滚页面，曲线根本拖不动。 */
+  touch-action: none;
 }
 
-/* 子图画布宿主：画布尺寸由引擎固定为 128×128（pixelRatio=1） */
+.subsolar-svg.is-dragging {
+  cursor: grabbing;
+}
+
+/* 抓取热区：透明大圆托在橙点下面，鼠标不用精确命中 4.2 单位的小圆 */
+.subsolar-grab {
+  fill: transparent;
+}
+
+/* 热带：两条回归线之间，颜色沿用五带图例里的 #ff6b3d */
+.subsolar-zone {
+  fill: rgba(255, 107, 61, 0.11);
+}
+
+.subsolar-ref line {
+  stroke-width: 1.5;
+}
+
+.subsolar-ref.is-tropicN line,
+.subsolar-ref.is-tropicS line {
+  stroke: #ffa502;
+  stroke-dasharray: 4 3;
+}
+
+.subsolar-ref.is-equator line {
+  stroke: #ff3b30;
+  stroke-width: 2;
+}
+
+.subsolar-ref text,
+.subsolar-tick text {
+  font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-weight: 800;
+  fill: #8a5a12;
+}
+
+.subsolar-ref.is-equator text {
+  fill: #a3160b;
+}
+
+.subsolar-tick text {
+  fill: #4a4033;
+}
+
+.subsolar-tick line {
+  stroke: rgba(43, 38, 32, 0.5);
+  stroke-width: 1;
+}
+
+.subsolar-tick circle {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 1.4;
+}
+
+/* 曲线本体用墨色（斜率、形状是这张图的主角），当前直射点用三维画面里那个橙色 */
+.subsolar-curve {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.subsolar-cursor-line {
+  stroke: #e0510f;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2.5;
+  opacity: 0.7;
+}
+
+.subsolar-cursor {
+  fill: #ff8c3a;
+  stroke: #2b2620;
+  stroke-width: 1.5;
+}
+
+/* 拖住的时候描边加粗，给一个"抓住了"的反馈（半径在组件里同步加大） */
+.subsolar-svg.is-dragging .subsolar-cursor {
+  stroke-width: 2.2;
+}
+
+.subsolar-note,
+.subsolar-hint {
+  margin-top: 4px;
+  font-size: 10.5px;
+  line-height: 1.55;
+  font-weight: 700;
+  color: rgba(43, 38, 32, 0.75);
+}
+
+.subsolar-hint {
+  margin-top: 2px;
+  color: #8a5a12;
+}
+
+/* ---------- 极地投影（第三节） ---------- */
+/* 两块子图各占一整行，读数行（自北极俯视 / 自南极俯视）用与右栏同一个 .readout-row，
+   左边缘与上面的 h2 对齐、数值贴右边缘 —— 这就是「排齐」的做法：
+   只保证左右两条边（内容左边缘 / 内容右边缘）一致，中间宽度不预设。 */
 .pole-canvas {
+  /* 画布尺寸由引擎固定（POLE_VIEW_SIZE=128，pixelRatio=1），这里必须跟着写同样的值，
+     否则 CSS 拉伸会让极点附近本就密集的经纬网糊掉。 */
   width: 128px;
   height: 128px;
   border: 2px solid #2b2620;
   background: #070c16;
   line-height: 0;
+}
+
+.readout-row + .pole-canvas {
+  margin-top: 4px;
+}
+
+.pole-canvas + .readout-row {
+  margin-top: 10px;
 }
 
 .pole-canvas canvas {
@@ -607,22 +776,33 @@ input {
     max-height: 52vh;
   }
 
-  /* 窄屏下两个旋钮台一起缩小，别把中间的地球挤没 */
-  .globe-knobs {
-    width: 146px;
-    gap: 8px;
+  /* 窄屏下左栏一起缩，别把中间的地球挤没。176 − 边框 6 − 内边距 28 = 内容 142：
+     旋钮 116、图表按 172 的 viewBox 等比缩到 142、极地画布 128 都还放得下。 */
+  .globe-rail {
+    width: 176px;
+    padding: 10px;
   }
 
-  .knob-card {
-    padding: 8px 10px 10px;
-  }
-
-  .knob-card .knob-dial {
+  /* 整块等比缩：SVG 的 viewBox 跟着缩放，刻度字各小一号，不会把字裁掉 */
+  .knob-block .knob-dial {
     width: 96px;
     height: 96px;
   }
 
-  .knob-card .knob-value {
+  .knob-block .knob-value {
     font-size: 18px;
+  }
+
+  /* 图表按窄栏等比缩（172 的 viewBox → 约 140），刻度字小一号 */
+  .subsolar-note,
+  .subsolar-hint {
+    font-size: 10px;
+  }
+}
+
+/* 矮屏：左栏三节加起来比栏高还高，先把纯装饰的旋钮说明收掉，尽量少滚动 */
+@media (max-height: 820px) {
+  .knob-deck-hint {
+    display: none;
   }
 }

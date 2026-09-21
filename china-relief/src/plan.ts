@@ -39,12 +39,19 @@
  */
 
 /** 练习范围。`all` 之外每项对应数据里的一类条目 */
-export type Scope = "all" | "plateau" | "basin" | "plain" | "range";
+export type Scope = "all" | "plateau" | "basin" | "plain" | "hills" | "range";
 /** 起始地图：`blank` 全空（原版），`easy` 随机预置一部分 */
 export type StartMode = "blank" | "easy";
 
-/** 条目在"练习范围"这一维度上的身份 —— 由数据侧给出，别在这里猜分组名 */
-export type ScopeKey = "plateau" | "basin" | "plain" | "range";
+/**
+ * 条目在"练习范围"这一维度上的身份 —— 由数据侧给出，别在这里猜分组名。
+ *
+ * ⚠️ 这五个字面量**必须**与 `regions.ts` 的 `AreaKind` 对齐：App 侧是直接
+ * `scopeKey: d.kind` 拿过来的，少一个就会在那边报类型错（而报错位置看着
+ * 跟"分组"毫无关系）。加一类地形 = 同时改 `AreaKind` + 这里的 `Scope` /
+ * `ScopeKey` + 下面 `SCOPES` 的按钮表。
+ */
+export type ScopeKey = "plateau" | "basin" | "plain" | "hills" | "range";
 
 export interface PlanItem {
   id: string;
@@ -145,11 +152,12 @@ export function planRound(
 
 /** 练习范围的选项表（大厅与"本局待塑"筛选共用一处文案） */
 export const SCOPES: ScopeDef[] = [
-  { scope: "all", label: "全部", note: "四大高原 + 四大盆地 + 三大平原 + 27 条山脉，一次塑完整幅中国地形。" },
-  { scope: "plateau", label: "只练高原", note: "地图上只有四大高原是空的，盆地、平原、山脉都已经在图上。" },
+  { scope: "all", label: "全部", note: "四大高原 + 四大盆地 + 三大平原 + 东南丘陵 + 27 条山脉，一次塑完整幅中国地形。" },
+  { scope: "plateau", label: "只练高原", note: "地图上只有四大高原是空的，盆地、平原、丘陵、山脉都已经在图上。" },
   { scope: "basin", label: "只练盆地", note: "只补四大盆地，其余地形已就位，先把盆地的位置钉牢。" },
   { scope: "plain", label: "只练平原", note: "只补三大平原，重点记住它们都在东部第三级阶梯上。" },
-  { scope: "range", label: "只练山脉", note: "只补 27 条山脉的走向，高原盆地平原都已经在图上。" }
+  { scope: "hills", label: "只练丘陵", note: "只补东南丘陵 —— 我国面积最大的丘陵，地面起伏和缓，与横断山区正好相反。" },
+  { scope: "range", label: "只练山脉", note: "只补 27 条山脉的走向，高原盆地平原丘陵都已经在图上。" }
 ];
 
 export const STARTS: { start: StartMode; label: string; note: string }[] = [

@@ -55,7 +55,7 @@
  * 自然得到的结果。
  */
 
-import { GRID_W, corridorHalfDeg, distToPoint, distToRange, gridIndex } from "./geo";
+import { SRC_W, corridorHalfDeg, distToPoint, distToRange, gridIndex } from "./geo";
 import type { RangeDef } from "./data/regions";
 
 /**
@@ -104,7 +104,8 @@ export interface FeatureHit<T> {
 /**
  * @param lon,lat    点击位置（经纬度，由 `terrain.pick()` 从画布坐标反算）
  * @param targets    候选条目（**只放此刻可点开的**）
- * @param regionGrid 区域归属位图（`decodeRegionGrid()` 的结果）
+ * @param regionGrid 区域归属位图。传 `buildTerrainData().src.region`
+ *                   （**原经纬度栅格**那份，不是投影网格那份）
  */
 export function pickFeature<T extends PickTarget>(
   lon: number,
@@ -153,8 +154,15 @@ export function pickFeature<T extends PickTarget>(
   }
 
   // ③ 地块：这一格归谁。0 = 不属于任何地形区（含海面）
+  /*
+   * ⚠️ 这里用的是 `SRC_W`（**原经纬度栅格**的宽度），不是 `GRID_W`
+   * （投影网格）。v2.0.0 起这两个数不一样了（480 vs 575），
+   * 传错的表现是"点的位置和弹出来的条目差着一百多公里"——
+   * 而它只在命中③这条路径上出现，① ② 两条（锚点带 / 走带）都对，
+   * 所以看起来像"有些地方点不准"，极难归因。
+   */
   const { i, j } = gridIndex(lon, lat);
-  const gridId = regionGrid[j * GRID_W + i];
+  const gridId = regionGrid[j * SRC_W + i];
   if (!gridId) {
     return null;
   }

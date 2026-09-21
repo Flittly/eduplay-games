@@ -1,7 +1,7 @@
 {
   "gameCode": "earth_globe",
   "name": "寰宇地球仪",
-  "version": "1.4.5",
+  "version": "1.4.8",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
@@ -10,5 +10,5 @@
   "cover": "web/cover.svg",
   "backendPlugin": null,
   "requiresRoster": false,
-  "description": "三维交互地球仪：公转四季、昼夜与晨昏线、经纬网与五带、全球时区与地方时，可自由转动自转与公转，适合八年级地球运动教学。"
+  "description": "三维交互地球仪：公转四季、昼夜与晨昏线、经纬网与五带、全球时区与地方时；左侧「演示台」一栏三节——公转与自转旋钮、可拖动橙点的太阳直射点回归运动曲线、极地投影（自南北极沿地轴俯视，直接读出两极极昼极夜）；「关闭黑夜」一键整球受光，便于看清地表全貌；另有可平移的自由视角。适合八年级地球运动教学。"
 }
