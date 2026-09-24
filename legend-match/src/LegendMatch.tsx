@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import CardBoard from "./CardBoard";
 import {
-  HINTS_PER_LEVEL, LEVEL_COUNT, LEVEL_PAIRS, buildCards, initialMatchState,
-  layoutCards, matchReducer, pairsForLevel, pickRemainingPair, totalPairs
+  HINTS_PER_LEVEL, buildCards, initialMatchState, layoutCards, levelCount,
+  matchReducer, modeConfig, pairsForLevel, pickRemainingPair, totalPairs
 } from "./gameData";
 import type {
-  CardSpec, LegendItem, PlayerInfo, RoundRecord, RunResult
+  CardSpec, GameMode, LegendItem, PlayerInfo, RoundRecord, RunResult
 } from "./types";
 
 /** 配对成功后"放大复现"停留多久（也可以点一下立刻继续）。 */
@@ -16,6 +16,8 @@ const HINT_FLASH_MS = 2200;
 interface LegendMatchProps {
   legends: LegendItem[];
   roster: PlayerInfo[];
+  /** 本局组别：在大厅选定，进来只读。关卡数与对数表都跟着它走。 */
+  mode: GameMode;
   onComplete: (player: PlayerInfo, result: RunResult) => void;
   onSessionEnd: (records: RoundRecord[]) => void;
   onBack: () => void;
@@ -32,15 +34,19 @@ function newSeed(): number {
 }
 
 /**
- * 单人闯关：六关逐关加量，每位学生依次上场。
+ * 单人闯关：逐关加量，每位学生依次上场。
  *
  * 玩法的核心是「配对 → 原地放大复现」：把图例符号和它的名称配成一对，
  * 这一对会在屏幕中央被放大再展示一次（符号 + 全称 + 一句话解释），
  * 点一下或等 1.7 秒自动继续 —— 复现这一下才是加深印象的关键，
  * 所以它被做成必经的中间态，而不是一闪而过的动画。
+ *
+ * 关卡数、每关对数、提示窗口全由 `mode` 决定（见 gameData 的 MODES）。
+ * 组别不从大厅切进来改：`main.tsx` 用 `key={mode}` 把本组件整体重挂载，
+ * 状态机里的 mode 跟着重置，绝不会出现"上半局初中组、下半局高级组"。
  */
 export default function LegendMatch({
-  legends, roster, onComplete, onSessionEnd, onBack
+  legends, roster, mode, onComplete, onSessionEnd, onBack
 }: LegendMatchProps) {
   const safeRoster = roster.length > 0 ? roster : [];
   const [playerIndex, setPlayerIndex] = useState(0);
@@ -52,7 +58,11 @@ export default function LegendMatch({
   const reportedRef = useRef<Set<number>>(new Set());
   const sessionSentRef = useRef(false);
 
-  const [state, dispatch] = useReducer(matchReducer, seed, initialMatchState);
+  const [state, dispatch] = useReducer(
+    matchReducer,
+    { seed, mode },
+    (init) => initialMatchState(init.seed, init.mode)
+  );
 
   const player: PlayerInfo = safeRoster[Math.min(playerIndex, safeRoster.length - 1)] ?? {
     studentId: -1, studentName: "体验学生", className: null
@@ -65,8 +75,8 @@ export default function LegendMatch({
   }, [legends]);
 
   const cards = useMemo(
-    () => buildCards(legends, state.levelIndex, state.seed),
-    [legends, state.levelIndex, state.seed]
+    () => buildCards(legends, mode, state.levelIndex, state.seed),
+    [legends, mode, state.levelIndex, state.seed]
   );
 
   const layout = useMemo(
@@ -127,7 +137,7 @@ export default function LegendMatch({
       score: state.score,
       timeSeconds: state.seconds,
       matchedCount: state.matched,
-      totalCount: totalPairs()
+      totalCount: totalPairs(mode)
     };
     setRecords((prev) => [
       ...prev.filter((r) => r.player.studentId !== player.studentId),
@@ -207,7 +217,9 @@ export default function LegendMatch({
           <button type="button" className="control-btn" onClick={onBack}>返回模式选择</button>
           <div className="lm-title">
             <strong>本轮排行榜</strong>
-            <span>{sorted.length} 位同学已完成</span>
+            <span>
+              {modeConfig(mode).name} · {sorted.length} 位同学已完成
+            </span>
           </div>
         </header>
         <div className="lm-rank">
@@ -242,10 +254,14 @@ export default function LegendMatch({
         <div className="lm-title">
           <strong>{player.studentName}</strong>
           <span data-hud="level">
-            第 {state.levelIndex + 1} / {LEVEL_COUNT} 关 · 剩余 {leftPairs} 对
+            第 {state.levelIndex + 1} / {levelCount(mode)} 关 · 剩余 {leftPairs} 对
           </span>
         </div>
         <div className="lm-hud">
+          <span className="hud-cell">
+            <small>组别</small>
+            <b data-hud="game-mode">{modeConfig(mode).name}</b>
+          </span>
           <span className="hud-cell"><small>得分</small><b data-hud="score">{state.score}</b></span>
           <span className="hud-cell"><small>连击</small><b data-hud="combo">×{state.combo}</b></span>
           <span className="hud-cell"><small>用时</small><b data-hud="time">{fmtTime(state.seconds)}</b></span>
@@ -321,7 +337,7 @@ export default function LegendMatch({
               <li>用时 <b>{fmtTime(state.seconds)}</b></li>
             </ul>
             <p className="legend-panel-note">
-              下一关是 {LEVEL_PAIRS[state.levelIndex + 1]} 对，
+              下一关是 {pairsForLevel(mode, state.levelIndex + 1)} 对，
               同一类别的图例会更多，注意区分细节。
             </p>
             <div className="notice-actions">
@@ -344,10 +360,14 @@ export default function LegendMatch({
         <div className="overlay-mask">
           <div className="legend-panel is-result">
             <h2>{player.studentName} 的闯关成绩</h2>
+            <p className="legend-result-mode">
+              <span data-hud="final-mode">{modeConfig(mode).name}</span>
+              · 共 {levelCount(mode)} 关 / {totalPairs(mode)} 对
+            </p>
             <div className="legend-big-score" data-hud="final-score">{state.score}</div>
             <ul className="legend-stats">
               <li>
-                配对成功 <b>{state.matched} / {totalPairs()}</b>
+                配对成功 <b>{state.matched} / {totalPairs(mode)}</b>
               </li>
               <li>用时 <b>{fmtTime(state.seconds)}</b></li>
               <li>最大连击 <b>×{state.maxCombo}</b></li>
@@ -375,7 +395,7 @@ export default function LegendMatch({
       )}
 
       <p className="lm-foot">
-        本关 {pairsForLevel(state.levelIndex)} 对 ·
+        本关 {pairsForLevel(mode, state.levelIndex)} 对 ·
         每关提示 {HINTS_PER_LEVEL} 次（每次 −30 分）· 配错 −20 分并中断连击
       </p>
     </div>

@@ -7,27 +7,58 @@
  * 生成方式见 `.workbuddy/tmp/dem-probe/build_dem.py`，数据源是 AWS Terrain Tiles
  * （Terrarium 编码，公有领域），不依赖任何需要申请 key 的服务。
  */
+import type { LandTypeId } from "../landform";
+
 export interface DemSource {
   /** 稳定标识（也是文件名后缀） */
   tag: string;
-  /** 山体名，例如 "贡嘎山" */
+  /** 样本名，例如 "贡嘎山" / "华北平原" */
   name: string;
-  /** 主峰名，例如 "贡嘎山主峰" / "卡瓦格博峰" */
+  /**
+   * 代表点名称。
+   *
+   * 山地是主峰名（"贡嘎山主峰"）；平原/高原/丘陵/盆地这些**没有主峰**的样本，
+   * 填的是最具辨识度的地点（"衡水" / "董志塬"）。面板上显示为
+   * 「{peakName} {peakAltitude} m」，所以两者语义要能连起来读。
+   */
   peakName: string;
-  /** 主峰真实海拔（米）—— 教学标注用，与 DEM 网格最高点略有差异 */
+  /** 代表点真实海拔（米）—— 教学标注用，与 DEM 网格最高点略有差异 */
   peakAltitude: number;
-  /** 主峰所在纬度（也是默认「山体纬度」） */
+  /** 代表点纬度（也是默认「样本纬度」） */
   lat: number;
-  /** 主峰所在经度 */
+  /** 代表点经度 */
   lon: number;
   /** 地面跨度（km），东西与南北相同（地面等距网格） */
   spanKm: number;
   /** 每边格点数（网格为 grid×grid） */
   grid: number;
+  /**
+   * 地形类型（平原 / 高原 / 山地 / 丘陵 / 盆地）—— **人工声明**。
+   *
+   * 这是教学口径（要跟人教版八上一致），不是程序算出来的。
+   * `scripts/landform.test.cjs` 会用 `landform.ts` 的真实判据重算一遍，
+   * 声明与判定不符就报错 —— 与 `data/locations.ts` 的"省份手写 + 脚本校验"同一套纪律：
+   * **人工口径为准，机器负责抓笔误**。
+   */
+  landType: LandTypeId;
   /** 该网格内的最低高程（米） */
   demMin: number;
   /** 该网格内的最高高程（米） */
   demMax: number;
+  /**
+   * 是否为**模板地形**（v2.4.0 新增）。
+   *
+   * `true` ⇒ 这个样本是 `scripts/gen_templates.cjs` 用解析函数造出来的**示意地形**，
+   * 形状完全可控（专门为了让学生看清五类地形部位），**不对应地球上任何一个真实地点**。
+   *
+   * 与它绑定的一串纪律（都由 `scripts/template.test.cjs` 守住）：
+   * - `lat/lon` 只是「纬度滑杆默认值 / 占位符」，不参与任何定位；
+   * - 界面上的「地理位置」栏**不画中国地图**，改给一张说明卡 ——
+   *   地图上一落红点，就等于在说"这座山在这儿"，而它不在这儿；
+   * - `scripts/dem.test.cjs` 的「取景在中国境内」断言**必须排除**模板地形，
+   *   否则一条地理断言会在模板身上"顺便通过"，等于悄悄把它说成真的。
+   */
+  isTemplate?: boolean;
   /** 高程数据：整数米、Uint16 小端、行主序（从北到南、从西到东）、base64 */
   b64: string;
 }

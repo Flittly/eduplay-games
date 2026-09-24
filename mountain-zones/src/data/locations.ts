@@ -1,18 +1,27 @@
 /**
- * 四座真实山体的**地理位置**（人工编纂，权威口径）。
+ * 每个真实地形样本的**地理位置**（人工编纂，权威口径）。
+ *
+ * v2.2.0 起这里不再只装四座山：另有华北平原 / 内蒙古高原 / 川中丘陵 / 临汾盆地
+ * 四个样本（对应五种地形类型各至少一例）。所以符号名从 `MOUNTAIN_LOCATIONS`
+ * 改成了 `SAMPLE_LOCATIONS` —— 叫"山"却装着平原，会让人写出
+ * "四座山分属四个省"这种套到全部样本上的断言（真踩过，一次红 10 条）。
  *
  * ## 为什么省份是手写、而不是由省界多边形自动判定
  *
  * 位置图上那个「所在省高亮 + 红点」看着像纯几何问题，实则不然：
  * 本文件用的省界来自阿里云 DataV（高德底图数据）的 `100000_full.json`，
- * 比例尺约 1:100 万，**几何位置本身有公里级误差**。实测四座山到最近省界的距离：
+ * 比例尺约 1:100 万，**几何位置本身有公里级误差**。实测各样本到最近省界的距离：
  *
- * | 山 | 到本省界 | 到最近**他省**界 | 结论 |
+ * | 样本 | 到本省界 | 到最近**他省**界 | 结论 |
  * |---|---|---|---|
  * | 贡嘎山 | 229.0 km | 229.0 km | 无歧义 |
  * | 珠穆朗玛峰 | 0.28 km | 702.4 km | 那 0.28 km 是**国界**（中尼），省份无歧义 |
  * | 梅里雪山 | 0.86 km | **0.86 km** | **真正的省界情形** |
  * | 太白山 | 109.6 km | 109.6 km | 无歧义 |
+ * | 华北平原（衡水） | 55.3 km | 55.3 km | 无歧义 |
+ * | 内蒙古高原（锡林浩特） | 197.6 km | 197.6 km | 无歧义 |
+ * | 川中丘陵 | 58.6 km | 58.6 km | 无歧义 |
+ * | 临汾盆地 | 105.9 km | 105.9 km | 无歧义 |
  *
  * 梅里雪山（卡瓦格博峰）的取景中心离省界只有 0.86 km，而这条省界就是怒山主脊 ——
  * 山脊本身就是界线。多边形判定把它落在哪一侧，取决于几公里级的数据误差，
@@ -27,7 +36,7 @@
  * ⚠️ 若将来换更高精度的省界数据，先重跑 `prepare_maps.py` 看这几行校验数字再动本文件。
  */
 
-export interface MountainLocation {
+export interface SampleLocation {
   /** 与 `DemSource.tag` 对应 */
   tag: string;
   /** 省级行政区名（权威口径） */
@@ -46,7 +55,7 @@ export interface MountainLocation {
   onBorder: boolean;
 }
 
-export const MOUNTAIN_LOCATIONS: MountainLocation[] = [
+export const SAMPLE_LOCATIONS: SampleLocation[] = [
   {
     tag: "gongga",
     province: "四川省",
@@ -78,9 +87,41 @@ export const MOUNTAIN_LOCATIONS: MountainLocation[] = [
     range: "秦岭",
     note: "秦岭主脊，主峰拔仙台是青藏高原以东的最高峰。",
     onBorder: false
+  },
+  {
+    tag: "huabei_plain",
+    province: "河北省",
+    adcode: "130000",
+    range: "华北平原（黄河冲积平原）",
+    note: "黄河、海河冲积而成的平原腹地，地面开阔平坦、一望无际。",
+    onBorder: false
+  },
+  {
+    tag: "neimenggu_plateau",
+    province: "内蒙古自治区",
+    adcode: "150000",
+    range: "内蒙古高原（锡林郭勒）",
+    note: "海拔 1000 m 上下、地面波状起伏 —— 与华北平原同样是「平」，区别只在海拔。",
+    onBorder: false
+  },
+  {
+    tag: "sichuan_hill",
+    province: "四川省",
+    adcode: "510000",
+    range: "四川盆地（川中丘陵）",
+    note: "四川盆地中部的方山丘陵，起伏和缓，是教材上「丘陵」的标准样子。",
+    onBorder: false
+  },
+  {
+    tag: "linfen_basin",
+    province: "山西省",
+    adcode: "140000",
+    range: "汾河地堑（山西地堑系）",
+    note: "盆地中部是汾河河谷平原，东西两侧分别是霍山与吕梁山 —— 典型的「四周高、中间低」。",
+    onBorder: false
   }
 ];
 
-export function locationByTag(tag: string): MountainLocation {
-  return MOUNTAIN_LOCATIONS.find((m) => m.tag === tag) ?? MOUNTAIN_LOCATIONS[0];
+export function locationByTag(tag: string): SampleLocation {
+  return SAMPLE_LOCATIONS.find((m) => m.tag === tag) ?? SAMPLE_LOCATIONS[0];
 }

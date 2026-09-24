@@ -24,6 +24,12 @@
 import * as THREE from "three";
 import type { DemField } from "./data/types";
 import { visualY } from "./dem";
+import { bilerp } from "./contour";
+import {
+  assemblyBaseY,
+  assemblyCenterY,
+  assemblyProjectionY
+} from "./layout";
 
 export type Rgb = [number, number, number];
 
@@ -40,16 +46,91 @@ export interface ContourSettings {
 
 export interface TerrainHandle {
   group: THREE.Group;
+  /**
+   * 这块网格是按哪个采样框建出来的（`grid` 顶点数、`spanM` 边长米）。
+   *
+   * ⚠️ 这两个值**只在构造时定一次**，`update()` 改不了 —— 地表平面、裙边、
+   * 底板、投影面四块几何的 X/Z 位置全部是构造时按 `span` 摊开的，顶点高度才是
+   * 每次 `update` 重算的。所以调用方换样本时**必须拿这两个值比对**：
+   * 一旦新样本的采样框与旧的不同，就得整个重建，不能只 `update`。
+   *
+   * 这条不是理论洁癖：2026-09 的真实地形从 4 座山扩到 8 个样本时，只有
+   * 临汾盆地是 60 km（其余 30 km），而剖面段是按**当次** `f.spanM` 折世界坐标的、
+   * 网格还停在旧跨度 ⇒ 剖面端点被画到滑板外 4~8 km 的空中，
+   * 且整块地形按一半的水平尺度显示（垂直夸张实际翻倍），
+   * 剖面读数（29.1 km）也是地面真实长度的两倍。全程没有任何报错。
+   */
+  readonly grid: number;
+  readonly spanM: number;
+  /** 三维沙盘本体的显隐状态（供调试钩子与回归断言读取） */
+  readonly terrainVisible: boolean;
+  /** 二维图纸的显隐状态 */
+  readonly projectionVisible: boolean;
   /** 重算顶点高度与颜色（改海拔 / 换山 / 换季都要调） */
   update(field: DemField, colorOf: (altitude: number) => Rgb): void;
   setContours(s: ContourSettings): void;
+  /** 二维投影面（3D 山地正下方的等高线图）的显隐与重绘 */
+  setProjection(s: ProjectionSettings): void;
+  /**
+   * 画学生点的剖面段：**贴地折线** + 两端各一条垂到图纸的引线。
+   *
+   * 贴地折线必须落在**地表之上**一点点（`PROFILE_LIFT`），否则会与地表 z-fighting
+   * 闪成虚线；引线一直落到图纸面，把"山上这段 → 纸上这段"连起来。
+   */
+  setProfile(segs: ProfileSegmentDraw[]): void;
+  /**
+   * 三维沙盘本体的显隐（地表 + 裙边 + 底板 + 贴地剖面折线）。
+   *
+   * 关掉它只剩二维图纸，是为了**单看平面图** —— 所以四角引线与图纸不受影响，
+   * 图纸上的剖面段也在（那是贴图上画的，由 `setProjection` 的 `draw` 负责）。
+   * 这不是"隐藏整个 group"能替代的：论文图纸若一并隐藏，这个开关就没有意义了。
+   */
+  setTerrainVisible(visible: boolean): void;
   /** 地形中心的视觉高度，供相机对准 */
   centerY(): number;
+  /** 沙盘"厚度"的底边高度（藏起图纸后，取景的下端就是它） */
+  baseBottomY(): number;
+  /** 二维投影面的视觉高度（相机取景要把这块也算进去） */
+  projectionY(): number;
   dispose(): void;
 }
 
-/** 底座在最低点之下再延伸这么多（占地形跨度的比例） */
-const SKIRT_DROP = 0.055;
+/**
+ * 二维投影面：在三维沙盘**正下方**铺一张等高线平面图，象"沙盘落在图纸上"。
+ *
+ * 这是本期教学上的关键一步 —— 学生要能从"摸得着的山"过渡到"纸上的等高线"，
+ * 中间必须有一座桥。桥就是"垂直投影"这四个字：
+ *
+ *  - 图纸画的是同一份高程场（复用 `extractContour` 的折线，**不是**另算一套），
+ *    所以纸上的圈圈和山上的圈圈逐条对得上；
+ *  - 四角各有四条**竖直引线**从图纸拉到沙盘边缘，把"投影"这件事画出来；
+ *  - 沙盘本身悬在图纸上方留一道缝（`PROJECTION_GAP`），而不是贴在纸面上 ——
+ *    贴上去就分不清哪条是山、哪条是线了。
+ *
+ * ⚠️ 贴图是**调用方画好交给我们的**（`draw` 回调），`terrain.ts` 不认识等高线、
+ * 不认识纸色。这样模块边界干净，也避免这里 import `panels.ts` 造成循环依赖。
+ */
+export interface ProjectionSettings {
+  visible: boolean;
+  /** 画布边长（像素），方形绘制区，调用方按这个尺寸铺满 */
+  draw: ((g: CanvasRenderingContext2D, size: number) => void) | null;
+}
+
+/** 一条学生点的剖面段（网格坐标 + 配色） */
+export interface ProfileSegmentDraw {
+  color: string;
+  a: [number, number];
+  b: [number, number];
+}
+
+/**
+ * 投影面贴图边长（像素）。1024 足够看清等高线注记，显存也才 4 MB。
+ *
+ * 注：「底座下落多少」「图纸离多远」这两个几何比例**不在这里定义** ——
+ * 它们和相机取景是一套耦合的坐标约定，统一放在 `layout.ts`，
+ * 免得改了一处、另一处还按旧口径取景（v2.2.0 的图纸被沙盘压住 94% 就是这么来的）。
+ */
+const PROJECTION_TEX = 1024;
 
 export function createTerrain(field: DemField, colorOf: (altitude: number) => Rgb): TerrainHandle {
   const grid = field.grid;
@@ -194,6 +275,66 @@ export function createTerrain(field: DemField, colorOf: (altitude: number) => Rg
   const group = new THREE.Group();
   group.add(terrain, skirt, basePlane);
 
+  // ---------- 二维投影面（正下方的等高线图纸） ----------
+  const projCanvas = document.createElement("canvas");
+  projCanvas.width = PROJECTION_TEX;
+  projCanvas.height = PROJECTION_TEX;
+  const projCtx = projCanvas.getContext("2d");
+  const projTex = new THREE.CanvasTexture(projCanvas);
+  // 输出色彩空间是 sRGB，贴图必须声明为 sRGB，否则纸色会偏暗偏灰
+  projTex.colorSpace = THREE.SRGBColorSpace;
+  projTex.anisotropy = 4;
+  const projGeo = new THREE.PlaneGeometry(span, span);
+  projGeo.rotateX(-Math.PI / 2);
+  const projMat = new THREE.MeshBasicMaterial({
+    map: projTex,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+    /*
+     * 图纸不吃雾。
+     *
+     * 雾是「空气透视」—— 给远山加层次用的。可图纸是**图**，不是景物：
+     * 它会落在离相机 1.9 跨度的地方，按山体的雾区间会被罩掉三成对比度，
+     * 等高线糊成一片灰。关掉之后图纸永远是纸的本色。
+     */
+    fog: false
+  });
+  const projPlane = new THREE.Mesh(projGeo, projMat);
+  projPlane.name = "projection";
+
+  /**
+   * 投影引线：四角各拉一条竖线，从图纸面拉到**底座高度**。
+   * 不拉到地表 —— 地表高度是起伏的，四条线长短不一反而乱；
+   * 拉到同一水平面（底座）读起来就是"这块沙盘是从下面那张图纸长出来的"。
+   */
+  const guideGeo = new THREE.BufferGeometry();
+  const guidePos = new Float32Array(4 * 2 * 3);
+  guideGeo.setAttribute("position", new THREE.BufferAttribute(guidePos, 3));
+  const guideMat = new THREE.LineBasicMaterial({
+    color: new THREE.Color("#8a7a63"),
+    transparent: true,
+    opacity: 0.55,
+    // 与图纸同理：引线是"图纸的一部分"，不该被空气染淡（否则远端那两条几乎看不见）
+    fog: false
+  });
+  const guideLines = new THREE.LineSegments(guideGeo, guideMat);
+  guideLines.name = "projection-guides";
+
+  group.add(projPlane, guideLines);
+
+  /** 图纸面所在的 y（`update` 里随地形重算） */
+  let lastProjY = 0;
+  /** 最近一次的 field（`setProfile` 要用它把网格坐标折成世界坐标） */
+  let lastField: DemField | null = null;
+  /** 每条剖面段的采样点数：118 m 格距、30 km 跨度 ⇒ 一段最多 ~250 格，取 140 够密 */
+  const PROFILE_SAMPLES = 140;
+  /** 贴地折线抬离地表的高度（占跨度的比例）——不抬高会与地表 z-fighting */
+  const PROFILE_LIFT = 0.006;
+
+  const profileGroup = new THREE.Group();
+  profileGroup.name = "profile";
+  group.add(profileGroup);
+
   /** 裙边与底板的深色（顶部略浅、底部近黑，像土壤-基岩剖面） */
   const SKIRT_TOP = new THREE.Color("#5b4a3a");
   const SKIRT_BOT = new THREE.Color("#241c16");
@@ -201,8 +342,13 @@ export function createTerrain(field: DemField, colorOf: (altitude: number) => Rg
 
   let baseY = 0;
   let lastCenterY = 0;
+  /** 三维沙盘本体是否显示（关掉后只剩二维图纸） */
+  let terrainVisible = true;
+  /** 二维图纸是否显示（由 `setProjection` 更新，供调试钩子读取） */
+  let projectionVisible = false;
 
   function update(f: DemField, colorFn: (altitude: number) => Rgb): void {
+    lastField = f;
     const { alt } = f;
     const pos = geo.attributes.position as THREE.BufferAttribute;
     const col = geo.attributes.color as THREE.BufferAttribute;
@@ -217,8 +363,8 @@ export function createTerrain(field: DemField, colorOf: (altitude: number) => Rg
     geo.computeVertexNormals();
     geo.computeBoundingSphere();
 
-    baseY = visualY(f, f.minH) - span * SKIRT_DROP;
-    lastCenterY = (visualY(f, f.minH) + visualY(f, f.maxH)) / 2;
+    baseY = assemblyBaseY(span, visualY(f, f.minH));
+    lastCenterY = assemblyCenterY(visualY(f, f.minH), visualY(f, f.maxH));
 
     // 裙边顶点：顶边贴地形轮廓，底边落在 baseY
     const d = grid - 1;
@@ -260,6 +406,131 @@ export function createTerrain(field: DemField, colorOf: (altitude: number) => Rg
     skirtGeo.computeBoundingSphere();
 
     basePlane.position.y = baseY;
+
+    // ---- 二维投影面与四角引线 ----
+    lastProjY = assemblyProjectionY(span, visualY(f, f.minH));
+    projPlane.position.y = lastProjY;
+    const half = span / 2;
+    const corners: Array<[number, number]> = [
+      [-half, -half],
+      [half, -half],
+      [half, half],
+      [-half, half]
+    ];
+    corners.forEach(([x, z], k) => {
+      const o = k * 6;
+      guidePos[o] = x;
+      guidePos[o + 1] = lastProjY;
+      guidePos[o + 2] = z;
+      guidePos[o + 3] = x;
+      guidePos[o + 4] = baseY;
+      guidePos[o + 5] = z;
+    });
+    (guideGeo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+    guideGeo.computeBoundingSphere();
+
+    // 地表高度变了 ⇒ 贴地折线与端点球都要按新高度重画
+    buildProfile();
+  }
+
+  /** 重画贴图 + 切显隐。`draw` 为 null 时只切显隐，不动贴图 */
+  function setProjection(s: ProjectionSettings): void {
+    projectionVisible = s.visible;
+    projPlane.visible = s.visible;
+    guideLines.visible = s.visible;
+    if (s.draw && projCtx) {
+      projCtx.setTransform(1, 0, 0, 1, 0, 0);
+      projCtx.clearRect(0, 0, PROJECTION_TEX, PROJECTION_TEX);
+      s.draw(projCtx, PROJECTION_TEX);
+      projTex.needsUpdate = true;
+    }
+  }
+
+  /** 当前要画的剖面段（`update` 改海拔后要按新高度重画，所以留着） */
+  let lastSegs: ProfileSegmentDraw[] = [];
+
+  /**
+   * 清空剖面组里的所有子对象。几何与材质都要 dispose，
+   * 不然改海拔几十次（每改一次就重画一次）会漏一堆 GPU 资源。
+   */
+  function clearProfile(): void {
+    for (const child of [...profileGroup.children]) {
+      profileGroup.remove(child);
+      const m = child as THREE.Mesh | THREE.Line | THREE.LineSegments;
+      m.geometry?.dispose();
+      const mat = (m as THREE.Mesh).material;
+      if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
+      else mat?.dispose();
+    }
+  }
+
+  /**
+   * 按当前 field 重建剖面段几何。改海拔 / 调夸张 / 换山后地表高度变了，
+   * 贴地折线必须跟着重画 —— 否则线会浮在空中或埋进山里。
+   */
+  function buildProfile(): void {
+    clearProfile();
+    const f = lastField;
+    if (!f || lastSegs.length === 0) {
+      return;
+    }
+    const d = f.grid - 1;
+    const half = f.spanM / 2;
+    const toWorldX = (gi: number) => (gi / d) * f.spanM - half;
+    const toWorldZ = (gj: number) => (gj / d) * f.spanM - half;
+    const h = (i: number, j: number) => f.alt[Math.max(0, Math.min(f.grid - 1, j)) * f.grid + Math.max(0, Math.min(f.grid - 1, i))];
+
+    for (const seg of lastSegs) {
+      const n = PROFILE_SAMPLES;
+      const surface: number[] = [];
+      const pin: number[] = [];
+      for (let k = 0; k < n; k++) {
+        const t = k / (n - 1);
+        const gi = seg.a[0] + (seg.b[0] - seg.a[0]) * t;
+        const gj = seg.a[1] + (seg.b[1] - seg.a[1]) * t;
+        const x = toWorldX(gi);
+        const z = toWorldZ(gj);
+        const y = visualY(f, bilerp(h, f.grid, gi, gj)) + f.spanM * PROFILE_LIFT;
+        surface.push(x, y, z);
+        // 两端各拉一条竖线到图纸面
+        if (k === 0 || k === n - 1) {
+          pin.push(x, y, z, x, lastProjY, z);
+        }
+      }
+      const lineGeo = new THREE.BufferGeometry();
+      lineGeo.setAttribute("position", new THREE.BufferAttribute(Float32Array.from(surface), 3));
+      const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(seg.color) });
+      const line = new THREE.Line(lineGeo, lineMat);
+      line.renderOrder = 3;
+      profileGroup.add(line);
+
+      const pinGeo = new THREE.BufferGeometry();
+      pinGeo.setAttribute("position", new THREE.BufferAttribute(Float32Array.from(pin), 3));
+      const pinMat = new THREE.LineBasicMaterial({
+        color: new THREE.Color(seg.color),
+        transparent: true,
+        opacity: 0.5
+      });
+      profileGroup.add(new THREE.LineSegments(pinGeo, pinMat));
+
+      // 端点小球：点的"那两个点"必须一眼看得见，否则学生不知道自己点在哪
+      const ballGeo = new THREE.SphereGeometry(f.spanM * 0.007, 12, 10);
+      const ballMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(seg.color) });
+      for (const p of [seg.a, seg.b]) {
+        const ball = new THREE.Mesh(ballGeo, ballMat);
+        ball.position.set(
+          toWorldX(p[0]),
+          visualY(f, bilerp(h, f.grid, p[0], p[1])) + f.spanM * PROFILE_LIFT,
+          toWorldZ(p[1])
+        );
+        profileGroup.add(ball);
+      }
+    }
+  }
+
+  function setProfile(segs: ProfileSegmentDraw[]): void {
+    lastSegs = segs.map((s) => ({ color: s.color, a: [s.a[0], s.a[1]], b: [s.b[0], s.b[1]] }));
+    buildProfile();
   }
 
   function setContours(s: ContourSettings): void {
@@ -270,21 +541,60 @@ export function createTerrain(field: DemField, colorOf: (altitude: number) => Rg
     uHighlight.value = s.highlight == null ? -99999 : s.highlight;
   }
 
+  /**
+   * 三维沙盘本体的显隐。
+   *
+   * 只关这四样（地表 / 裙边 / 底板 / 贴地剖面），**图纸与四角引线留着** ——
+   * 这个开关的用途正是"把沙盘收起来、单看那张平面图"。
+   */
+  function setTerrainVisible(visible: boolean): void {
+    terrainVisible = visible;
+    terrain.visible = visible;
+    skirt.visible = visible;
+    basePlane.visible = visible;
+    // 贴地折线 / 端点球 / 垂到图纸的引线都属于"三维那一份"；
+    // 图纸上的剖面段是画在贴图里的（`setProjection` 的 draw 负责），不归这里管。
+    profileGroup.visible = visible;
+  }
+
   update(field, colorOf);
   setContours({ enabled: true, interval: 200, majorEvery: 5, opacity: 0.5, highlight: null });
 
   return {
     group,
+    get grid() {
+      return grid;
+    },
+    get spanM() {
+      return span;
+    },
     update,
     setContours,
+    setProjection,
+    setProfile,
+    setTerrainVisible,
+    get terrainVisible() {
+      return terrainVisible;
+    },
+    get projectionVisible() {
+      return projectionVisible;
+    },
     centerY: () => lastCenterY,
+    baseBottomY: () => baseY,
+    projectionY: () => lastProjY,
     dispose() {
+      clearProfile();
       geo.dispose();
       skirtGeo.dispose();
       baseGeo.dispose();
+      projGeo.dispose();
+      guideGeo.dispose();
+      projTex.dispose();
       material.dispose();
       skirtMat.dispose();
       baseMat.dispose();
+      projMat.dispose();
+      guideMat.dispose();
     }
   };
 }

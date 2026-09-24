@@ -353,9 +353,13 @@ def read_dem_meta():
 
 
 def read_locations():
-    """从 src/data/locations.ts 解析人工声明的省份（对象块按出现顺序切）。"""
+    """从 src/data/locations.ts 解析人工声明的省份（对象块按出现顺序切）。
+
+    切分锚点是数组名 `SAMPLE_LOCATIONS`（v2.2.0 前叫 `MOUNTAIN_LOCATIONS`，
+    改名是因为里面已经不止装了山 —— 还有平原 / 高原 / 丘陵 / 盆地四个样本）。
+    """
     txt = io.open(os.path.join(ROOT, "src", "data", "locations.ts"), encoding="utf-8").read()
-    body = txt.split("MOUNTAIN_LOCATIONS", 1)[1]
+    body = txt.split("SAMPLE_LOCATIONS", 1)[1]
     out = []
     for blk in re.findall(r"\{(.*?)\}", body, re.S):
         tag = re.search(r'tag:\s*"([^"]+)"', blk)

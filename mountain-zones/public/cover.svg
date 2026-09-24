@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132">
-  <!-- 真实地形山地 · 垂直地带性 v2.0.0（由 .workbuddy/tmp/make_cover.py 生成，请勿手改）
+  <!-- 口袋地形（原「真实地形山地」）· 垂直地带性 v2.4.0（由 .workbuddy/tmp/make_cover.py 生成，请勿手改）
        主体是 26 条嵌套等值线构成的地形浮雕：每 4 条填一次自然带配色，
        从山麓针叶林深绿一路升到积雪白 —— 直接讲清"等高线 + 垂直地带性"这两件事。 -->
   <rect x="9" y="11" width="120" height="120" rx="10" fill="#2b2620"/>
@@ -67,10 +67,10 @@
     <path d="M113,86 L113,80 M110,83 L116,83" stroke="#2b2620" stroke-width="1" stroke-opacity="0.7"/>
     <rect x="13" y="13" width="25" height="25" rx="3" fill="#cc0000" stroke="#1a1a1a" stroke-width="2.5"/>
     <text x="25.5" y="31" font-family="'Kaiti SC',STKaiti,KaiTi,serif" font-size="17" fill="#fdf8ec" text-anchor="middle" font-weight="bold">地</text>
-    <text x="45" y="24" font-family="'Microsoft YaHei',sans-serif" font-size="7" font-weight="bold" fill="#2b2620" letter-spacing="0.4">真实 DEM</text>
-    <text x="45" y="33" font-family="'Microsoft YaHei',sans-serif" font-size="6.4" fill="#2b2620" fill-opacity="0.72" letter-spacing="0.3">四座真山 · 三维地形</text>
+    <text x="45" y="24" font-family="'Microsoft YaHei',sans-serif" font-size="7" font-weight="bold" fill="#2b2620" letter-spacing="0.4">三维地形沙盘</text>
+    <text x="45" y="33" font-family="'Microsoft YaHei',sans-serif" font-size="6.4" fill="#2b2620" fill-opacity="0.72" letter-spacing="0.3">模板 + 真山 · 等高线图</text>
   </g>
   <rect x="9" y="9" width="114" height="114" rx="7" fill="none" stroke="#2b2620" stroke-width="3"/>
   <rect x="9" y="113" width="114" height="10" fill="#1a1a1a"/>
-  <text x="66" y="120.6" font-family="'Microsoft YaHei',sans-serif" font-size="7.5" font-weight="bold" fill="#f2e8d5" text-anchor="middle" letter-spacing="0.5">垂直地带性 · 真实地形山地</text>
+  <text x="66" y="120.6" font-family="'Microsoft YaHei',sans-serif" font-size="7.5" font-weight="bold" fill="#f2e8d5" text-anchor="middle" letter-spacing="0.5">口袋地形 · 垂直地带性</text>
 </svg>

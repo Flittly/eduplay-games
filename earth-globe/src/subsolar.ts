@@ -19,13 +19,20 @@ const DEG = Math.PI / 180;
 
 /** 黄赤交角：北回归线 = 23.44°N，南回归线 = −23.44° */
 export const EARTH_TILT = 23.44;
-const TILT_RAD = EARTH_TILT * DEG;
 /** 地轴在世界坐标里的方位角，与引擎的 AXIS_AZIMUTH 相同 */
 const AXIS_AZIMUTH = 14;
 
-/** 由公转位置 ν（0~360°）求太阳直射点纬度（+ 为北纬，− 为南纬） */
-export function declinationForNu(nuDeg: number): number {
-  return -Math.asin(Math.sin(TILT_RAD) * Math.cos((nuDeg + AXIS_AZIMUTH) * DEG)) / DEG;
+/**
+ * 由公转位置 ν（0~360°）求太阳直射点纬度（+ 为北纬，− 为南纬）。
+ *
+ * `tiltDeg` 是**黄赤交角**，默认 23.44°。地面仪 v1.5.0 起可切到「地轴垂直」档（0°）：
+ * 那时 `sin 0 = 0`，直射点纬度恒为 0 —— 曲线被拉平成赤道线。这不是给曲线加特效，
+ * 而正是要演示的结论：**回归运动本身来自地轴倾角**，倾角没了，回归运动就没了。
+ * 用同一个公式的两个取值来表达两档，而不是在别处另写一条"平线"分支 ——
+ * 否则"平线"到底是不是 0° 就没人能保证了。
+ */
+export function declinationForNu(nuDeg: number, tiltDeg: number = EARTH_TILT): number {
+  return -Math.asin(Math.sin(tiltDeg * DEG) * Math.cos((nuDeg + AXIS_AZIMUTH) * DEG)) / DEG;
 }
 
 /* ---------------- 时间：ν ↔ 年内天数 ---------------- */
@@ -219,10 +226,14 @@ export function labelWidth(text: string, fontSize: number): number {
 }
 
 /** 曲线上的点：与「当前直射点」用的是同一个 declinationForNu，天然不会两级背离 */
-export function subsolarPoints(box: ChartBox, stepDeg = SAMPLE_STEP_DEG): CurvePoint[] {
+export function subsolarPoints(
+  box: ChartBox,
+  stepDeg = SAMPLE_STEP_DEG,
+  tiltDeg: number = EARTH_TILT
+): CurvePoint[] {
   const pts: CurvePoint[] = [];
   for (let nu = 0; nu <= 360 + 1e-9; nu += stepDeg) {
-    const decl = declinationForNu(nu);
+    const decl = declinationForNu(nu, tiltDeg);
     pts.push({ nu, decl, x: nuToX(nu, box), y: declToY(decl, box) });
   }
   return pts;
@@ -241,12 +252,18 @@ export function pathFromPoints(points: { x: number; y: number }[], precision = 2
   return d;
 }
 
-export function buildSubsolarChart(box: ChartBox, tickFont = 8): SubsolarChart {
-  const points = subsolarPoints(box);
+export function buildSubsolarChart(
+  box: ChartBox,
+  tickFont = 8,
+  tiltDeg: number = EARTH_TILT
+): SubsolarChart {
+  const points = subsolarPoints(box, SAMPLE_STEP_DEG, tiltDeg);
   return {
     box,
     points,
     path: pathFromPoints(points),
+    // 参考线（两条回归线与赤道）与档位**无关**：回归线的纬度是地理事实，不因为
+    // 切到"地轴垂直"档就消失 —— 恰恰要靠它们来当标尺，才看得出曲线被拉平到了哪一格。
     refLines: [
       { key: "tropicN", label: "23.5°N", decl: EARTH_TILT, y: declToY(EARTH_TILT, box) },
       { key: "equator", label: "0°", decl: 0, y: declToY(0, box) },
@@ -258,15 +275,21 @@ export function buildSubsolarChart(box: ChartBox, tickFont = 8): SubsolarChart {
       date: mark.date,
       nu: mark.nu,
       x: nuToX(mark.nu, box),
-      y: declToY(mark.decl, box),
+      // 刻度小圆点画的是**该档位下**曲线在那一刻的高度：垂直档时四个点会全部落在赤道线上，
+      // 与曲线一致。若沿用固定 23.44° 的点，曲线平了而点还挂在回归线上，图就自相矛盾了。
+      y: declToY(declinationForNu(mark.nu, tiltDeg), box),
       halfWidth: labelWidth(mark.label, tickFont) / 2
     }))
   };
 }
 
 /** 当前直射点的画布坐标 */
-export function currentPoint(nuDeg: number, box: ChartBox): { nu: number; decl: number; x: number; y: number } {
-  const decl = declinationForNu(nuDeg);
+export function currentPoint(
+  nuDeg: number,
+  box: ChartBox,
+  tiltDeg: number = EARTH_TILT
+): { nu: number; decl: number; x: number; y: number } {
+  const decl = declinationForNu(nuDeg, tiltDeg);
   return { nu: nuDeg, decl, x: nuToX(nuDeg, box), y: declToY(decl, box) };
 }
 

@@ -64,7 +64,19 @@ check("插图框完整落在主图内",
 check("插图框在主图左下角（不压台湾/福建一侧）", IX + IW < VBW * 0.5, `右边缘 ${(IX + IW).toFixed(1)} / ${VBW}`);
 
 /* ===== 2) 投影一致性：与生成器写下的 probe 对表 ===== */
-const sources = data.DEM_SOURCES;
+/**
+ * ⚠️ v2.4.0：这个文件里**凡是"上地图"的断言，分母都必须是真实样本**。
+ *
+ * 模板地形没有真实经纬度（`lat/lon` 是占位的 30/105），也不进 `locations.ts`
+ * —— 它们本来就不该出现在中国地图上，界面对它们改画一张说明卡。
+ * 当初把它们一并写进 `sources` 遍历，一口气红了 11 条：
+ * `meta.probe` 里当然查不到它们（probe 是生成器按真实经纬度算的对表点），
+ * 三个模板的"红点"全部重叠在同一个占位坐标上（距离 0.0 单位）。
+ * 这依旧是**断言作用域**的问题，不是数据的问题 —— 模板压根不该在这儿。
+ * 模板自己的契约在文件末尾「6) 模板地形不参与地理位置图」里守。
+ */
+const sources = data.REAL_SOURCES;
+const templateSources = data.TEMPLATE_SOURCES;
 let maxDev = 0;
 let worst = "";
 for (const s of sources) {
@@ -223,14 +235,14 @@ for (let a = 0; a < dots.length; a++) {
 }
 
 /* ===== 5) 人工声明与地图数据的一致性 ===== */
-const LOCS = locations.MOUNTAIN_LOCATIONS;
-check("地理位置条目数与山体数一致", LOCS.length === sources.length,
+const LOCS = locations.SAMPLE_LOCATIONS;
+check("地理位置条目数与样本数一致", LOCS.length === sources.length,
   `${LOCS.length} vs ${sources.length}`);
 
 const srcTags = sources.map((s) => s.tag).sort().join(",");
 const locTags = LOCS.map((l) => l.tag).sort().join(",");
-check("地理位置与山体 tag 一一对应（无遗漏、无多余）", srcTags === locTags,
-  `山体 ${srcTags} / 声明 ${locTags}`);
+check("地理位置与样本 tag 一一对应（无遗漏、无多余）", srcTags === locTags,
+  `样本 ${srcTags} / 声明 ${locTags}`);
 
 for (const loc of LOCS) {
   check(`[${loc.province}] adcode 存在于省界数据`, Boolean(CHINA_MAP.provinces[loc.adcode]),
@@ -242,12 +254,62 @@ for (const loc of LOCS) {
     loc.note.length > 5 && loc.range.length > 1, loc.range);
 }
 
+// 「每座山一个省」这条守的是**红点要在中国地图上散开**，不是全挤在一个省。
+// v2.2.0 加了四个非山地样本后，这条原来无条件套到 LOCS 上就红了 ——
+// 川中丘陵与贡嘎山同属四川省（本来就应该如此，它们都取景自四川）。
+// 所以按 landType 分流：四座山必须四个省；全部样本另外要求覆盖足够多的省。
+const typeOfTag = new Map(sources.map((s) => [s.tag, s.landType]));
+const mountainLocs = LOCS.filter((l) => typeOfTag.get(l.tag) === "mountain");
+const mountainAd = new Set(mountainLocs.map((l) => l.adcode));
+check("四座山分属四个不同省级行政区（红点必须散开）",
+  mountainLocs.length === 4 && mountainAd.size === 4,
+  `${mountainLocs.length} 座 / ${mountainAd.size} 个省`);
+
 const distinctAd = new Set(LOCS.map((l) => l.adcode));
-check("四座山分属四个不同省级行政区", distinctAd.size === LOCS.length,
-  [...distinctAd].join(","));
+check("全部样本覆盖 ≥ 5 个省级行政区", distinctAd.size >= 5, [...distinctAd].join(","));
 
 const borderCount = LOCS.filter((l) => l.onBorder).length;
 check("恰好一座声明为省界情形（多声明就等于拿省界当借口）", borderCount === 1, borderCount);
+
+/* ===== 6) 模板地形不参与地理位置图（v2.4.0） ===== */
+/**
+ * 模板地形是**示意地形**，不对应任何真实地点，所以：
+ *
+ * - 它们不在地理位置表里（`locations.ts` 只登记真实样本）；
+ * - 界面上不画中国地图，改画一张「这是模板地形，没有真实经纬度」的说明卡。
+ *
+ * 这一节守的是"**别让它静默地混进去**"。因为下面这条回退看着很方便、
+ * 实际上是个陷阱：
+ *
+ *   `locationByTag(tag) => SAMPLE_LOCATIONS.find(...) ?? SAMPLE_LOCATIONS[0]`
+ *
+ * 模板的 tag 查不到 ⇒ 回退到**第一个真实样本（贡嘎山 / 四川省）**。
+ * 也就是说，只要界面忘了分流，模板山地就会顶着「四川省 · 大雪山（横断山系）」
+ * 这张标签、红点画在 30°N/105°E，而那个位置**确实落在中国国界轮廓内** ——
+ * 既不报错也不越界，肉眼完全看不出是错的。所以这里把这条回退行为
+ * 连同"占位坐标落在哪"一起钉住，当成分流逻辑的哨兵。
+ */
+{
+  const locTags = new Set(locations.SAMPLE_LOCATIONS.map((l) => l.tag));
+  for (const s of templateSources) {
+    check(`[${s.name}] 不在地理位置表里（模板没有真实地点）`,
+      !locTags.has(s.tag), s.tag);
+
+    check(`[${s.name}] 经纬度是占位值 30/105`,
+      s.lat === 30 && s.lon === 105, `${s.lat}/${s.lon}`);
+
+    // 哨兵：证明"忘了分流"不会报错，只会安静地借用别人的省
+    const fallback = locations.locationByTag(s.tag);
+    check(`[${s.name}] 若按 tag 查地理位置会静默回退到第一个真实样本（所以界面必须显式分流）`,
+      fallback.tag === locations.SAMPLE_LOCATIONS[0].tag,
+      `回退到 ${fallback.tag}（${fallback.province}）`);
+
+    // 占位坐标并非画不出来 —— 它落在国界内，所以错得毫无痕迹
+    const [x, y] = project(s.lat, s.lon);
+    check(`[${s.name}] 占位坐标落在国界轮廓内（正因如此，误画红点也看不出来）`,
+      inSubpaths(x, y, outlineRings), `(${x.toFixed(1)}, ${y.toFixed(1)})`);
+  }
+}
 
 /* ===== 汇总 ===== */
 const failed = checks.filter((c) => !c.ok);

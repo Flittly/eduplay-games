@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CardBoard from "./CardBoard";
-import { buildCards, layoutCards, pairsForLevel, pickRemainingPair } from "./gameData";
-import type { CardSpec, LegendItem, PlayerInfo, SelectedCard } from "./types";
+import { buildCards, layoutCards, modeConfig, pairsForLevel, pickRemainingPair } from "./gameData";
+import type { CardSpec, GameMode, LegendItem, PlayerInfo, SelectedCard } from "./types";
 
 /**
  * 双人 PK。
@@ -16,8 +16,7 @@ import type { CardSpec, LegendItem, PlayerInfo, SelectedCard } from "./types";
  * 1280 宽的大屏切成两块后每块只剩 600px，16 张卡会挤到看不清；
  * 共享一副牌面则两个人看的是同一盘棋，也好讲解。
  */
-const PK_LEVEL = 1;                       // 复用第 2 关的抽牌强度 → 8 对 16 张
-const PK_PAIRS = pairsForLevel(PK_LEVEL);
+const PK_LEVEL = 1;                       // 复用第 2 关的抽牌强度：初中组 6 对 / 高级组 8 对
 const PK_POINT = 10;
 const FOCUS_MS = 1400;
 const WRONG_SHAKE_MS = 560;
@@ -35,6 +34,8 @@ type Side = "left" | "right";
 interface DualMatchProps {
   legends: LegendItem[];
   roster: PlayerInfo[];
+  /** 本局组别：只影响牌面对数与题库范围，PK 的规则与计分不分組别。 */
+  mode: GameMode;
   onBack: () => void;
 }
 
@@ -42,12 +43,14 @@ function newSeed(): number {
   return (Math.floor(Math.random() * 0xffffff) ^ Date.now()) >>> 0;
 }
 
-export default function DualMatch({ legends, roster, onBack }: DualMatchProps) {
+export default function DualMatch({ legends, roster, mode, onBack }: DualMatchProps) {
   const seats = useMemo<PlayerInfo[]>(
     () => (roster.length >= 2 ? roster : [...roster, SPARRING]),
     [roster]
   );
   const needsSparring = roster.length < 2;
+  /** 本场牌面容量：跟着组别走 —— 高级组第 2 关是 8 对，正好多两张牌的量。 */
+  const pkPairs = useMemo(() => pairsForLevel(mode, PK_LEVEL), [mode]);
 
   const [stage, setStage] = useState<PkStage>("arrange");
   const [leftSeat, setLeftSeat] = useState<number | null>(null);
@@ -82,7 +85,10 @@ export default function DualMatch({ legends, roster, onBack }: DualMatchProps) {
     return map;
   }, [legends]);
 
-  const cards = useMemo(() => buildCards(legends, PK_LEVEL, seed), [legends, seed]);
+  const cards = useMemo(
+    () => buildCards(legends, mode, PK_LEVEL, seed),
+    [legends, mode, seed]
+  );
   const layout = useMemo(
     () => layoutCards(cards.length, board.w, board.h, (seed ^ 0x1f123bb5) >>> 0),
     [cards.length, board.w, board.h, seed]
@@ -271,15 +277,17 @@ export default function DualMatch({ legends, roster, onBack }: DualMatchProps) {
           <button type="button" onClick={onBack}>返回模式选择</button>
           <div>
             <h2>双人 PK · 出战安排</h2>
-            <span>共 {seats.length} 名学生，点名字把他们放到左席或右席</span>
+            <span>
+              {modeConfig(mode).name} · 共 {seats.length} 名学生，点名字把他们放到左席或右席
+            </span>
           </div>
           <div className="pk-score"><b>第 {boutNo} 场</b></div>
         </header>
 
         <p className="pk-message is-note">
-          对战规则：共享一副 {PK_PAIRS} 对（{PK_PAIRS * 2} 张）的牌面，
+          对战规则：共享一副 {pkPairs} 对（{pkPairs * 2} 张）的牌面，
           轮流出手。<b>配对成功 +{PK_POINT} 分并继续出手，配错就换对方出手</b>。
-          先被消完的牌面归零，分高者胜。
+          先被消完的牌面归零，分高者胜。本题库为 <b>{modeConfig(mode).name}</b>。
         </p>
 
         {needsSparring && (
@@ -377,7 +385,9 @@ export default function DualMatch({ legends, roster, onBack }: DualMatchProps) {
           <button type="button" onClick={onBack}>退出 PK</button>
           <div>
             <h2>第 {boutNo} 场结果</h2>
-            <span>牌面已全部消完 · 用时 {seconds} 秒</span>
+            <span>
+              {modeConfig(mode).name} · 牌面已全部消完 · 用时 {seconds} 秒
+            </span>
           </div>
         </header>
 
@@ -435,7 +445,8 @@ export default function DualMatch({ legends, roster, onBack }: DualMatchProps) {
         <div>
           <h2>双人 PK · 第 {boutNo} 场</h2>
           <span data-hud="pk-progress">
-            剩余 {Math.max(0, Math.round((cards.length - cleared.length) / 2))} 对 ·
+            {modeConfig(mode).name} · 剩余{" "}
+            {Math.max(0, Math.round((cards.length - cleared.length) / 2))} 对 ·
             用时 {seconds} 秒
           </span>
         </div>

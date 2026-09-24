@@ -1,7 +1,7 @@
 {
   "gameCode": "mountain_zones",
-  "name": "真实地形山地·垂直地带性",
-  "version": "2.1.1",
+  "name": "口袋地形",
+  "version": "2.4.4",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
@@ -10,5 +10,5 @@
   "cover": "web/cover.svg",
   "backendPlugin": null,
   "requiresRoster": false,
-  "description": "真实 DEM 三维山地：贡嘎山、珠峰、梅里雪山、太白山四座真山可切换，拖动海拔偏移与垂直夸张重塑山体，改纬度切四季看垂直自然带更替；右侧参数栏带「地理位置」栏，用中国地图标出当前这座山在哪个省级行政区（所在省高亮 + 闪烁红点）；底部等高线栏含平面等高线图、等高线清单与垂直剖面图，另可按需叠加山脊线、水系与降雨径流。"
+  "description": "三维等高线地形沙盘：先用模板山地/丘陵/盆地认清山峰、山脊、山谷、鞍部、陡崖，再到真实 DEM 上拖海拔、改纬度看垂直自然带更替；山体下叠等高线投影，可拉剖面多段对比。八年级地理。"
 }

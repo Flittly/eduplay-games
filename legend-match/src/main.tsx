@@ -5,12 +5,17 @@ import LegendMatch from "./LegendMatch";
 import DualMatch from "./DualMatch";
 import Gallery from "./Gallery";
 import { useLegends } from "./data";
-import { LEVEL_PAIRS, totalPairs } from "./gameData";
-import type { LegendItem, PlayerInfo, RoundRecord, RunResult } from "./types";
+import {
+  DEFAULT_MODE, MODES, MODE_ORDER, legendsForMode, levelCount, modeConfig,
+  totalPairs
+} from "./gameData";
+import type {
+  GameMode, LegendItem, PlayerInfo, RoundRecord, RunResult
+} from "./types";
 import "./styles.css";
 
 const gameCode = "legend_match";
-const version = "0.0.1";
+const version = "1.1.0";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {
@@ -138,8 +143,24 @@ function GameApp() {
   const [stage, setStage] = useState<Stage>("lobby");
 
   const bank = useLegends();
-  const legends = bank.data?.legends ?? [];
-  const categories = bank.data?.categories ?? [];
+  /** 组别：**游戏开始前**在大厅选定。进游戏后只读显示，要换就退出回大厅重选 ——
+   *  一局成绩不能混用两套题库，否则同一个分数在两组的排行榜上没法比。 */
+  const [mode, setMode] = useState<GameMode>(DEFAULT_MODE);
+  const allLegends = useMemo(() => bank.data?.legends ?? [], [bank.data]);
+  const legends = useMemo(
+    () => legendsForMode(allLegends, mode),
+    [allLegends, mode]
+  );
+  /** 只保留该组别真有图例的类别，否则大厅和图鉴会列出 0 条的类别 */
+  const categories = useMemo(
+    () =>
+      (bank.data?.categories ?? []).filter((c) =>
+        legends.some((l: LegendItem) => l.category === c.id)
+      ),
+    [bank.data, legends]
+  );
+  /** 图鉴要跨组查阅（老师点"进阶条目"时得看到高级组独有的类别），所以另存全量类别 */
+  const allCategories = useMemo(() => bank.data?.categories ?? [], [bank.data]);
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -228,8 +249,9 @@ function GameApp() {
   if (stage === "gallery") {
     return (
       <Gallery
-        legends={legends}
-        categories={categories}
+        allLegends={allLegends}
+        categories={allCategories}
+        mode={mode}
         onBack={() => setStage("lobby")}
       />
     );
@@ -237,15 +259,24 @@ function GameApp() {
 
   if (stage === "dual") {
     return (
-      <DualMatch legends={legends} roster={effectiveRoster} onBack={() => setStage("lobby")} />
+      <DualMatch
+        // key 换组别即重挂载：状态机里的 mode 必须跟着重置，不能沿用上一局
+        key={mode}
+        legends={legends}
+        roster={effectiveRoster}
+        mode={mode}
+        onBack={() => setStage("lobby")}
+      />
     );
   }
 
   if (stage === "single") {
     return (
       <LegendMatch
+        key={mode}
         legends={legends}
         roster={effectiveRoster}
+        mode={mode}
         onComplete={notifyComplete}
         onSessionEnd={notifySessionEnd}
         onBack={() => setStage("lobby")}
@@ -260,7 +291,7 @@ function GameApp() {
         <p className="lobby-lead">
           牌面上散落着图例符号和它们的名称，把<em>符号</em>和<em>名称</em>配成一对就能消除；
           每消掉一对，这一对会在屏幕中央放大复现一次，看清楚它的样子再继续。
-          共 {legends.length} 个初中地理常见图例，6 关逐关加量。
+          共 {allLegends.length} 个初中地理常用图例，分<em>初中组</em>与<em>高级组</em>两套题库。
         </p>
         {standalone && (
           <p className="lobby-standalone">
@@ -277,13 +308,50 @@ function GameApp() {
         </div>
       </header>
 
+      <section className="lobby-tier" data-section="tier">
+        <div className="lobby-level-title">
+          <strong>① 选择组别</strong>
+          <span>决定这一局用哪套图例库、打多少对；进了游戏就不再切换</span>
+        </div>
+        <div className="mode-cards is-tier">
+          {MODE_ORDER.map((id) => {
+            const cfg = MODES[id];
+            const count = legendsForMode(allLegends, id).length;
+            const on = id === mode;
+            return (
+              <button
+                key={id}
+                type="button"
+                data-tier={id}
+                className={on ? "is-active" : ""}
+                aria-pressed={on}
+                onClick={() => setMode(id)}
+              >
+                <strong>{cfg.name}</strong>
+                <span data-hud={`tier-${id}`}>
+                  {count} 个图例 · 每关 {cfg.pairs[0]}~{cfg.pairs[cfg.pairs.length - 1]} 对
+                </span>
+                <em>{cfg.blurb}</em>
+                <em className="tier-note">{cfg.note}</em>
+              </button>
+            );
+          })}
+        </div>
+        <p className="lobby-note" data-hud="tier-summary">
+          当前是 <b>{modeConfig(mode).name}</b>：{legends.length} 个图例、
+          {categories.length} 个类别、{levelCount(mode)} 关、整局 {totalPairs(mode)} 对。
+          高级组包含初中组的全部图例，另加{" "}
+          {allLegends.length - legendsForMode(allLegends, "junior").length} 个进阶条目。
+        </p>
+      </section>
+
       <section className="lobby-level">
         <div className="lobby-level-title">
-          <strong>闯关进度</strong>
+          <strong>② 闯关进度</strong>
           <span>每关牌数递增，同类图例越来越多，越往后越容易看混</span>
         </div>
         <ol className="level-strip">
-          {LEVEL_PAIRS.map((pairs, i) => (
+          {modeConfig(mode).pairs.map((pairs, i) => (
             <li key={pairs}>
               <span className="level-strip-no">第 {i + 1} 关</span>
               <b>{pairs} 对</b>
@@ -292,12 +360,13 @@ function GameApp() {
           ))}
         </ol>
         <p className="lobby-note">
-          整局共 {totalPairs()} 对（{totalPairs() * 2} 张卡）；每关 3 次提示，配错扣 20 分并中断连击。
+          整局共 {totalPairs(mode)} 对（{totalPairs(mode) * 2} 张卡）；
+          每关 3 次提示，配错扣 20 分并中断连击。
         </p>
       </section>
 
       <section className="lobby-cats">
-        <strong>图例类别</strong>
+        <strong>图例类别（{categories.length} 类）</strong>
         <div className="cat-chips">
           {byCategory.map((c) => (
             <span key={c.name} className="cat-chip">
@@ -309,13 +378,16 @@ function GameApp() {
 
       <section className="lobby-mode">
         <div className="lobby-level-title">
-          <strong>选择模式</strong>
+          <strong>③ 选择玩法</strong>
           <span>课堂大屏建议用双人 PK</span>
         </div>
         <div className="mode-cards">
           <button type="button" data-mode="single" onClick={() => setStage("single")}>
             <strong>单人闯关</strong>
-            <span>逐个学生上台打完整 6 关，自动记分与排名</span>
+            <span>
+              逐个学生上台打完整 {levelCount(mode)} 关（{modeConfig(mode).name}），
+              自动记分与排名
+            </span>
           </button>
           <button type="button" data-mode="dual" onClick={() => setStage("dual")}>
             <strong>双人 PK</strong>
@@ -323,7 +395,10 @@ function GameApp() {
           </button>
           <button type="button" data-mode="gallery" onClick={() => setStage("gallery")}>
             <strong>图例图鉴</strong>
-            <span>查看全部 {legends.length} 个图例，按 {byCategory.length} 个类别筛选</span>
+            <span>
+              默认看{modeConfig(mode).name}的 {legends.length} 个图例，
+              可切「全部 {allLegends.length} 个 / 初中必备 / 进阶条目」三档
+            </span>
           </button>
         </div>
       </section>

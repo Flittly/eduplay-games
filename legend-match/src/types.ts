@@ -24,6 +24,14 @@ export interface RoundRecord {
   finishedAt: number;
 }
 
+/**
+ * 游戏模式（组别）。
+ * - `junior` 初中组：教材正文必会的常用图例（legends.json 里 tier === "basic"）。
+ * - `senior` 高级组：**全部**图例，含细分/辨形条目，同类干扰更强。
+ * 高级组 ⊇ 初中组是刻意的：学生升组不丢基本盘，两组的成绩也才可比。
+ */
+export type GameMode = "junior" | "senior";
+
 export interface LegendItem {
   id: string;
   /** 教材/图册上的正式名称（揭晓大卡与图鉴用） */
@@ -32,6 +40,8 @@ export interface LegendItem {
   short: string;
   category: string;
   categoryName: string;
+  /** "basic" 进初中组；"advanced" 只进高级组 */
+  tier: "basic" | "advanced";
   summary: string;
   image: string;
 }
@@ -80,6 +90,9 @@ export interface SelectedCard {
 }
 
 export interface MatchState {
+  /** 本局用的组别。放进 state 而不是只当 prop：状态机的"第几关算通"和
+   *  "第几关是最后一关"都取决于组别，让它留在状态里，reducer 才是自洽的。 */
+  mode: GameMode;
   levelIndex: number;
   seed: number;
   cleared: string[];

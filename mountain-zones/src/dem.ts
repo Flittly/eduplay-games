@@ -32,8 +32,42 @@ function decodeB64(b64: string): Uint8Array {
 }
 
 export const EXAGGERATION_MIN = 0.5;
-export const EXAGGERATION_MAX = 2.0;
+/**
+ * 上限定 20 —— v2.4.1 从 2.0 抬上来的。
+ *
+ * 起因是「自动推荐垂直夸张」：`landform.ts` 的坡度取向公式会给
+ * 华北平原算到 ×20（30 km 内高差只有 40 m，不抬就是一张纸）。
+ * 上限还留在 2.0 的话，推荐值会被 `applyElevation` 静默夹回 2.0 ——
+ * 界面上显示的仍是 ×2.00，看起来"自动推荐生效了"，其实平原还是那张纸。
+ */
+export const EXAGGERATION_MAX = 20;
 export const OFFSET_LIMIT = 2000;
+
+/**
+ * 夸张滑块用**对数刻度**，不是线性。
+ *
+ * 0.5~20 这个区间里，能被用到的值集中在低段（1、1.5、2、3），
+ * 线性刻度下 0.5→2 只占 7.7% 的行程 —— 在一条 200 px 的滑块上
+ * 就是 15 px，"想微调一下"根本点不准。
+ *
+ * 对数刻度让**相等的比例**占相等的行程：0.5→2（×4）与 5→20（×4）
+ * 一样宽。0.5~2 于是占到 38% 的行程，而 ×20 附近本来就只需要粗调。
+ */
+export const EXAGGERATION_SLIDER_STEPS = 1000;
+
+/** 夸张系数 → 滑块位置（0 ~ `EXAGGERATION_SLIDER_STEPS`） */
+export function exagToSlider(v: number): number {
+  const clamped = Math.max(EXAGGERATION_MIN, Math.min(EXAGGERATION_MAX, v));
+  const t = Math.log(clamped / EXAGGERATION_MIN) / Math.log(EXAGGERATION_MAX / EXAGGERATION_MIN);
+  return Math.round(t * EXAGGERATION_SLIDER_STEPS);
+}
+
+/** 滑块位置 → 夸张系数（保留两位小数，避免滑块上出现 ×2.4200000001） */
+export function sliderToExag(t: number): number {
+  const frac = Math.max(0, Math.min(1, t / EXAGGERATION_SLIDER_STEPS));
+  const raw = EXAGGERATION_MIN * Math.pow(EXAGGERATION_MAX / EXAGGERATION_MIN, frac);
+  return Math.round(raw * 100) / 100;
+}
 
 /** 从数据源建一个高程场（初始为「真实地形」：不偏移、不夸张） */
 export function createField(source: DemSource): DemField {

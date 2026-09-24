@@ -19,12 +19,19 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const DEG = Math.PI / 180;
 /** 黄赤交角：北回归线 = 23.44°N，南回归线 = −23.44° */
 const EARTH_TILT = 23.44;
-const TILT_RAD = EARTH_TILT * DEG;
 /** 地轴在世界坐标里的方位角，与引擎的 AXIS_AZIMUTH 相同 */
 const AXIS_AZIMUTH = 14;
-/** 由公转位置 ν（0~360°）求太阳直射点纬度（+ 为北纬，− 为南纬） */
-function declinationForNu(nuDeg) {
-	return -Math.asin(Math.sin(TILT_RAD) * Math.cos((nuDeg + AXIS_AZIMUTH) * DEG)) / DEG;
+/**
+* 由公转位置 ν（0~360°）求太阳直射点纬度（+ 为北纬，− 为南纬）。
+*
+* `tiltDeg` 是**黄赤交角**，默认 23.44°。地面仪 v1.5.0 起可切到「地轴垂直」档（0°）：
+* 那时 `sin 0 = 0`，直射点纬度恒为 0 —— 曲线被拉平成赤道线。这不是给曲线加特效，
+* 而正是要演示的结论：**回归运动本身来自地轴倾角**，倾角没了，回归运动就没了。
+* 用同一个公式的两个取值来表达两档，而不是在别处另写一条"平线"分支 ——
+* 否则"平线"到底是不是 0° 就没人能保证了。
+*/
+function declinationForNu(nuDeg, tiltDeg = EARTH_TILT) {
+	return -Math.asin(Math.sin(tiltDeg * DEG) * Math.cos((nuDeg + AXIS_AZIMUTH) * DEG)) / DEG;
 }
 /**
 * 日期锚点：`day` 是年内第几天（1 月 1 日 = 0）。
@@ -204,10 +211,10 @@ function labelWidth(text, fontSize) {
 	return w;
 }
 /** 曲线上的点：与「当前直射点」用的是同一个 declinationForNu，天然不会两级背离 */
-function subsolarPoints(box, stepDeg = 1) {
+function subsolarPoints(box, stepDeg = 1, tiltDeg = EARTH_TILT) {
 	const pts = [];
 	for (let nu = 0; nu <= 360 + 1e-9; nu += stepDeg) {
-		const decl = declinationForNu(nu);
+		const decl = declinationForNu(nu, tiltDeg);
 		pts.push({
 			nu,
 			decl,
@@ -225,8 +232,8 @@ function pathFromPoints(points, precision = 2) {
 	for (let i = 1; i < points.length; i += 1) d += `L${f(points[i].x)},${f(points[i].y)}`;
 	return d;
 }
-function buildSubsolarChart(box, tickFont = 8) {
-	const points = subsolarPoints(box);
+function buildSubsolarChart(box, tickFont = 8, tiltDeg = EARTH_TILT) {
+	const points = subsolarPoints(box, 1, tiltDeg);
 	return {
 		box,
 		points,
@@ -257,14 +264,14 @@ function buildSubsolarChart(box, tickFont = 8) {
 			date: mark.date,
 			nu: mark.nu,
 			x: nuToX(mark.nu, box),
-			y: declToY(mark.decl, box),
+			y: declToY(declinationForNu(mark.nu, tiltDeg), box),
 			halfWidth: labelWidth(mark.label, tickFont) / 2
 		}))
 	};
 }
 /** 当前直射点的画布坐标 */
-function currentPoint(nuDeg, box) {
-	const decl = declinationForNu(nuDeg);
+function currentPoint(nuDeg, box, tiltDeg = EARTH_TILT) {
+	const decl = declinationForNu(nuDeg, tiltDeg);
 	return {
 		nu: nuDeg,
 		decl,

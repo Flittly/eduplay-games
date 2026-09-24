@@ -38,7 +38,7 @@ GAMES = [
     ("geo-gomoku",       "geo_gomoku",       "经纬度五子棋"),
     ("landform-quiz",    "landform_quiz",    "地貌人格测试"),
     ("legend-match",     "legend_match",     "地图图例消消乐"),
-    ("mountain-zones",   "mountain_zones",   "真实地形山地·垂直地带性"),
+    ("mountain-zones",   "mountain_zones",   "口袋地形"),
     ("province-puzzle",  "province_puzzle",  "行政区拼图"),
     ("province-quiz",    "province_quiz",    "省级行政区识别"),
     ("shanhe-match3",    "shanhe_match3",    "山河三消"),

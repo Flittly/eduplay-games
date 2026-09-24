@@ -29,11 +29,11 @@
 
 import { useMemo } from "react";
 import { projectToPercent, type ChinaMap } from "./locmap";
-import type { MountainLocation } from "./data/locations";
+import type { SampleLocation } from "./data/locations";
 
 interface Props {
   map: ChinaMap;
-  location: MountainLocation;
+  location: SampleLocation;
   /** 山体名（红点旁的小标签） */
   mountainName: string;
   /** 真实纬度（北纬为正）—— 来自 DemSource.lat，**不是** snapshot.lat */

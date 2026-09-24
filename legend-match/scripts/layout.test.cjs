@@ -32,8 +32,11 @@ const BOARDS = [
 ];
 const COUNTS = [];
 
-for (let lv = 0; lv < G.LEVEL_COUNT; lv += 1) {
-  COUNTS.push(G.pairsForLevel(lv) * 2);
+// 两种组别的每关牌数都要测（高级组末关 16 对 = 32 张是游戏里最大的牌面）
+const ALL_PAIRS = [...new Set([...G.MODES.junior.pairs, ...G.MODES.senior.pairs])]
+  .sort((a, b) => a - b);
+for (const pairs of ALL_PAIRS) {
+  COUNTS.push(pairs * 2);
 }
 COUNTS.push(2, 4, 30, 40); // 边界：只有一对 / 超出关卡上限
 
@@ -79,7 +82,10 @@ for (const [w, h] of BOARDS) {
     // 3) 卡面尺寸：极小牌面上"每张都 ≥70px"在几何上不可能，所以按牌面大小分级。
     //    课堂大屏（≥980 宽）在游戏实际的最大牌数（32 张）以内必须给到 88px 以上，
     //    符号和名称才看得清；超出游戏上限的合成用例只保证几何正确。
-    const gameMax = G.pairsForLevel(G.LEVEL_COUNT - 1) * 2;
+    const maxPairs = Math.max(
+      ...G.MODES.junior.pairs, ...G.MODES.senior.pairs
+    );
+    const gameMax = maxPairs * 2;
     const MIN_READABLE = w >= 900 ? (n <= gameMax ? 88 : 70) : 44;
     check(`卡面够大可读 ${tag}`, pos[0].w >= MIN_READABLE,
       `w=${pos[0].w.toFixed(1)} 需要 ≥${MIN_READABLE}`);

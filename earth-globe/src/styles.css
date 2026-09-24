@@ -41,10 +41,24 @@ input {
 }
 
 /* ---------- 布局 ---------- */
+/* v1.5.0：从「画布铺满 + 三块绝对定位浮层」改成「舞台 + 底部图层栏」两段式。
+   为什么非改不可：原先画布、左栏、右栏、底部提示条四者都是 absolute，互不重叠全靠
+   各写一份 top/bottom 魔数（右栏 bottom:60 就是替提示条让位的猜值）；v1.4.6 的左栏
+   重叠 135px 正是这套写法的必然后果。现在底部图层栏回到**正常流**里，舞台是它的兄弟，
+   两者在结构上不可能压住对方，右栏也不再需要为提示条预留高度。 */
 .globe-app {
   position: relative;
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.globe-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -118,8 +132,7 @@ input {
 
 /* 收起后：整栏缩成一个小胶囊，只留按钮本身 */
 .globe-rail.is-collapsed,
-.globe-panel.is-collapsed,
-.globe-hint.is-collapsed {
+.globe-panel.is-collapsed {
   width: auto;
   min-width: 0;
   height: auto;
@@ -133,8 +146,7 @@ input {
 }
 
 .globe-rail.is-collapsed .panel-toggle,
-.globe-panel.is-collapsed .panel-toggle,
-.globe-hint.is-collapsed .panel-toggle {
+.globe-panel.is-collapsed .panel-toggle {
   position: static;
   font-size: 11px;
   padding: 0 8px;
@@ -217,7 +229,9 @@ input {
   position: absolute;
   top: 16px;
   right: 16px;
-  bottom: 60px;
+  /* v1.5.0：原先这里是 60px —— 替底部那条绝对定位的提示条让位。提示条已并进
+     底部图层栏（正常流），这个猜出来的 60 也就没有存在的理由了。 */
+  bottom: 16px;
   width: 272px;
   background: var(--paper);
   color: var(--ink);
@@ -748,23 +762,337 @@ input {
   display: block;
 }
 
-/* ---------- 底部提示 ---------- */
-.globe-hint {
-  position: absolute;
-  left: 50%;
-  bottom: 14px;
-  transform: translateX(-50%);
-  background: var(--space-soft);
-  border: 1px solid rgba(212, 168, 67, 0.55);
-  color: var(--paper);
-  padding: 7px 36px 7px 22px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
+/* ---------- 底部「图层」栏（v1.5.0，需求⑦）----------
+   由原先那条只放操作提示的浮动胶囊改造而来，现在同时承担两件事：
+   ① 栏头一行放 标题 + 操作提示 + 收起按钮（提示不再单独占一条浮层）；
+   ② 栏体横向铺开四列图层开关（原先竖着排在右栏里，19 项要 400+px 才放得下）。
+
+   栏体是**正常流**里的兄弟节点，与舞台并列，所以不需要任何"给提示条留多少高度"的魔数。 */
+.globe-layers {
+  flex: 0 0 auto;
+  background: var(--paper);
+  color: var(--ink);
+  border-top: 3px solid #2b2620;
+  box-shadow: 0 -3px 0 rgba(0, 0, 0, 0.16);
+  z-index: 4;
+}
+
+.globe-layers .layers-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 34px;
+  padding: 5px 12px;
+}
+
+.layers-title {
+  flex: none;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  color: var(--brown);
+}
+
+.hint-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(43, 38, 32, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layers-toggle {
+  flex: none;
+  font-size: 11px;
+  padding: 3px 9px;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  color: var(--ink);
+  cursor: pointer;
   white-space: nowrap;
 }
 
-.globe-hint .panel-toggle {
-  background: rgba(242, 232, 213, 0.9);
+.layers-toggle:hover {
+  background: #dccfae;
+}
+
+.layers-body {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px 18px;
+  padding: 0 12px 10px;
+  /* 矮屏（1120×740）下四列里最高的一列约 6 项 ≈ 150px，28vh ≈ 207px ⇒ 一般不滚动。
+     窗口再矮时整栏内部滚动，而不是把舞台挤到看不见地球。 */
+  max-height: 28vh;
+  overflow-y: auto;
+}
+
+/* ⚠ 不写 `scrollbar-width: thin`：它一旦非 auto 就会顶掉下面的 ::-webkit-scrollbar
+   宽度，六px 变十px，栏体内的列宽跟着被压（v1.4.6 在左栏上踩过同一条）。 */
+.layers-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.layers-body::-webkit-scrollbar-thumb {
+  background: rgba(43, 38, 32, 0.28);
+}
+
+.layer-col {
+  min-width: 0;
+}
+
+/* 图层项在横排里不需要原来那么大的行距 */
+.layers-body .layer-list li + li {
+  margin-top: 2px;
+}
+
+/* 五带图例横跨所有列：它是「五带」那一项的注解，竖着塞进某一列会把那列撑得比别的长 */
+.layers-body .zone-legend {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(43, 38, 32, 0.3);
+}
+
+.zone-legend-note {
+  color: rgba(43, 38, 32, 0.6);
+}
+
+/* ---------- 分段开关（地轴倾角 / 经纬网疏密）---------- */
+/* 两者形状完全相同：一个标签 + 一串互斥档位按钮。合成一套规则，
+   避免"地轴那两个按钮"和"疏密那四个按钮"长成两种样子。 */
+.seg-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.seg-row .seg-label {
+  margin-right: 2px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: rgba(43, 38, 32, 0.62);
+}
+
+.seg-row button {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 7px;
+  background: var(--paper-dim);
+  border: 2px solid #2b2620;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.seg-row button:hover {
+  background: #dccfae;
+}
+
+.seg-row button.is-on {
+  background: var(--brown);
+  color: var(--paper);
+}
+
+.seg-row.is-grid-step {
+  margin: 6px 0 0;
+}
+
+/* ---------- 勾选行（透明地球 / 夹角演示）---------- */
+.switch-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.switch-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+}
+
+.switch-row input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  accent-color: var(--brown);
+  cursor: pointer;
+}
+
+/* ---------- 经纬度平面位置图（需求④）---------- */
+.plane-map {
+  margin-bottom: 8px;
+}
+
+/* 2:1 —— 与等距圆柱投影的 360×180 严格同比，所以 viewBox 里的线宽是**等向**缩放的，
+   不用为两个方向各算一次描边粗细。 */
+.plane-map-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border: 2px solid #2b2620;
+  background: #a8d8f0;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.plane-map-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.plane-map-grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 线宽是 viewBox 单位：238px 宽的框对 360° 的图 ⇒ 约 ×0.66，1.4 画出来≈0.9px */
+.plane-map-grid line {
+  stroke: rgba(255, 255, 255, 0.45);
+  stroke-width: 1.4;
+}
+
+.plane-map-grid line.is-prime,
+.plane-map-grid line.is-equator {
+  stroke: rgba(255, 138, 66, 0.95);
+  stroke-width: 2.6;
+}
+
+.plane-map-terminator {
+  fill: none;
+  stroke: #ffd34d;
+  stroke-width: 2.2;
+}
+
+.plane-map-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  border: 2px solid #fff5e0;
+  box-shadow: 0 0 0 1.5px #2b2620;
+}
+
+.plane-map-dot.is-marker {
+  background: #ff3b30;
+}
+
+.plane-map-dot.is-subsolar {
+  width: 8px;
+  height: 8px;
+  margin: -5px 0 0 -5px;
+  background: #ff8c3a;
+}
+
+.plane-map-axis {
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.55;
+  font-weight: 700;
+  color: rgba(43, 38, 32, 0.66);
+}
+
+/* ---------- 经纬度夹角示意图（需求⑤，二维）---------- */
+/* 左图自赤道面侧看（量纬度）· 右图自北极俯视（量经度），合起来正是课本分开画的两幅。
+   底色用暖白：它不是"球面"，而是**剖面示意**，与球面影像刻意区分开。 */
+.geo-diagram {
+  width: 100%;
+  height: auto;
+  margin-bottom: 8px;
+  border: 2px solid #2b2620;
+  background: #fbf4e4;
+}
+
+.geo-diagram .geo-globe {
+  fill: none;
+  stroke: rgba(43, 38, 32, 0.5);
+  stroke-width: 1.2;
+}
+
+.geo-diagram .geo-axis {
+  stroke: rgba(43, 38, 32, 0.45);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.geo-diagram .geo-equator {
+  stroke: rgba(43, 38, 32, 0.75);
+  stroke-width: 1.4;
+}
+
+.geo-diagram .geo-radius {
+  stroke: #cc5500;
+  stroke-width: 1.6;
+}
+
+.geo-diagram .geo-drop {
+  stroke: #0e7fa8;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2.5;
+}
+
+/* 两条夹角弧是全图的主角：加粗、配色与三维场景里那两条弧一一对应
+   （纬度＝橙黄 0xffd76a 的压深版、经度＝天蓝 0x5fd8ff 的压深版） */
+.geo-diagram .geo-arc-lat {
+  fill: none;
+  stroke: #c98a1e;
+  stroke-width: 2.4;
+}
+
+.geo-diagram .geo-arc-lon {
+  fill: none;
+  stroke: #0e7fa8;
+  stroke-width: 2.4;
+}
+
+.geo-diagram .geo-dot {
+  fill: #cc5500;
+}
+
+.geo-diagram .geo-label {
+  font-size: 10px;
+  font-weight: 900;
+  fill: #7a5310;
+  text-anchor: middle;
+}
+
+.geo-diagram .geo-label.is-lon {
+  fill: #0b5c7d;
+}
+
+.geo-diagram .geo-label.is-faint {
+  font-size: 8px;
+  font-weight: 800;
+  fill: rgba(43, 38, 32, 0.55);
+  text-anchor: start;
+}
+
+/* 左栏里的二分二至按钮：与旋钮同处一节，只需把上边距收一点 */
+.season-grid.is-compact {
+  margin: 10px 0 10px;
+}
+
+/* 地轴垂直档的提示：与普通提示区分开（它讲的是"什么消失了"，不是操作说明） */
+.subsolar-hint.is-warn {
+  color: #a8341c;
 }
 
 /* ---------- 窄屏 ---------- */
@@ -772,8 +1100,19 @@ input {
   .globe-panel {
     width: 236px;
     top: auto;
-    bottom: 56px;
+    bottom: 16px;
     max-height: 52vh;
+  }
+
+  /* 窄屏下图层栏列数砍到两列：四列在 760px 里每列只剩不到 170px，
+     像「夜间灯光（夜面城市灯光）」这种标签会被压成两行。 */
+  .layers-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* 窄屏下提示文字让位给"图层＋"按钮，别把按钮挤出去 */
+  .hint-text {
+    display: none;
   }
 
   /* 窄屏下左栏一起缩，别把中间的地球挤没。176 − 边框 6 − 内边距 28 = 内容 142：

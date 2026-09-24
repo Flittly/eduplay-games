@@ -12,7 +12,7 @@ EduPlay 平台的可插拔游戏模块仓库。
 - 寰宇太阳系 `solar-system`
 - 地貌人格测试 `landform-quiz`
 - 天气现象竞答 `weather-quiz`
-- 真实地形山地 · 垂直地带性 `mountain-zones`
+- 口袋地形 · 垂直地带性（模板 + 真实 DEM）`mountain-zones`
 - 山河塑形 · 中国地形（地形区与山脉）`china-relief`
 
 每个游戏是一个独立插件包，平台底座通过插件包的 `manifest.json` 和前端入口进行加载。

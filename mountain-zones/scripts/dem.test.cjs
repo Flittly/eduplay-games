@@ -19,16 +19,50 @@ const SOURCES = data.DEM_SOURCES;
 const near = (a, b, tol) => Math.abs(a - b) <= tol;
 
 /* ===== 1) 数据源清单本身 ===== */
-check("内置 4 座真实山体", SOURCES.length === 4, SOURCES.map((s) => s.name).join(" / "));
+// ⚠️ v2.2.0 起这里不再是「4 座山」：用户要求五种地形类型**每种至少一个样本**
+// （现有的四座山保留，另补平原 / 高原 / 丘陵 / 盆地）。
+// 所以下面的断言一律按 landType 分流 —— 照旧写死 4 的话，
+// 加样本就会红，而且红得莫名其妙（数据是对的，是断言的作用域过时了）。
+const REAL = SOURCES.filter((s) => s.isTemplate !== true);
+const TPL = SOURCES.filter((s) => s.isTemplate === true);
+const MOUNTAINS = REAL.filter((s) => s.landType === "mountain");
+const NON_MOUNTAINS = REAL.filter((s) => s.landType !== "mountain");
+const LAND_TYPE_IDS = ["plain", "plateau", "mountain", "hill", "basin"];
+
+// ⚠️ v2.4.0：模板地形是**示意地形**，不算"内置真实山体"。
+// 这一条的分子必须只数真实样本 —— 否则加一个模板山地就会把"四座山全保留"判红。
+check("内置 4 座真实山体（四座山全保留）", MOUNTAINS.length === 4,
+  MOUNTAINS.map((s) => s.name).join(" / "));
+check("另有 3 个模板地形（山地 / 丘陵 / 盆地）", TPL.length === 3,
+  TPL.map((s) => s.name).join(" / "));
 check("游戏编码固定在 mountain_zones", SOURCES.every((s) => typeof s.tag === "string" && s.tag.length > 0));
+
+// 用户口径：「现在有的保持，其余 4 类没有的去找，保证一个类型至少一种数据」
+for (const id of LAND_TYPE_IDS) {
+  const n = SOURCES.filter((s) => s.landType === id).length;
+  check(`地形类型 ${id} 至少有一个样本`, n >= 1, `${n} 个`);
+}
+check("每个样本都声明了 landType 且在五种之内",
+  SOURCES.every((s) => LAND_TYPE_IDS.includes(s.landType)),
+  SOURCES.filter((s) => !LAND_TYPE_IDS.includes(s.landType)).map((s) => s.tag).join(","));
+check("样本总数 = 四种非山地 + 四座山 + 三个模板", SOURCES.length === MOUNTAINS.length + NON_MOUNTAINS.length + TPL.length);
 
 for (const s of SOURCES) {
   check(`[${s.name}] 网格边长是 2 的幂且 ≥ 128`, (s.grid & (s.grid - 1)) === 0 && s.grid >= 128, s.grid);
   check(`[${s.name}] 声明的高程范围合法`, s.demMax > s.demMin && s.demMin >= 0, `${s.demMin}–${s.demMax}`);
-  check(`[${s.name}] 主峰海拔高于网格最高点（DEM 采样会削顶）`,
+  check(`[${s.name}] peakAltitude 不低于网格最高点（DEM 采样会削顶）`,
     s.peakAltitude >= s.demMax && s.peakAltitude - s.demMax < 400,
-    `真实 ${s.peakAltitude} vs 网格 ${s.demMax}`);
-  check(`[${s.name}] 纬度在 0~60°N（中国境内山体）`, s.lat > 0 && s.lat < 60, s.lat);
+    `标注 ${s.peakAltitude} vs 网格 ${s.demMax}`);
+  // ⚠️ 「取景在中国境内」这条**只对真实样本**成立 —— 模板地形是示意地形，
+  // 拿一条地理断言去套它，等于悄悄把模板说成"真在某个地方"。
+  if (s.isTemplate === true) {
+    check(`[${s.name}] 模板地形不声明真实取景（lat/lon 只是占位符）`,
+      s.lat === 30 && s.lon === 105, `占位 ${s.lat},${s.lon}`);
+  } else {
+    check(`[${s.name}] 取景在中国境内（纬度 18~54°N / 经度 73~135°E）`,
+      s.lat > 18 && s.lat < 54 && s.lon > 73 && s.lon < 135, `${s.lat},${s.lon}`);
+  }
+  check(`[${s.name}] 取景跨度合理（5~100 km）`, s.spanKm >= 5 && s.spanKm <= 100, `${s.spanKm} km`);
 }
 
 /* ===== 2) 解码：网格尺寸与高程范围必须与元数据一致 ===== */
@@ -53,13 +87,21 @@ for (let k = 0; k < SOURCES.length; k++) {
   check(`[${s.name}] 无 NaN / 越界高程`, bad === 0, `${bad} 个异常值`);
   check(`[${s.name}] 实测高程范围 = 元数据声明`, mn === s.demMin && mx === s.demMax,
     `实测 ${Math.round(mn)}–${Math.round(mx)} vs 声明 ${s.demMin}–${s.demMax}`);
-  check(`[${s.name}] 山体高差 ≥ 1000 m（够撑起一条带谱）`, mx - mn >= 1000, `${Math.round(mx - mn)} m`);
+  // 「够撑起一条带谱」是**山**才有的要求：平原 40 m 起伏本来就撑不起带谱，
+  // 它的教学作用是跟高原/丘陵比"平"，不是看垂直地带性。
+  if (s.landType === "mountain") {
+    check(`[${s.name}] 山体高差 ≥ 1000 m（够撑起一条带谱）`, mx - mn >= 1000, `${Math.round(mx - mn)} m`);
+  } else {
+    check(`[${s.name}] 非山地样本高差 < 2000 m（否则说明取景取错了地方）`,
+      mx - mn < 2000, `${Math.round(mx - mn)} m`);
+  }
 }
 
-/* ===== 3) 四座山必须是四份不同的数据 ===== */
+/* ===== 3) 每个样本都必须是独立的一份数据 ===== */
 {
   const sigs = SOURCES.map((s) => `${s.demMin}-${s.demMax}-${s.lat}`);
-  check("四座山的指纹互不相同（没有复制粘贴串档）", new Set(sigs).size === 4, sigs.join(" | "));
+  check("各样本的指纹互不相同（没有复制粘贴串档）",
+    new Set(sigs).size === SOURCES.length, sigs.join(" | "));
 
   let identical = 0;
   for (let a = 0; a < fields.length; a++) {
@@ -73,7 +115,7 @@ for (let k = 0; k < SOURCES.length; k++) {
       if (same / (A.length / 97) > 0.999) identical++;
     }
   }
-  check("任意两座山的采样点不会几乎全等", identical === 0, `完全相同对数 ${identical}`);
+  check("任意两个样本的采样点不会几乎全等", identical === 0, `完全相同对数 ${identical}`);
 }
 
 /* ===== 4) 海拔 vs 视觉高度：两条链路必须分开 ===== */
@@ -122,7 +164,11 @@ for (let k = 0; k < SOURCES.length; k++) {
 
 /* ===== 5) 偏移下限：海拔不允许为负 ===== */
 {
-  const f = dem.createField(SOURCES[3]); // 太白山：最低 828 m
+  // ⚠️ 不许写成 `SOURCES[3]`。v2.4.0 把三个模板地形插到清单最前面之后，
+  // 下标 3 从「太白山」变成了「贡嘎山」，于是这条断言静默地换了个被测对象 ——
+  // 贡嘎山最低 2204 m，下切 2000 m 后还剩 204 m，`minH === 0` 直接红。
+  // 凡是断言里点名了"哪个样本"，就用 tag 取，别用下标。
+  const f = dem.createField(data.sourceByTag("taibai")); // 太白山：最低 828 m
   dem.applyElevation(f, 1, -2000);
   check("下切 2000 m 后没有负海拔（统一钳制到 0）", f.minH >= 0, `minH=${f.minH}`);
   let neg = 0;
@@ -135,8 +181,13 @@ for (let k = 0; k < SOURCES.length; k++) {
 }
 
 /* ===== 6) 峰值位置：与扫描结果一致，且落在网格内 ===== */
+// ⚠️ 取景分两种（见 build_dem.py 的 `peakCentered`）：
+//   - 山：**以峰顶为中心**取景 ⇒ 峰顶必须落在中心 20% 内，下面才守这条；
+//   - 平原 / 高原 / 丘陵 / 盆地：**中心点固定**（这些地形没有"峰顶"可言，
+//     拿峰顶去居中反而会把窗口拉到一处小丘上）⇒ 只要求峰顶落在网格内部。
 for (let k = 0; k < SOURCES.length; k++) {
   const f = fields[k];
+  const s = SOURCES[k];
   let best = 0;
   for (let i = 1; i < f.alt.length; i++) {
     if (f.alt[i] > f.alt[best]) {
@@ -145,15 +196,29 @@ for (let k = 0; k < SOURCES.length; k++) {
   }
   const gi = best % f.grid;
   const gj = Math.floor(best / f.grid);
-  check(`[${SOURCES[k].name}] peakI/peakJ 与逐点扫描一致`,
+  check(`[${s.name}] peakI/peakJ 与逐点扫描一致`,
     f.peakI === gi && f.peakJ === gj, `(${f.peakI},${f.peakJ}) vs (${gi},${gj})`);
-  check(`[${SOURCES[k].name}] 峰顶不在网格边缘（取景以峰顶为中心）`,
-    gi > 4 && gj > 4 && gi < f.grid - 5 && gj < f.grid - 5, `(${gi},${gj})`);
-  check(`[${SOURCES[k].name}] 峰顶落在中心 20% 区域内`,
-    Math.abs(gi - (f.grid - 1) / 2) < f.grid * 0.1 && Math.abs(gj - (f.grid - 1) / 2) < f.grid * 0.1,
-    `偏移 (${gi - (f.grid - 1) / 2}, ${gj - (f.grid - 1) / 2}) 格`);
-  check(`[${SOURCES[k].name}] highest 点就是 maxH`,
+  check(`[${s.name}] 最高点落在网格内部（渲染峰标记需要它不在边界上）`,
+    gi > 1 && gj > 1 && gi < f.grid - 2 && gj < f.grid - 2, `(${gi},${gj})`);
+  check(`[${s.name}] highest 点就是 maxH`,
     near(f.alt[best], f.maxH, 1e-6), `${f.alt[best]} vs ${f.maxH}`);
+
+  if (s.landType === "mountain") {
+    if (s.isTemplate) {
+      // 模板地形**不是**"以峰顶为中心取景"。它的构图是"整座山体填满图幅"：
+      // 缓穹隆基座铺满画面，两个峰对称摆在基座上（主峰偏左上、次峰偏右下），
+      // 峰顶当然就不在画面正中 —— 硬要居中会把山体的构图打歪。
+      // 所以这里守的是一条更松的**构图**约束：最高峰仍要落在图幅中部 40%，
+      // 别贴着边界（贴边会让人以为图幅被裁过）。
+      check(`[${s.name}] 最高峰落在图幅中部 40% 内（模板是山体填满图幅，不是峰顶居中取景）`,
+        Math.abs(gi - (f.grid - 1) / 2) < f.grid * 0.2 && Math.abs(gj - (f.grid - 1) / 2) < f.grid * 0.2,
+        `偏移 (${gi - (f.grid - 1) / 2}, ${gj - (f.grid - 1) / 2}) 格`);
+    } else {
+      check(`[${s.name}] 峰顶落在中心 20% 区域内（山体以峰顶取景）`,
+        Math.abs(gi - (f.grid - 1) / 2) < f.grid * 0.1 && Math.abs(gj - (f.grid - 1) / 2) < f.grid * 0.1,
+        `偏移 (${gi - (f.grid - 1) / 2}, ${gj - (f.grid - 1) / 2}) 格`);
+    }
+  }
 }
 
 /* ===== 7) 采样：双线性插值的基本性质 ===== */
@@ -242,6 +307,110 @@ for (let k = 0; k < SOURCES.length; k++) {
     check("贡嘎山：远离峰顶时平均海拔下降（符合真实山体形态）",
       m4 < m1, `r=6 均值 ${Math.round(m1)} → r=24 均值 ${Math.round(m4)}`);
   }
+}
+
+/* ===== 13) 跨采样框的一致性：渲染网格必须按**当次** span/grid 重建 =====
+ *
+ * 这条是 v2.2.0 扩样本时踩出来的真 bug，症状极隐蔽：
+ *
+ *   `terrain.ts` 顶部的 `const span = field.spanM` / `const grid = field.grid`
+ *   是**构造时闭包捕获**的，地表平面 / 裙边 / 底板 / 投影面四块几何的 X/Z
+ *   全按它摊开；而 `view3d.refresh` 只在 `terrain === null` 时 `createTerrain`，
+ *   之后永远只 `terrain.update()` ⇒ 网格永远停在**第一个样本**的跨度。
+ *   偏偏拾取 (`worldToGrid`)、屏幕投影 (`project`)、剖面折世界坐标
+ *   (`buildProfile`) 用的一律是**当次** `field.spanM`。
+ *
+ *   8 个样本里只有临汾盆地是 60 km（其余 30 km），于是选中它时：
+ *     · 剖面端点被画到滑板外 4~8 km 的空中（网格 30 km、剖面按 60 km 折）；
+ *     · 整块地形按一半的水平尺度显示（垂直夸张实际翻倍）；
+ *     · 剖面读数 29.1 km 是地面真实长度的 2 倍。
+ *   全程零报错、零日志 —— 只有"端点球飘在板外"这一个视觉征兆。
+ *
+ * 这里守两件事（纯逻辑 + 静态），因为这条链跨了 terrain.ts / view3d.ts
+ * 两个文件、且没有任何纯函数能表达它：
+ *   ① 数据上必须真的存在不止一种跨度（否则这条判据永远咬不到东西）；
+ *   ② 源码里"按 field 折坐标"与"跨度变了就重建"必须成对存在。
+ */
+const fs2 = require("fs");
+const path2 = require("path");
+const SRC = path2.join(__dirname, "..", "src");
+const readSrc = (rel) => fs2.readFileSync(path2.join(SRC, rel), "utf8");
+
+const spans = Array.from(new Set(SOURCES.map((s) => s.spanKm)));
+check("样本里存在不止一种跨度（跨采样框这条链才走得到）",
+  spans.length >= 2, `跨度集合 ${spans.sort((a, b) => a - b).join(" / ")} km`);
+check("临汾盆地确实是 60 km 那一档（本轮 bug 的触发条件）",
+  SOURCES.filter((s) => s.spanKm !== SOURCES[0].spanKm).length >= 1,
+  SOURCES.map((s) => `${s.tag}:${s.spanKm}`).join(" "));
+
+const terrainSrc = readSrc("terrain.ts");
+const viewSrc = readSrc("view3d.ts");
+
+check("terrain.ts 把「我是按哪个采样框建的」暴露给调用方（readonly spanM / grid）",
+  /readonly\s+spanM\s*:\s*number/.test(terrainSrc) && /readonly\s+grid\s*:\s*number/.test(terrainSrc));
+check("terrain.ts 的 buildProfile 用**当次** f.spanM 折世界坐标（不是闭包里的旧 span）",
+  /const half = f\.spanM \/ 2/.test(terrainSrc) && /\(gi \/ d\) \* f\.spanM/.test(terrainSrc));
+check("view3d.refresh 在跨度或网格数变化时**重建**地形（不是只 update）",
+  /terrain\.spanM !== f\.spanM/.test(viewSrc) && /terrain\.grid !== f\.grid/.test(viewSrc) &&
+  /terrain=\s*createTerrain|terrain = createTerrain/.test(viewSrc));
+check("view3d.debug 把网格自己的采样框报出来（回归脚本据此对账）",
+  /terrainSpanM:/.test(viewSrc) && /terrainGrid:/.test(viewSrc));
+
+/* ===== 15) 夸张上限与滑块刻度（v2.4.1） =====
+ *
+ * 两件事都是"看起来只是界面"、其实会静默改坏行为的那类：
+ *
+ *  - **上限**：`applyElevation` 会把夸张夹到 [MIN, MAX]。上限还是 2.0 时，
+ *    自动推荐给华北平原算的 ×20 会被静默夹回 2.0 —— 界面显示 ×2.00，
+ *    看起来"自动推荐生效了"，实际平原还是那张纸。
+ *  - **刻度**：0.5~20 用线性刻度的话，0.5→2 只占 7.7% 行程（200 px 上 15 px），
+ *    "想微调一下"根本点不准。所以用对数刻度，且必须**来回可逆**
+ *    （不可逆的话滑块会在拖动时自己跳）。
+ */
+check("夸张上限已抬到 20（否则自动推荐会被静默夹回）",
+  dem.EXAGGERATION_MAX === 20, String(dem.EXAGGERATION_MAX));
+check("夸张下限 = 0.5（保留「可以压平一点」的手动余地）",
+  dem.EXAGGERATION_MIN === 0.5, String(dem.EXAGGERATION_MIN));
+{
+  const f = dem.createField(SOURCES[0]);
+  dem.applyElevation(f, 20, 0);
+  check("×20 不会被夹掉", near(f.verticalExaggeration, 20, 1e-9), String(f.verticalExaggeration));
+  dem.applyElevation(f, 50, 0);
+  check("×50 被夹到 20", near(f.verticalExaggeration, 20, 1e-9), String(f.verticalExaggeration));
+  dem.applyElevation(f, 0.1, 0);
+  check("×0.1 被夹到 0.5", near(f.verticalExaggeration, 0.5, 1e-9), String(f.verticalExaggeration));
+  dem.applyElevation(f, 1, 0);
+}
+
+{
+  const S = dem.EXAGGERATION_SLIDER_STEPS;
+  check("滑块两端：位置 0 ⇒ 下限 ×0.5", dem.sliderToExag(0) === 0.5, String(dem.sliderToExag(0)));
+  check(`滑块两端：位置 ${S} ⇒ 上限 ×20`, dem.sliderToExag(S) === 20, String(dem.sliderToExag(S)));
+
+  // 每个快捷档都要**落在滑块量程内**且来回可逆（差 ≤ 一步的量程所对应的比例）
+  for (const v of [1, 1.5, 2, 5, 10, 20]) {
+    const back = dem.sliderToExag(dem.exagToSlider(v));
+    check(`档位 ×${v} 在滑块上可表示（来回 ${v} → ${back}）`,
+      Math.abs(back - v) / v < 0.02, String(back));
+  }
+
+  // 对数刻度的核心收益：0.5→2（×4）与 5→20（×4）占的行程一样宽
+  const w1 = dem.exagToSlider(2) - dem.exagToSlider(0.5);
+  const w2 = dem.exagToSlider(20) - dem.exagToSlider(5);
+  check("对数刻度：×4 的行程处处相等（0.5→2 与 5→20 同宽）",
+    Math.abs(w1 - w2) <= 1, `${w1} vs ${w2}`);
+  check("对数刻度：0.5→2 占到行程的 1/3 以上（线性刻度下只有 7.7%）",
+    w1 / S > 0.33, `${((w1 / S) * 100).toFixed(1)}%`);
+
+  // 单调：拖动不会跳
+  let mono = true;
+  let prev = -1;
+  for (let t = 0; t <= S; t += 25) {
+    const v = dem.sliderToExag(t);
+    if (v < prev) mono = false;
+    prev = v;
+  }
+  check("滑块位置 ⇒ 倍数 单调不降（拖动不会回跳）", mono);
 }
 
 /* ===== 汇总 ===== */

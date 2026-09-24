@@ -5,7 +5,7 @@ import type { PlayerInfo } from "./EarthGlobe";
 import "./styles.css";
 
 const gameCode = "earth_globe";
-const version = "1.4.8";
+const version = "1.5.1";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {

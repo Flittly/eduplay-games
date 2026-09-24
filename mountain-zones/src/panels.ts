@@ -11,6 +11,8 @@
 import type { DemField } from "./data/types";
 import type { ContourLevel } from "./contour";
 import { labelAnchor, longestPolyline } from "./contour";
+import type { LandPartId } from "./landform";
+import { compassLabel, type ProfileSample, type ProfileStats } from "./profile";
 import { beltAt, beltColor, beltDef, bandsFor, type Band, type SeasonId } from "./zonation";
 
 const PAPER = "#f4eedf";
@@ -252,7 +254,152 @@ export interface PlanOptions {
   showBands: boolean;
   /** 主峰名（右栏图例里注一行"峰顶 · 贡嘎山主峰"） */
   peakName?: string;
+  /** 学生手动点的剖面段（网格坐标）。与三维视图、投影图纸共用同一份 */
+  segments?: ProjectionSegment[];
+  /** 地形部位标注层（由「地形部位标注」那组按钮控制）。不传 = 不画 */
+  annotations?: PartAnnotation;
 }
+
+/* ------------------------------------------------------------------ */
+/* 地形部位标注：三维沙盘 / 投影图纸 / 平面等高线图**共用一份**          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 五类部位的统一配色。
+ *
+ * 定成一份而不是三处各写一遍：**同一处鞍部在三块画面上必须是同一个颜色**，
+ * 否则学生对着三维里的紫点、平面图上的橙点，没法确认说的是不是同一个东西 ——
+ * 而"投影"这个说法的全部意义就是"两边对得上"。
+ *
+ * 选色的两个约束：
+ *  - 要能同时压在**浅色图纸**（`PAPER`）和**三维地形**（绿/黄/褐的带谱色）上；
+ *  - 红/蓝/紫/橙/深棕五色在明度上拉开，避免两张图之间靠色相区分。
+ */
+export const PART_COLORS: Record<LandPartId, string> = {
+  peak: "#b2182b", // 深红
+  ridge: "#6b4226", // 深棕（与山脊点那层同色系）
+  valley: "#1565c0", // 蓝
+  saddle: "#6a4c93", // 紫
+  cliff: "#ef6c00" // 橙
+};
+
+/** 图例与三维浮层标签用的单字简称（省地方，五类互不混淆） */
+export const PART_SHORT: Record<LandPartId, string> = {
+  peak: "峰",
+  ridge: "脊",
+  valley: "谷",
+  saddle: "鞍",
+  cliff: "崖"
+};
+
+/**
+ * 传给绘图层/三维层的部位标注数据。
+ *
+ * `parts` 是"用户打开了哪几类"，各点数组与折线数组则是**已按 `parts` 过滤过**的
+ * —— 过滤在引擎里做，绘图层不需要认识 `LandPartId` 的开关语义，只管画。
+ */
+export interface PartAnnotation {
+  parts: LandPartId[];
+  peaks: Array<{ i: number; j: number; h: number }>;
+  saddles: Array<{ i: number; j: number; h: number; drop: number }>;
+  cliffs: Array<{ i: number; j: number; slopeDeg: number; drop: number; lines: number }>;
+  /** 山脊骨架折线（网格坐标） */
+  ridgeLines: Array<Array<[number, number]>>;
+  /** 山谷骨架折线（网格坐标） */
+  valleyLines: Array<Array<[number, number]>>;
+}
+
+/** 判断一份标注数据里有没有真的可画的东西（按钮灰化与图例显隐都靠它） */
+export function hasAnyAnnotation(a: PartAnnotation | undefined): boolean {
+  return Boolean(
+    a &&
+      (a.peaks.length ||
+        a.saddles.length ||
+        a.cliffs.length ||
+        a.ridgeLines.length ||
+        a.valleyLines.length)
+  );
+}
+
+/**
+ * 把标注层画到 2D 画布上。`sx/sy` 是网格坐标 → 画布像素的映射，
+ * `unit` 是"1 格在画布上有多宽"（用来定线宽与记号大小，保证缩放后比例一致）。
+ *
+ * 三块画面共用这一个函数 ⇒ 记号形状、虚实、颜色天然一致。
+ */
+export function drawPartAnnotations(
+  g: CanvasRenderingContext2D,
+  ann: PartAnnotation,
+  sx: (i: number) => number,
+  sy: (j: number) => number,
+  unit: number
+): void {
+  // ---- 脊线 / 谷线：实线（骨架化之后的一条线，不是点云） ----
+  const drawLines = (lines: Array<Array<[number, number]>>, color: string) => {
+    if (!lines.length) {
+      return;
+    }
+    g.strokeStyle = color;
+    g.lineWidth = Math.max(1.1, unit * 1.6);
+    g.lineJoin = "round";
+    g.lineCap = "round";
+    g.beginPath();
+    for (const ln of lines) {
+      if (ln.length < 2) {
+        continue;
+      }
+      g.moveTo(sx(ln[0][0]), sy(ln[0][1]));
+      for (let k = 1; k < ln.length; k++) {
+        g.lineTo(sx(ln[k][0]), sy(ln[k][1]));
+      }
+    }
+    g.stroke();
+  };
+  drawLines(ann.ridgeLines, PART_COLORS.ridge);
+  drawLines(ann.valleyLines, PART_COLORS.valley);
+
+  // ---- 点状部位 ----
+  const r = Math.max(2.6, unit * 3.4);
+  const mark = (
+    i: number,
+    j: number,
+    color: string,
+    kind: "up" | "down" | "diamond"
+  ) => {
+    const x = sx(i);
+    const y = sy(j);
+    g.fillStyle = color;
+    g.strokeStyle = "rgba(255,255,255,0.9)";
+    g.lineWidth = Math.max(1, unit * 0.7);
+    g.beginPath();
+    if (kind === "diamond") {
+      g.moveTo(x, y - r);
+      g.lineTo(x + r, y);
+      g.lineTo(x, y + r);
+      g.lineTo(x - r, y);
+      g.closePath();
+    } else {
+      const dy = kind === "up" ? -r : r;
+      g.moveTo(x - r, y - dy * 0.62);
+      g.lineTo(x + r, y - dy * 0.62);
+      g.lineTo(x, y + dy);
+      g.closePath();
+    }
+    g.fill();
+    g.stroke();
+  };
+  // 山峰▲ / 鞍部◆ / 陡崖▼ —— 形状本身带信息，颜色之外还有一层区分
+  for (const p of ann.peaks) {
+    mark(p.i, p.j, PART_COLORS.peak, "up");
+  }
+  for (const s of ann.saddles) {
+    mark(s.i, s.j, PART_COLORS.saddle, "diamond");
+  }
+  for (const c of ann.cliffs) {
+    mark(c.i, c.j, PART_COLORS.cliff, "down");
+  }
+}
+
 
 export function drawPlanMap(canvas: HTMLCanvasElement, o: PlanOptions): void {
   const s = setup(canvas);
@@ -369,6 +516,12 @@ export function drawPlanMap(canvas: HTMLCanvasElement, o: PlanOptions): void {
     g.stroke();
   }
 
+  // ---- 地形部位标注层（按钮控制，默认关） ----
+  // 压在等高线之上、注记之下：它要能盖住等高线被看清，但又不能盖住高程数字。
+  if (o.annotations) {
+    drawPartAnnotations(g, o.annotations, sx, sy, side / n);
+  }
+
   // ---- 计曲线的高程注记 ----
   // 峰顶标注最后才画、而且必须看得见，所以先把它的落点**预留**下来，
   // 让高程注记绕开它 —— 否则注记垫的那层纸色会正好把一个数字盖掉。
@@ -441,6 +594,19 @@ export function drawPlanMap(canvas: HTMLCanvasElement, o: PlanOptions): void {
   g.fillRect(px + 8, py - 8, pkW + 6, 15);
   g.fillStyle = RED;
   g.fillText(pkLabel, px + 11, py);
+
+  // ---- 剖面段（学生手画的）：画在最上层，与三维、投影图纸共用同一份数据 ----
+  if (o.segments && o.segments.length) {
+    // 底栏这张图比投影贴图小得多（约 230 px 见方），线宽基准与字号都得按图幅缩
+    drawProfileSegments(
+      g,
+      o.segments,
+      sx,
+      sy,
+      side / 420,
+      Math.max(FS["2xs"], side * 0.042)
+    );
+  }
 
   // ---- 指北针 ----
   g.strokeStyle = INK;
@@ -678,8 +844,445 @@ export function drawProfile(canvas: HTMLCanvasElement, o: ProfileOptions): void 
 }
 
 /* ------------------------------------------------------------------ */
+/* 视图二·对比版：多条剖面叠加（最多 4 条，四色）                       */
+/* ------------------------------------------------------------------ */
+
+export interface ProfileSeries {
+  /** 1-based 序号，图例里显示 ①②③④ */
+  index: number;
+  color: string;
+  samples: ProfileSample[];
+  stats: ProfileStats;
+  /** 走向方位角（度） */
+  bearing: number;
+}
+
+export interface ProfileCompareOptions {
+  field: DemField;
+  series: ProfileSeries[];
+  interval: number;
+  snowlineNow: number;
+  treeline: number;
+}
+
+/**
+ * 多条剖面对比图。
+ *
+ * ## 为什么必须共用同一套坐标轴
+ *
+ * "对比"的全部意义在于**同一把尺子**：四条线必须共用 x（水平距离，从各自起点算）
+ * 与 y（海拔）。如果每条线各归一化，学生会得出"这四条一样陡"的结论 ——
+ * 而那正是要避免的误读。
+ *
+ * 所以横向按**最长那条**定标，短的线就画短一点（真实反映它更短），
+ * 纵向一律用 `field.minH ~ field.maxH`。
+ */
+export function drawProfileCompare(canvas: HTMLCanvasElement, o: ProfileCompareOptions): void {
+  const s = setup(canvas);
+  if (!s) return;
+  const { g, w, h } = s;
+  const { field } = o;
+
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = PAPER;
+  g.fillRect(0, 0, w, h);
+
+  const padL = 56;
+  const padR = 20;
+  const padT = 18;
+  const padB = 30;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  const usable = o.series.filter((x) => x.samples.length >= 2);
+  if (plotW < 30 || plotH < 30 || usable.length === 0) {
+    g.fillStyle = INK_SOFT;
+    g.font = `600 ${FS.sm}px ui-sans-serif, system-ui, sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText("在地形上点两个点，这里就会出现剖面", w / 2, h / 2);
+    return;
+  }
+
+  const lo = field.minH;
+  const hi = field.maxH;
+  const span = Math.max(1, hi - lo);
+  const totalM = Math.max(1, ...usable.map((x) => x.stats.lengthM));
+
+  const X = (m: number) => padL + (m / totalM) * plotW;
+  const Y = (alt: number) => padT + plotH - ((alt - lo) / span) * plotH;
+
+  // ---- 横向海拔网 ----
+  const gridStep = span > 6000 ? 2000 : span > 2000 ? 1000 : span > 600 ? 200 : 50;
+  const first = Math.ceil(lo / gridStep) * gridStep;
+  g.font = `600 ${FS["2xs"]}px ui-monospace, Menlo, Consolas, monospace`;
+  g.textAlign = "right";
+  g.textBaseline = "middle";
+  for (let a = first; a <= hi; a += gridStep) {
+    const y = Y(a);
+    g.strokeStyle = "rgba(31,27,22,0.16)";
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(padL, y);
+    g.lineTo(padL + plotW, y);
+    g.stroke();
+    g.fillStyle = INK_SOFT;
+    g.fillText(String(a), padL - 6, y);
+  }
+
+  // ---- 纵向距离网（每 5 km 一条）----
+  const xStep = totalM > 24000 ? 5000 : totalM > 10000 ? 2000 : totalM > 4000 ? 1000 : 500;
+  g.textAlign = "center";
+  g.textBaseline = "top";
+  for (let m = xStep; m <= totalM; m += xStep) {
+    const x = X(m);
+    g.strokeStyle = "rgba(31,27,22,0.12)";
+    g.beginPath();
+    g.moveTo(x, padT);
+    g.lineTo(x, padT + plotH);
+    g.stroke();
+    g.fillStyle = INK_SOFT;
+    g.fillText(`${(m / 1000).toFixed(m % 1000 === 0 ? 0 : 1)}`, x, padT + plotH + 4);
+  }
+
+  // ---- 雪线 / 林线参考线（跨所有剖面，才能横向比）----
+  const refLine = (alt: number, label: string, dash: number[], color: string) => {
+    if (alt < lo || alt > hi) return;
+    const y = Y(alt);
+    g.strokeStyle = color;
+    g.lineWidth = 1.4;
+    g.setLineDash(dash);
+    g.beginPath();
+    g.moveTo(padL, y);
+    g.lineTo(padL + plotW, y);
+    g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = color;
+    g.font = `600 ${FS["2xs"]}px ui-sans-serif, system-ui, sans-serif`;
+    g.textAlign = "left";
+    g.textBaseline = "bottom";
+    g.fillText(label, padL + 4, y - 2);
+  };
+  refLine(o.snowlineNow, "当季雪线", [7, 5], rgba(BLUE, 0.85));
+  refLine(o.treeline, "林线", [2, 5], rgba("#3f7a3a", 0.8));
+
+  // ---- 剖面线 ----
+  for (const sr of usable) {
+    // 断面填充：让"这条线下面是不是实心"一眼可辨
+    g.beginPath();
+    g.moveTo(X(sr.samples[0].distM), padT + plotH);
+    for (const p of sr.samples) {
+      g.lineTo(X(p.distM), Y(p.alt));
+    }
+    g.lineTo(X(sr.samples[sr.samples.length - 1].distM), padT + plotH);
+    g.closePath();
+    g.fillStyle = rgba(sr.color, usable.length === 1 ? 0.22 : 0.12);
+    g.fill();
+
+    g.strokeStyle = sr.color;
+    g.lineWidth = usable.length === 1 ? 2.4 : 2;
+    g.beginPath();
+    for (let k = 0; k < sr.samples.length; k++) {
+      const p = sr.samples[k];
+      if (k === 0) g.moveTo(X(p.distM), Y(p.alt));
+      else g.lineTo(X(p.distM), Y(p.alt));
+    }
+    g.stroke();
+
+    // 最高点打点（"这条线上最高的地方在哪"是课上第一个问题）
+    g.fillStyle = sr.color;
+    g.beginPath();
+    g.arc(X(sr.stats.maxAtM), Y(sr.stats.maxAlt), 3.6, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // ---- 图例：① 3.2 km · 走向 NE · 起伏 5210 m ----
+  g.font = `600 ${FS["2xs"]}px ui-monospace, Menlo, Consolas, monospace`;
+  const lh = 16;
+  let ly = padT + 4;
+  for (const sr of usable) {
+    const text =
+      `${["①", "②", "③", "④"][sr.index - 1] ?? sr.index} ` +
+      `${(sr.stats.lengthM / 1000).toFixed(1)} km · ${compassLabel(sr.bearing)}` +
+      `${Math.round(sr.bearing)}° · 起伏 ${Math.round(sr.stats.relief)} m`;
+    const tw = g.measureText(text).width;
+    const bx = padL + plotW - tw - 12;
+    g.fillStyle = rgba(PAPER, 0.88);
+    g.fillRect(bx - 4, ly - 2, tw + 10, lh);
+    g.strokeStyle = sr.color;
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(bx - 2, ly + lh / 2 - 2);
+    g.lineTo(bx + 6, ly + lh / 2 - 2);
+    g.stroke();
+    g.fillStyle = INK;
+    g.textAlign = "left";
+    g.textBaseline = "top";
+    g.fillText(text, bx + 10, ly + 1);
+    ly += lh;
+  }
+
+  // ---- 坐标轴 ----
+  g.strokeStyle = INK;
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(padL, padT);
+  g.lineTo(padL, padT + plotH);
+  g.lineTo(padL + plotW, padT + plotH);
+  g.stroke();
+  g.fillStyle = INK;
+  g.font = `600 ${FS["2xs"]}px ui-sans-serif, system-ui, sans-serif`;
+  g.textAlign = "left";
+  g.textBaseline = "top";
+  g.fillText("海拔 m", padL + 4, padT + 2);
+  g.textAlign = "right";
+  g.textBaseline = "bottom";
+  g.fillText(`水平距离 km（各自从起点算）`, padL + plotW, padT + plotH + 22);
+}
+
+/* ------------------------------------------------------------------ */
+/* 视图四：三维沙盘正下方的「二维投影图纸」                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 剖面段配色：**最多 4 段，四色叠加**。顺序即"第 1/2/3/4 段"，
+ * 平面图、投影图纸、剖面图三处的颜色都由这一个常量决定 ——
+ * 三处各写一份就一定会漂。
+ */
+export const PROFILE_COLORS = ["#b41f16", "#2a6f9e", "#c8871a", "#3f7a3a"] as const;
+
+export interface ProjectionSegment {
+  a: [number, number];
+  b: [number, number];
+  color: string;
+}
+
+export interface ProjectionMapOptions {
+  field: DemField;
+  /** 与三维视图同一批等高线（`engine.contours`）—— 必须是同一份 */
+  contours: ContourLevel[];
+  interval: number;
+  majorEvery: number;
+  lat: number;
+  season: SeasonId;
+  /** 学生手动点的剖面段（网格坐标） */
+  segments?: ProjectionSegment[];
+  /** 山脊点（网格坐标 [i,j,...]），可选 */
+  ridges?: Float32Array;
+  /** 自然带淡色底。图纸上默认**关**：底色一重就把线淹了 */
+  showBands?: boolean;
+  /** 地形部位标注层。与三维沙盘、平面等高线图**同一份**数据 */
+  annotations?: PartAnnotation;
+}
+
+/**
+ * 把二维等高线图画进一个**方形画布**（尺寸由调用方给，通常 1024²）。
+ *
+ * 与 `drawPlanMap` 的区别：那个要适应"矮而宽"的底栏、还要画右栏图例；
+ * 这个必须填满一个正方形贴图，所以自带图廓与比例尺，不带侧栏。
+ * 两者共用同一批 `ContourLevel`，所以「纸上的圈」与「山上的圈」逐条对得上。
+ */
+export function drawProjectionMap(
+  g: CanvasRenderingContext2D,
+  size: number,
+  o: ProjectionMapOptions
+): void {
+  const { field } = o;
+  const n = field.grid;
+  /** 线宽基准：贴图边长 1024 时线宽 1 → 其它尺寸等比 */
+  const U = size / 1024;
+  /**
+   * 贴图上的字号：贴图有**自己的坐标系**（1024²），最后只映射到屏幕上的一小块，
+   * 所以必须放大才看得清。但基准仍取 `FS` 档位、只是乘一个倍率 ——
+   * 不许在这里自造新档位（`scripts/typography.test.cjs` 会抓）。
+   */
+  const F = (px: number) => px * (size / 512);
+
+  // 纸底 + 淡淡的方格纸（一格 = 图幅的 1/10）
+  g.fillStyle = PAPER;
+  g.fillRect(0, 0, size, size);
+  g.strokeStyle = rgba(INK_SOFT, 0.1);
+  g.lineWidth = U;
+  g.beginPath();
+  for (let k = 1; k < 10; k++) {
+    g.moveTo((k / 10) * size, 0);
+    g.lineTo((k / 10) * size, size);
+    g.moveTo(0, (k / 10) * size);
+    g.lineTo(size, (k / 10) * size);
+  }
+  g.stroke();
+
+  const pad = 26 * U;
+  const side = size - pad * 2;
+  const X = (i: number) => pad + (i / (n - 1)) * side;
+  const Y = (j: number) => pad + (j / (n - 1)) * side;
+
+  // ---- 自然带淡色底（可选）----
+  if (o.showBands) {
+    const blocks = 72;
+    const bw = side / blocks;
+    for (let bj = 0; bj < blocks; bj++) {
+      for (let bi = 0; bi < blocks; bi++) {
+        const gi = Math.round(((bi + 0.5) / blocks) * (n - 1));
+        const gj = Math.round(((bj + 0.5) / blocks) * (n - 1));
+        const alt = field.alt[gj * n + gi];
+        g.fillStyle = rgba(beltColor(beltAt(o.lat, alt, o.season), o.season), 0.3);
+        g.fillRect(pad + bi * bw - 0.5, pad + bj * bw - 0.5, bw + 1, bw + 1);
+      }
+    }
+  }
+
+  // ---- 山脊点 ----
+  if (o.ridges && o.ridges.length) {
+    g.fillStyle = "rgba(150,88,52,0.5)";
+    const r = Math.max(0.8, side / 420);
+    for (let k = 0; k < o.ridges.length; k += 2) {
+      g.beginPath();
+      g.arc(X(o.ridges[k]), Y(o.ridges[k + 1]), r, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
+  // ---- 等高线（计曲线加粗）----
+  const majorSpan = Math.max(1, Math.round(o.majorEvery)) * o.interval;
+  for (const lv of o.contours) {
+    const isMajor = Math.abs(Math.round(lv.level / majorSpan) * majorSpan - lv.level) < 1e-6;
+    g.strokeStyle = isMajor ? "rgba(31,27,22,0.9)" : "rgba(31,27,22,0.36)";
+    g.lineWidth = (isMajor ? 2.6 : 1.4) * U;
+    g.beginPath();
+    for (const p of lv.polylines) {
+      const pts = p.pts;
+      g.moveTo(X(pts[0]), Y(pts[1]));
+      for (let k = 2; k < pts.length; k += 2) {
+        g.lineTo(X(pts[k]), Y(pts[k + 1]));
+      }
+      if (p.closed) {
+        g.closePath();
+      }
+    }
+    g.stroke();
+  }
+
+  // 峰顶十字（不写海拔 —— 海拔留给三维那边的标签，图纸上只标"这里是最高点"）
+  const pkX = X(field.peakI);
+  const pkY = Y(field.peakJ);
+  g.strokeStyle = RED;
+  g.lineWidth = 2.4 * U;
+  g.beginPath();
+  g.moveTo(pkX - 16 * U, pkY);
+  g.lineTo(pkX + 16 * U, pkY);
+  g.moveTo(pkX, pkY - 16 * U);
+  g.lineTo(pkX, pkY + 16 * U);
+  g.stroke();
+
+  // ---- 地形部位标注层（与三维沙盘、平面图同一份数据 + 同一套配色）----
+  // `unit` 传的是"1 格 = 多少像素"，记号大小与线宽都按它换算，
+  // 所以放大画布（1024² 贴图 vs 底栏小图）时观感一致。
+  if (o.annotations) {
+    drawPartAnnotations(g, o.annotations, X, Y, side / n);
+  }
+
+  // ---- 学生点的剖面段：画在等高线之上，四色 ----
+  if (o.segments && o.segments.length) {
+    drawProfileSegments(g, o.segments, X, Y, U, F(FS.sm));
+  }
+
+  // ---- 图廓（四角只画角标，不画整框 —— 整框会和方片边缘的裙边视觉打架）----
+  g.strokeStyle = INK;
+  g.lineWidth = 3 * U;
+  const arm = 60 * U;
+  const corners: Array<[number, number, number, number]> = [
+    [pad, pad, 1, 1],
+    [size - pad, pad, -1, 1],
+    [size - pad, size - pad, -1, -1],
+    [pad, size - pad, 1, -1]
+  ];
+  g.beginPath();
+  for (const [cx, cy, dx, dy] of corners) {
+    g.moveTo(cx + dx * arm, cy);
+    g.lineTo(cx, cy);
+    g.lineTo(cx, cy + dy * arm);
+  }
+  g.stroke();
+
+  // 图名与比例尺
+  g.fillStyle = INK_SOFT;
+  g.font = `600 ${F(FS.md)}px ui-sans-serif, system-ui, sans-serif`;
+  g.textAlign = "left";
+  g.textBaseline = "top";
+  g.fillText(
+    `${field.source.name} · ${(field.spanM / 1000).toFixed(0)} km 见方 · 等高距 ${o.interval} m`,
+    pad,
+    size - pad + 8 * U
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* 共享小工具                                                          */
 /* ------------------------------------------------------------------ */
+
+/**
+ * 把剖面段叠到二维图上（平面图、投影图纸共用）。
+ *
+ * `X/Y` 由调用方给 —— 两张图的图廓留白不同，"网格坐标 → 画布坐标"的映射
+ * 是各自的；这里只管**线型与标记**，保证同一段在两处长得一模一样。
+ *
+ * 为什么用虚线：实线会和等高线混在一起，学生分不清"哪条是老师画的圈、
+ * 哪条是我刚点的那条"。虚线 + 中点实心序号圆，一眼能认出是"我画的"。
+ *
+ * `u` = 1 单位线宽对应多少画布像素；`fontPx` = 序号字号（画布像素）。
+ * 两个都由调用方按自己的图幅给，因为屏幕 canvas 用的是 CSS px、
+ * 而投影贴图用的是它有自己坐标系的 1024² 像素。
+ */
+function drawProfileSegments(
+  g: CanvasRenderingContext2D,
+  segs: ProjectionSegment[],
+  X: (gx: number) => number,
+  Y: (gy: number) => number,
+  u: number,
+  fontPx: number
+): void {
+  if (!segs.length) {
+    return;
+  }
+  g.save();
+  g.lineCap = "round";
+  g.setLineDash([11 * u, 7 * u]);
+  g.lineWidth = 4 * u;
+  for (const s of segs) {
+    g.strokeStyle = s.color;
+    g.beginPath();
+    g.moveTo(X(s.a[0]), Y(s.a[1]));
+    g.lineTo(X(s.b[0]), Y(s.b[1]));
+    g.stroke();
+  }
+  g.setLineDash([]);
+
+  segs.forEach((s, k) => {
+    // 端点：空心圈 —— 这两处就是三维里那两个可拖动的小球
+    for (const e of [s.a, s.b]) {
+      g.fillStyle = PAPER;
+      g.beginPath();
+      g.arc(X(e[0]), Y(e[1]), 7.5 * u, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = s.color;
+      g.lineWidth = 3.4 * u;
+      g.stroke();
+    }
+    // 序号：中点上的实心圆，数字与下方剖面对比图的图例一一对应
+    const mx = X((s.a[0] + s.b[0]) / 2);
+    const my = Y((s.a[1] + s.b[1]) / 2);
+    g.fillStyle = s.color;
+    g.beginPath();
+    g.arc(mx, my, fontPx * 0.82, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = PAPER;
+    g.font = `700 ${fontPx}px ui-sans-serif, system-ui, sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(String(k + 1), mx, my + fontPx * 0.04);
+  });
+  g.restore();
+}
 
 /** 把稀疏点集转成 Float32Array（供平面图绘制脊线） */
 export function packPoints(pts: number[]): Float32Array {

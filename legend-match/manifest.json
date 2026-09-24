@@ -1,7 +1,7 @@
 {
   "gameCode": "legend_match",
   "name": "地图图例消消乐",
-  "version": "0.0.1",
+  "version": "1.1.0",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
@@ -10,5 +10,5 @@
   "cover": "web/cover.svg",
   "backendPlugin": null,
   "requiresRoster": true,
-  "description": "把地图上的图例符号和它的名称配成一对就能消除：每配对成功一次，符号与名称会在屏幕中央放大复现一遍，加深印象。60 个初中地理常见图例、6 关逐关加量，另有图鉴随时查阅。"
+  "description": "把地图上的图例符号和它的名称配成一对就能消除，配对成功的一对会在屏幕中央放大复现，加深印象。初中地理常用图例 73 个，分「初中组 / 高级组」两套题库与关卡，另有图鉴随时按类别与范围查阅。"
 }

@@ -185,7 +185,14 @@ const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 {
   const dm = require("./_dem.cjs");
   const dt = require("./_data.cjs");
-  const f = dm.createField(dt.DEM_SOURCES[0]);
+  // ⚠️ 这里**必须按 tag 点名取贡嘎山**，不能用 DEM_SOURCES[0]：
+  // v2.4.0 把三个模板地形排到了清单最前（默认打开模板山地），
+  // 于是 DEM_SOURCES[0] 从「贡嘎山」悄悄变成了「模板山地」——
+  // 这一整段的断言名字写的都是「真实 DEM」，却拿去量一个解析模板，
+  // 立刻报 p50=0.3 m（模板大面积缓坡，TPI 本来就近 0）。
+  // 教训：位置下标（[0]）会随清单顺序改而改语义，凡断言里点名了「哪个样本」，
+  // 就该用稳定标识（tag）取值，别用下标。
+  const f = dm.createField(dt.sourceByTag("gongga"));
   const hfn = (i, j) => f.alt[j * f.grid + i];
 
   // 先用中位数附近的 TPI 量级定一个「有物理意义」的阈值
@@ -227,20 +234,57 @@ const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
   // ---- 生产阈值本身也要守门（ct.RIDGE_TPI 就是平面图实际用的那个）----
   // 曾经把阈值取在 |TPI| 的**中位数**上（22 m），结果标出 25% 的格子 ——
   // 分母也踩过坑：ridgeValley 只扫内部 (n-2R)² 格，拿 n² 当分母会低估约 5%。
+  //
+  // ⚠️ 这段原来遍历的是**全部** DEM 样本，而断言名字写的是「四山一致」。
+  // v2.2.0 加了平原 / 高原 / 丘陵 / 盆地四个样本后立刻红了一片 ——
+  // 但红的是**断言的作用域**，不是数据：华北平原上本来就该找不出山脊。
+  // 所以改成按 landType 分流，顺手把反方向也钉住（平坦样本必须近乎没有脊谷），
+  // 这比原来那条更强：原来只保证「山地上够密」，现在两侧都守。
   check("生产阈值 RIDGE_TPI 取自高分位而不是中位数（必须明显大于 p50）",
     ct.RIDGE_TPI > p50 * 1.5,
     `RIDGE_TPI=${ct.RIDGE_TPI} m vs p50=${p50.toFixed(1)} m`);
-  for (const src of dt.DEM_SOURCES) {
+
+  const ratioOf = (src) => {
     const ff = dm.createField(src);
     const hf = (i, j) => ff.alt[j * ff.grid + i];
     const rv = ct.ridgeValley(hf, ff.grid, ct.RIDGE_TPI);
     const sc = (ff.grid - 6) * (ff.grid - 6);
-    const rr = rv.ridge.length / 2 / sc;
-    const vr = rv.valley.length / 2 / sc;
+    return { rr: rv.ridge.length / 2 / sc, vr: rv.valley.length / 2 / sc };
+  };
+
+  // ⚠️ 分母只数**真实样本**（REAL_SOURCES），模板地形另有契约、在
+  // scripts/template.test.cjs 里守。理由和上面那条注释同源：
+  // 下面 3%~10% 这条带子是**真实 DEM 的统计性质**（四座山实测 5.7%~6.0%），
+  // 它描述的是"自然山体被冰川/流水切碎后脊线密布"这件事。
+  // 模板山地是一道干净的垄，脊点只占 0.4% —— 这不是数据错，是**两码事**：
+  // 模板要的正是"一处部位对应一个术语"，脊线越单一越好。
+  // 拿真实 DEM 的密疏带子去卡示意图，属于断言作用域划错（同 §231 那次）。
+  const mountains = dt.REAL_SOURCES.filter((s) => s.landType === "mountain");
+  const flats = dt.REAL_SOURCES.filter((s) => s.landType !== "mountain");
+  check("真实样本清单里恰好 4 座山 + 4 个非山地",
+    mountains.length === 4 && flats.length === 4,
+    `${mountains.length} 山 / ${flats.length} 非山`);
+  check("DEM 样本里至少有 4 座山（下面那条 3%~10% 的带子才有意义）",
+    mountains.length >= 4, `${mountains.length} 座`);
+
+  for (const src of mountains) {
+    const { rr, vr } = ratioOf(src);
     check(`${src.name}：生产阈值下脊点占比在 3%~10%（四山一致）`,
       rr > 0.03 && rr < 0.1, `${(rr * 100).toFixed(2)}%`);
     check(`${src.name}：生产阈值下脊谷同量级（不会只标凸不标凹）`,
       vr > 0.005 && Math.max(rr, vr) / Math.min(rr, vr) < 4,
+      `脊 ${(rr * 100).toFixed(2)}% / 谷 ${(vr * 100).toFixed(2)}%`);
+  }
+
+  // 反方向：平原 / 高原 / 丘陵 / 盆地的脊点占比必须明显低于山地的下限。
+  // （盆地外圈是真山，所以给的是 < 3% 而不是"必须为 0" ——
+  //   临汾盆地实测 1.00%，正是周围山地那一圈。）
+  for (const src of flats) {
+    const { rr, vr } = ratioOf(src);
+    check(`${src.name}（${src.landType}）：脊点占比低于山地 3% 下限`,
+      rr < 0.03, `${(rr * 100).toFixed(2)}%`);
+    check(`${src.name}（${src.landType}）：要么脊谷都没有，要么同量级`,
+      (rr === 0 && vr === 0) || (vr > 0 && Math.max(rr, vr) / Math.min(rr, vr) < 6),
       `脊 ${(rr * 100).toFixed(2)}% / 谷 ${(vr * 100).toFixed(2)}%`);
   }
 }
@@ -254,6 +298,37 @@ const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
     near(ct.bilerp(h, n, 5.5, 7), (10 + 12 + 7 * 3 * 2) / 2, 1e-9));
   check("bilerp：越界按边缘钳制",
     near(ct.bilerp(h, n, -5, 7), ct.bilerp(h, n, 0, 7)));
+}
+
+/* ===== 9) 等高距自动落档：平原样本逼出来的那条规则 ===== */
+{
+  const steps = ct.CONTOUR_INTERVAL_STEPS;
+  check("等高距档位里最小 ≤ 20 m（否则平原画不出线）", Math.min(...steps) <= 20,
+    JSON.stringify(steps));
+  check("等高距档位升序排列", steps.every((v, k) => k === 0 || v > steps[k - 1]),
+    JSON.stringify(steps));
+
+  // 山峰：200 m 一档本来就够用，不许被改了
+  check("贡嘎山（2204~7414 m）保持 200 m 档",
+    ct.pickContourInterval(2204, 7414, 200) === 200,
+    String(ct.pickContourInterval(2204, 7414, 200)));
+
+  // 平原：200 m 一档出 0 条 ⇒ 必须落到能出线的档
+  const plainIv = ct.pickContourInterval(11, 51, 200);
+  check("华北平原（11~51 m）自动落到最小档 20 m", plainIv === 20, String(plainIv));
+  check("落档后确实能出线（≥1 条）", ct.levelsFor(11, 51, plainIv, 0).length >= 1,
+    String(ct.levelsFor(11, 51, plainIv, 0).length));
+
+  // 高原：416 m 高差用 200 m 只出 2 条，应落到 100 m
+  check("高原样本（1022~1438 m）自动从 200 落到 100 m",
+    ct.pickContourInterval(1022, 1438, 200) === 100,
+    String(ct.pickContourInterval(1022, 1438, 200)));
+
+  // 不变式：无论什么输入，结果必须是档位表里的一档（否则界面 chip 会全部不亮）
+  for (const [lo, hi] of [[11, 51], [401, 1672], [2204, 7414], [0, 100000], [100, 100.5]]) {
+    const got = ct.pickContourInterval(lo, hi, 200);
+    check(`落档结果 ${got} 在档位表内（${lo}~${hi} m）`, steps.includes(got), String(got));
+  }
 }
 
 /* ===== 汇总 ===== */

@@ -12,7 +12,18 @@ export interface PlayerInfo {
 }
 
 export interface LayerState {
+  /** 卫星影像（earth.jpg） */
   texture: boolean;
+  /**
+   * 双色底图（v1.5.0）：只分大洲与海洋两种情况 —— 海洋浅蓝、大洲深灰。
+   * 与 `texture` / `white` 三选一。比影像干净得多：没有云、没有地形明暗干扰，
+   * 学生一眼能认出大陆轮廓（需求①）。
+   */
+  baseMap: boolean;
+  /**
+   * 纯白地球：不贴任何贴图，用一个白球呈现。
+   * 与 `texture` / `baseMap` 三选一。
+   */
   white: boolean;
   /** 夜面底图：城市夜间灯光（NASA 夜间灯光影像），只贴在背光的一侧 */
   nightLights: boolean;
@@ -31,6 +42,11 @@ export interface LayerState {
   timezone: boolean;
   axis: boolean;
   stars: boolean;
+  /**
+   * 纯白背景（v1.5.0，需求②）：把画布背景从深空改成纯白，便于投影、打印、
+   * 或嵌进浅色底稿。与「星空背景」互斥 —— 白底上看不见白色星点。
+   */
+  whiteBg: boolean;
   orbit: boolean;
   terminator: boolean;
   sunDisplay: boolean;
@@ -52,6 +68,23 @@ interface MarkerInfo {
  */
 type ViewKey = "orbit" | "top" | "earth" | "free";
 
+/**
+ * 地轴姿态（v1.5.0，需求③）：
+ *  - `oblique`：地轴与公转轨道面成 66.5° 倾角（＝黄赤交角 23.5°），默认，四季的来源；
+ *  - `vertical`：地轴垂直于轨道面（黄赤交角 0°）。直射点终年落在赤道、全球终年昼夜平分、
+ *    极地没有极昼极夜 —— 把这一档和默认档对着看，"地轴倾斜是四季成因"这句话才立得住。
+ *    它同时是"回归运动曲线为什么会起伏"的对照实验：切到垂直档，曲线当场拉平。
+ */
+export type AxisMode = "oblique" | "vertical";
+
+/** 经纬网疏密档位（度）。需求⑥：经纬线原先写死 15°，现在可选。 */
+export const GRID_STEPS = [30, 15, 10, 5] as const;
+export const DEFAULT_GRID_STEP = 15;
+
+/** 纯白背景（需求②）与深空背景 */
+const BG_SPACE = 0x070c16;
+const BG_WHITE = 0xffffff;
+
 const DEG = Math.PI / 180;
 const EARTH_TILT = 23.44;
 const LINE_RADIUS = 1.004;
@@ -62,6 +95,16 @@ const ZONE_POLAR = 90 - EARTH_TILT;
 const TZ_WIDTH = 15;
 /** 叠加球壳半径：略大于球面，保证罩在地表之上又不与线条/太阳直射带打架 */
 const OVERLAY_RADIUS = 1.014;
+/** 透明地球的不透明度（需求⑤）：留一点底色才看得出球是球，又不挡住背面的经纬线 */
+const GHOST_ALPHA = 0.26;
+
+/**
+ * 经纬度夹角演示（需求⑤）在**用户还没选点**时用的示例点：北京。
+ * 为什么要有它：这一节讲的是"经度/纬度是怎么量出来的"，如果必须先在球上点一下
+ * 才有东西看，老师第一次翻开这一节就是一片空白 —— 先给一个默认点，随时可讲；
+ * 学生在球上点过之后，演示自动切到学生选的那一点。
+ */
+const DEMO_POINT: MarkerInfo = { lat: 39.9, lon: 116.4 };
 
 /* ---------------- 日心（公转）模型常数 ---------------- */
 /** 公转轨道半长轴（显示单位） */
@@ -91,6 +134,15 @@ const AXIS_WORLD = new THREE.Vector3(
   Math.cos(EARTH_TILT_RAD),
   Math.sin(EARTH_TILT_RAD) * Math.sin(AXIS_AZIMUTH_RAD)
 ).normalize();
+
+/**
+ * 地轴在世界坐标中的方向（按档位取）。需求③：垂直档就是世界 +Y —— 地轴与轨道面垂直，
+ * 于是太阳方向（始终落在轨道面 XZ 上）与地轴的点积恒为 0，直射点纬度恒为 0。
+ * 这不是"把效果关掉"，而正是要演示的那个结论：没有倾角就没有四季。
+ */
+function axisWorldFor(mode: AxisMode): THREE.Vector3 {
+  return mode === "vertical" ? WORLD_UP.clone() : AXIS_WORLD.clone();
+}
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const RAY_AXIS = new THREE.Vector3(0, 1, 0);
@@ -164,10 +216,10 @@ function orbitPosition(nuDeg: number, out?: THREE.Vector3): THREE.Vector3 {
   return v.set(r * Math.cos(nu), 0, -r * Math.sin(nu));
 }
 
-/** 由公转位置求真近点角对应的太阳直射点纬度（太阳直射点纬度 = 太阳方向的赤纬） */
-function declinationForNu(nuDeg: number): number {
+/** 由公转位置求太阳直射点纬度（太阳直射点纬度 = 太阳方向的赤纬）。axis 由地轴档位决定 */
+function declinationForNu(nuDeg: number, axis: THREE.Vector3 = AXIS_WORLD): number {
   const p = orbitPosition(nuDeg).multiplyScalar(-1).normalize();
-  return Math.asin(THREE.MathUtils.clamp(p.dot(AXIS_WORLD), -1, 1)) / DEG;
+  return Math.asin(THREE.MathUtils.clamp(p.dot(axis), -1, 1)) / DEG;
 }
 
 function localFromLatLon(lat: number, lon: number): THREE.Vector3 {
@@ -521,6 +573,23 @@ export interface VisibilityState {
   nightOff: boolean;
   /** 夜面灯光贴图是否已加载成功 */
   hasNight: boolean;
+  /** 双色底图是否被选为地表素材 */
+  base: boolean;
+  /** 双色底图贴图是否已加载成功 */
+  hasBase: boolean;
+  /** 透明地球是否打开，以及打开后的实际不透明度 */
+  ghost: boolean;
+  ghostAlpha: number;
+  /** 经纬度夹角演示是否打开 */
+  geoAngle: boolean;
+  /** 画布背景是否为纯白 */
+  whiteBg: boolean;
+  /** 当前经纬网间隔（度）与线数（供回归核对"换档位真的重建了"） */
+  gridStep: number;
+  gridLines: number;
+  /** 地轴图层开关、星空图层开关 */
+  axis: boolean;
+  stars: boolean;
   /** 五带文字标注（北寒带…南寒带）是否显示 */
   climateLabels: boolean;
 }
@@ -596,6 +665,8 @@ interface Engine {
   orbitGroup: THREE.Group;
   earthLabel: THREE.Sprite;
   earthTexture: THREE.Texture | null;
+  /** 双色底图（大洲深灰 / 海洋浅蓝），加载成功后由 applySurface 挂到着色器上 */
+  baseTexture: THREE.Texture | null;
   /** 夜面灯光贴图（城市灯光），加载成功后由 applySurface 挂到着色器上 */
   nightTexture: THREE.Texture | null;
   autoRotateWanted: boolean;
@@ -605,8 +676,48 @@ interface Engine {
   readSpinAngle: () => number;
   /** 旋钮拖动期间暂停自动自转，松手后恢复 */
   setSpinDragging: (active: boolean) => void;
-  /** 地表素材：影像开关 + 纯白模式（两者互斥，纯白优先） */
-  applySurface: (options: { texture: boolean; white: boolean }) => void;
+  /** 地表素材：卫星影像 / 双色底图 / 纯白，三选一（着色器内优先级 纯白 > 底图 > 影像） */
+  applySurface: (options: { texture: boolean; baseMap: boolean; white: boolean }) => void;
+  /** 地轴档位（需求③）：倾斜 23.5° / 垂直 */
+  setAxisMode: (mode: AxisMode) => void;
+  /** 经纬网疏密（需求⑥）：传入纬度/经度间隔（度），整组重建 */
+  setGridStep: (stepDeg: number) => void;
+  /** 画布背景（需求②）：true = 纯白，false = 深空 */
+  setBackground: (white: boolean) => void;
+  /** 透明地球（需求⑤） */
+  setTransparent: (on: boolean) => void;
+  /** 经纬度夹角演示（需求⑤）：开时按传入点重建夹角几何 */
+  setGeoAngle: (on: boolean, info: MarkerInfo) => void;
+  /** 当前地轴方向（世界坐标）—— 开发钩子用它核对档位真的换掉了 */
+  readAxis: () => [number, number, number];
+  /** 当前经纬网间隔（度） */
+  readGridStep: () => number;
+  /**
+   * 开发自检：经纬度夹角演示的几何量。
+   * `latArcDeg` / `lonArcDeg` 是从两条弧的**首尾点方向量出来的圆心角** ——
+   * 拿它和该点的 |纬度| / |经度| 对，就能证明画出来的弧不是"看着像"，
+   * 而是真的等于这个度数（画错的弧长是看不出来的）。
+   */
+  readGeoAngle: () => {
+    visible: boolean;
+    lat: number;
+    lon: number;
+    latArcDeg: number;
+    lonArcDeg: number;
+    /** 画出来的几何件数（管与顶点球；标签不计） */
+    parts: number;
+    /** 两个角各自的**两条边**与**弧两端**的方向（方位角）。
+     *  弧的两端必须分别压在两条边上 —— 这是"夹角是一个完整的角"的可判据化说法。 */
+    latEdges: MarkerInfo[];
+    lonEdges: MarkerInfo[];
+    latArcEnds: MarkerInfo[];
+    lonArcEnds: MarkerInfo[];
+    labels: string[];
+  };
+  /** 开发自检：调夹角线的粗细倍率（牙齿测试用：压细之后"线太细"的判据必须变红） */
+  setAngleThickness: (scale: number) => void;
+  /** 开发自检：两条夹角弧投影到屏幕的点（CSS 像素）—— 在**真实帧**上量"线有多粗"用 */
+  readGeoArcScreen: () => { lat: { x: number; y: number }[]; lon: { x: number; y: number }[] };
   readDeclination: () => number;
   readNu: () => number;
   /** 太阳直射经线（地理经度，单位度）：该经线地方时为正午 12:00 */
@@ -633,6 +744,23 @@ interface Engine {
     center: { x: number; y: number };
     rayPoint: { x: number; y: number };
   };
+  /**
+   * 开发自检：夹角两标签 +「地方时」徽标的屏幕包围盒（CSS 像素）。
+   * 「叠没叠」只能看屏幕像素 —— 世界坐标差多少与屏幕上差多少不是一回事。
+   */
+  readGeoLabelBoxes: () => {
+    tag: string;
+    text: string;
+    visible: boolean;
+    x0: number;
+    x1: number;
+    y0: number;
+    y1: number;
+    cx: number;
+    cy: number;
+  }[];
+  /** 开发自检：夹角标签的屏幕让位开关（牙齿测试用） */
+  setLabelSeparate: (on: boolean) => void;
   onNuChange: ((nu: number) => void) | null;
   onViewChange: ((key: ViewKey) => void) | null;
   /** 开发自检：图层开关最终有没有落到场景上 */
@@ -756,19 +884,36 @@ function buildEngine(container: HTMLDivElement): Engine {
   const spinGroup = new THREE.Group();
   tiltGroup.add(spinGroup);
 
+  /**
+   * 当前地轴方向（需求③）：`oblique` 恒为 AXIS_WORLD，`vertical` 恒为世界 +Y。
+   * 做成**可变量**而不是常量，是因为 setOrbitNu / 极地子图取景 / 开发钩子都要读它，
+   * 而档位随时可能切换 —— 三处各自去问档位、各自推一遍方向，迟早会推歪一处。
+   */
+  let axisWorld = axisWorldFor("oblique");
+  let axisMode: AxisMode = "oblique";
+
   const earthMaterial = new THREE.ShaderMaterial({
     uniforms: {
       dayMap: { value: null },
+      /** 双色底图（大洲深灰 / 海洋浅蓝），与 earth.jpg 同投影同尺寸，可直接共用 UV */
+      baseMap: { value: null },
       /** 夜面底图：城市夜间灯光影像（与白天贴图同一等距圆柱投影，可直接共用 UV） */
       nightMap: { value: null },
       uHasTex: { value: 0 },
+      uHasBase: { value: 0 },
       uHasNight: { value: 0 },
+      uBase: { value: 0 },
       uWhite: { value: 0 },
       uNight: { value: 1 },
       uNoNight: { value: 0 },
+      /** 透明地球（需求⑤）：1 = 半透明，能看见背半球被挡住的经纬线 */
+      uGhost: { value: 0 },
       uDayColor: { value: new THREE.Color(0x2a4d7f) },
       uSunDir: { value: new THREE.Vector3(1, 0, 0) }
     },
+    // 透明地球需要在**不透明档也要能正确遮挡**：alpha=1 时深度照写，视觉上与不透明完全一致；
+    // 切到透明档再把 uGhostAlpha 压下来并停止写深度，背面的经纬线才能透出来。
+    transparent: true,
     vertexShader: `
       varying vec2 vUv;
       varying vec3 vNormalW;
@@ -780,12 +925,16 @@ function buildEngine(container: HTMLDivElement): Engine {
     `,
     fragmentShader: `
       uniform sampler2D dayMap;
+      uniform sampler2D baseMap;
       uniform sampler2D nightMap;
       uniform float uHasTex;
+      uniform float uHasBase;
       uniform float uHasNight;
+      uniform float uBase;
       uniform float uWhite;
       uniform float uNight;
       uniform float uNoNight;
+      uniform float uGhost;
       uniform vec3 uDayColor;
       uniform vec3 uSunDir;
       varying vec2 vUv;
@@ -799,11 +948,13 @@ function buildEngine(container: HTMLDivElement): Engine {
         // dayAmt 变成 1 之后灯光增益自然归零 —— 一个开关同时关掉黑面与城市灯光，
         // 不会出现"黑夜没了、灯还亮在半空"的中间态。
         if (uNoNight > 0.5) { dayAmt = 1.0; }
-        // 纯白模式优先：不贴影像，用纯白球面呈现，昼夜明暗与晨昏线依然保留，
-        // 便于在球面上手绘晨昏线、标注点位。
+        // 地表素材三选一（纯白 > 双色底图 > 卫星影像 > 兜底纯色）。
+        // 底图档直接采样那张两色图：海洋浅蓝、大洲深灰，边缘靠纹理双线性插值自然过渡。
         vec3 day = uWhite > 0.5
           ? vec3(1.0)
-          : (uHasTex > 0.5 ? texture2D(dayMap, vUv).rgb : uDayColor.rgb);
+          : (uBase > 0.5 && uHasBase > 0.5)
+            ? texture2D(baseMap, vUv).rgb
+            : (uHasTex > 0.5 ? texture2D(dayMap, vUv).rgb : uDayColor.rgb);
         vec3 night = uWhite > 0.5
           ? vec3(0.13, 0.15, 0.20)
           : day * 0.10 + vec3(0.010, 0.024, 0.055);
@@ -821,7 +972,11 @@ function buildEngine(container: HTMLDivElement): Engine {
           night += lights * (1.0 - dayAmt);
         }
 
-        gl_FragColor = vec4(mix(night, day, dayAmt), 1.0);
+        // 透明地球（需求⑤）：整球压到半透明，让背半球的经纬线透出来 ——
+        // 「经线是半圆、纬线是整圆；纬度是点与赤道面的夹角」这些结论，只有能同时
+        // 看见前后两面才看得清。alpha 由 uGhost 在两档之间取，不透明档恒为 1。
+        float alpha = mix(1.0, ${GHOST_ALPHA.toFixed(2)}, uGhost);
+        gl_FragColor = vec4(mix(night, day, dayAmt), alpha);
       }
     `
   });
@@ -1223,30 +1378,369 @@ function buildEngine(container: HTMLDivElement): Engine {
     });
   }
 
-  /* ---- 经纬网（每 15° 一格，赤道与本初子午线另有专属图层，这里跳过） ---- */
+  /* ---- 经纬网（需求⑥：疏密可调，默认 15°）----
+     赤道与本初子午线另有专属图层，这里跳过，避免两条线叠在一起（颜色不同会互相打架）。
+
+     为什么是"重建"而不是"显隐"：每条线都是一个独立几何体，间距 30° 与间距 5° 的线
+     根本不是同一批 —— 15° 的格子里没有 5° 那条线可显。所以换档位时**整组重建**：
+     先把旧几何体与旧标签贴图全部 dispose（贴图不释放就是显存泄漏，学生上课来回切几次
+     几十张 2048 贴图就堆住了），再按新间距铺一遍。 */
   const gridGroup = new THREE.Group();
-  for (let lat = -75; lat <= 75; lat += 15) {
-    if (lat === 0) {
-      continue;
-    }
-    gridGroup.add(makeThinCircle(lat, "parallel"));
-  }
-  for (let lon = 15; lon < 180; lon += 15) {
-    gridGroup.add(makeThinCircle(lon, "meridian"));
-  }
-  // 度数标注：30°/60° 纬线与 90°E / 90°W 经线（比专用线条的标注小一号，避免抢视觉）
-  const gridLabel = (lat: number, lon: number, text: string) => {
+  let gridStepDeg = DEFAULT_GRID_STEP;
+
+  /** 度数标注：30°/60° 纬线与 90°E / 90°W 经线（比专用线条的标注小一号，避免抢视觉） */
+  function makeGridLabel(lat: number, lon: number, text: string): THREE.Sprite {
     const sprite = makeLabelSprite(text, "#a9bedd", 32, 0.072);
     sprite.position.copy(localFromLatLon(lat, lon).multiplyScalar(1.045));
     return sprite;
-  };
-  for (const lat of [30, 60, -30, -60]) {
-    gridGroup.add(gridLabel(lat, labelLon, `${Math.abs(lat)}°${lat > 0 ? "N" : "S"}`));
   }
-  for (const lon of [90, -90]) {
-    gridGroup.add(gridLabel(12, lon, `${Math.abs(lon)}°${lon > 0 ? "E" : "W"}`));
+
+  function buildGraticule(stepDeg: number) {
+    // 先释放旧内容：几何体 + 线材质 + 标签精灵的贴图与材质
+    for (const child of [...gridGroup.children]) {
+      gridGroup.remove(child);
+      if (child instanceof THREE.LineLoop) {
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+      } else if (child instanceof THREE.Sprite) {
+        disposeSprite(child);
+      }
+    }
+    gridStepDeg = stepDeg;
+    for (let lat = stepDeg; lat <= 90 - stepDeg; lat += stepDeg) {
+      gridGroup.add(makeThinCircle(lat, "parallel"));
+      gridGroup.add(makeThinCircle(-lat, "parallel"));
+    }
+    // 每条经线大圆同时覆盖 lon 与 lon+180，所以只铺 0~180 的开区间即可铺满全球
+    for (let lon = stepDeg; lon < 180; lon += stepDeg) {
+      gridGroup.add(makeThinCircle(lon, "meridian"));
+    }
+    // 标注集合与档位无关（30/60 与 90 在任一档位上都是格线），换档时只需重建线条
+    for (const lat of [30, 60, -30, -60]) {
+      gridGroup.add(makeGridLabel(lat, labelLon, `${Math.abs(lat)}°${lat > 0 ? "N" : "S"}`));
+    }
+    for (const lon of [90, -90]) {
+      gridGroup.add(makeGridLabel(12, lon, `${Math.abs(lon)}°${lon > 0 ? "E" : "W"}`));
+    }
   }
+
+  buildGraticule(gridStepDeg);
   spinGroup.add(gridGroup);
+
+  /* ---- 经纬度的度量（需求⑤）：把"纬度 / 经度各是哪两条线的夹角"画出来 ----
+     纬度的定义 = 该点半径与**赤道面**的夹角；经度的定义 = 该点的**子午面**与
+     本初子午面的夹角。两句话在球面上说不清，必须把夹角本身画出来：
+
+       · 纬度弧：在**过该点的铅垂子午面**内（竖直面），从赤道面方向 C→Q 转到半径 C→P，
+         圆心角即纬度。作图三件套 = 半径 C→P、从 P 到赤道面的垂线（垂足 Q）、C→Q。
+       · 经度弧：在**赤道面**内（水平面），从本初子午线方向 (1,0,0) 转到该点所在经线方向，
+         圆心角即经度。
+
+     两条弧共用一个顶点 Q，一横一竖叠在同一张图里，"两种夹角"的差别一眼可辨 ——
+     这也正是课本上两张图（侧视剖面 + 极地俯视）合并之后的样子。
+
+     挂 `spinGroup` 而不是 `tiltGroup`：经度的零点钉在地表（本初子午线）上，
+     整组几何必须跟着自转走，否则地球一转，弧扫到的经度就不对了。 */
+  const geoAngleGroup = new THREE.Group();
+  geoAngleGroup.visible = false;
+  spinGroup.add(geoAngleGroup);
+  const ARC_R_LAT = 0.92;
+  const ARC_R_LON = 0.62;
+  const ARC_SEGMENTS = 48;
+  /**
+   * 两个角的边一律画到**赤道半径 1**为止（v1.5.1 修）。为什么不是
+   * 「画到各自的垂足」：
+   *   · 经度角起始那条边（本初子午面方向 +x）原本**根本没画** —— 弧从半空中起笔，
+   *     看起来不像一个角（用户报的第 1 条）。
+   *   · 纬度角的下边原本只画到垂足（半径 cos φ = 0.767），而纬度弧在半径 0.92 ——
+   *     **弧的下端也悬在半空**，同一类毛病，只是不容易看出来。
+   * 两条赤道边等长、都落在赤道圈上，"角"才是闭合的：弧的两端一定压在某条边上。
+   */
+  const EQ_EDGE_R = 1;
+  /**
+   * 两条弧的**点串**：开发钩子要从它量圆心角。
+   * ⚠ v1.5.1 之后弧不再是 `THREE.Line`，不能再从几何体的 position 属性上读点 ——
+   * 点串在这里留着，量角度这件事与"用线还是用管"解耦。
+   */
+  let geoLatArcPts: THREE.Vector3[] = [];
+  let geoLonArcPts: THREE.Vector3[] = [];
+  /** 两个角各自的"两条边""弧的两端"的方向（方位角形式）。开发钩子据此断言角是**完整**的：
+   *  弧的两端必须分别压在两条边上（少一条边 ⇒ 这组断言当场红）。 */
+  let geoLatEdges: MarkerInfo[] = [];
+  let geoLonEdges: MarkerInfo[] = [];
+  let geoLatArcEnds: MarkerInfo[] = [];
+  let geoLonArcEnds: MarkerInfo[] = [];
+  let geoAnglePoint: MarkerInfo = { lat: 40, lon: 116 };
+  /** 两个夹角标签的精灵引用（开发钩子要量它们的屏幕包围盒） */
+  let gaLatLabel: THREE.Sprite | null = null;
+  let gaLonLabel: THREE.Sprite | null = null;
+  /** 两个标签的**几何自然锚点**（先算这个，屏幕上怎么让位交给 updateGeoAngleLabels） */
+  const gaLatAnchor = new THREE.Vector3();
+  const gaLonAnchor = new THREE.Vector3();
+
+  function clearGroup(group: THREE.Group) {
+    for (const child of [...group.children]) {
+      group.remove(child);
+      if (child instanceof THREE.Line) {
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+      } else if (child instanceof THREE.Sprite) {
+        disposeSprite(child);
+      } else if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+      }
+    }
+  }
+
+  /* ---- 夹角立体的线宽：**只能用管（Tube），加粗线本身就是做不到的**（v1.5.1 修）----
+     `THREE.Line` 的 `linewidth` 在 WebGL 上被忽略（绝大多数平台恒为 1 设备像素），
+     所以"把夹角线画粗些"在它身上无解 —— 只能把线做成**有直径的几何体**。
+     做成管还多一个好处：它是三维实体，跟着镜头缩放，与地球/经纬网同一套空间感；
+     1px 的线反而越放大越显得细。 */
+  const GA_TUBE_ARC = 0.0076;
+  const GA_TUBE_EDGE = 0.006;
+  /**
+   * 线宽总倍率。**开发钩子**用它做牙齿测试：压到 0.1 就退回"1px 细线"的观感，
+   * 屏幕上量出来的线宽判据必须当场变红 —— 否则那条判据证明不了任何事。
+   * （与 `gaSeparateEnabled` 同一用途，不是给用户调的选项。）
+   */
+  let gaThickScale = 1;
+
+  /**
+   * 粗线：沿点串扫一根圆柱。两点＝直线段，多点＝Catmull-Rom（弧用它，天然光滑）。
+   * 不透明、写深度：夹角画在地球**内部**，半透明材质会跟地球前半球再混一次、越混越淡，
+   * 而这次要的恰恰是"醒目"。
+   */
+  function makeThickLine(
+    points: THREE.Vector3[],
+    color: number,
+    radius: number
+  ): THREE.Mesh | null {
+    // 退化情形（例如选点正好落在赤道 / 本初子午线上，这个角本来就是 0°）不要建管：
+    // 零长度曲线的标架算出来是 NaN，会画出满屏乱刺。不画才是对的。
+    let span = 0;
+    for (let i = 1; i < points.length; i += 1) {
+      span = Math.max(span, points[i].distanceTo(points[0]));
+    }
+    if (span < 1e-4) {
+      return null;
+    }
+    const curve =
+      points.length === 2
+        ? new THREE.LineCurve3(points[0], points[1])
+        : new THREE.CatmullRomCurve3(points);
+    return new THREE.Mesh(
+      new THREE.TubeGeometry(
+        curve,
+        Math.max(2, points.length - 1),
+        radius * gaThickScale,
+        8,
+        false
+      ),
+      new THREE.MeshBasicMaterial({ color })
+    );
+  }
+
+  function updateGeoAngle(info: MarkerInfo) {
+    clearGroup(geoAngleGroup);
+    geoLatArcPts = [];
+    geoLonArcPts = [];
+    geoLatEdges = [];
+    geoLonEdges = [];
+    geoLatArcEnds = [];
+    geoLonArcEnds = [];
+    gaLatLabel = null;
+    gaLonLabel = null;
+    geoAnglePoint = info;
+    const latRad = info.lat * DEG;
+    const lonRad = info.lon * DEG;
+    const p = localFromLatLon(info.lat, info.lon);
+    // 赤道面上的水平方向：用纬度 0 的同经度点求，极点上也不会退化
+    const flat = localFromLatLon(0, info.lon).normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    const origin = new THREE.Vector3(0, 0, 0);
+    const foot = flat.clone().multiplyScalar(Math.cos(latRad));
+    /** 本初子午面与赤道面的交线（+x）：经度角的**起始边**（v1.5.1 补上，原先这条边不存在） */
+    const zeroDir = localFromLatLon(0, 0);
+
+    const addTube = (points: THREE.Vector3[], color: number, radius: number) => {
+      const mesh = makeThickLine(points, color, radius);
+      if (mesh) {
+        geoAngleGroup.add(mesh);
+      }
+    };
+
+    /** 从球心画一条边到 `dir × len`，方向登记进 `bucket`（开发钩子要核对面齐不齐） */
+    const radial = (dir: THREE.Vector3, len: number, color: number, bucket: MarkerInfo[]) => {
+      const d = dir.clone().normalize();
+      addTube([origin.clone(), d.clone().multiplyScalar(len)], color, GA_TUBE_EDGE);
+      bucket.push(latLonFromLocal(d));
+    };
+
+    // ---- 纬度角：该点的子午面内，赤道面（C→Q）与 地心→该点（C→P）的夹角 ----
+    radial(p, EQ_EDGE_R, 0xf2e8d5, geoLatEdges);
+    // 赤道面那条边由下面的经度角画出（一条线同时是两个角的边）；
+    // 这里只把方向补进纬度角的边表，不重复画线 —— 重复画会在同一位置叠两根管、看着发脏。
+    geoLatEdges.push(latLonFromLocal(flat));
+    // 垂线 P→Q：把"球面上那个点"落到赤道面上，纬度角才能搬到球心处读
+    addTube([p.clone(), foot.clone()], 0x8fd8ff, GA_TUBE_EDGE);
+
+    // ---- 经度角：赤道面内，本初子午面 与 该点所在子午面 的夹角 ----
+    radial(zeroDir, EQ_EDGE_R, 0x5fd8ff, geoLonEdges); // 0° 那条边（原先漏画的就是它）
+    radial(flat, EQ_EDGE_R, 0x8fd8ff, geoLonEdges); // 该点经线在赤道面上的方向
+
+    // 纬度弧（竖直，位于该点的子午面内）
+    for (let i = 0; i <= ARC_SEGMENTS; i += 1) {
+      const t = (latRad * i) / ARC_SEGMENTS;
+      geoLatArcPts.push(
+        flat
+          .clone()
+          .multiplyScalar(Math.cos(t))
+          .addScaledVector(up, Math.sin(t))
+          .multiplyScalar(ARC_R_LAT)
+      );
+    }
+    addTube(geoLatArcPts, 0xffd76a, GA_TUBE_ARC);
+    geoLatArcEnds = [
+      latLonFromLocal(geoLatArcPts[0]),
+      latLonFromLocal(geoLatArcPts[geoLatArcPts.length - 1])
+    ];
+
+    // 经度弧（水平，位于赤道面内，自本初子午面方向起算）
+    for (let i = 0; i <= ARC_SEGMENTS; i += 1) {
+      const u = (lonRad * i) / ARC_SEGMENTS;
+      geoLonArcPts.push(new THREE.Vector3(Math.cos(u), 0, -Math.sin(u)).multiplyScalar(ARC_R_LON));
+    }
+    addTube(geoLonArcPts, 0x5fd8ff, GA_TUBE_ARC);
+    geoLonArcEnds = [
+      latLonFromLocal(geoLonArcPts[0]),
+      latLonFromLocal(geoLonArcPts[geoLonArcPts.length - 1])
+    ];
+
+    // 角的顶点：两条边都从球心出发，给顶点画个小球，"角"才有个看得见的顶
+    // （二维示意图 `GeoAngleDiagram` 里也是这么画的）
+    geoAngleGroup.add(
+      new THREE.Mesh(
+        new THREE.SphereGeometry(GA_TUBE_EDGE * 2.6 * gaThickScale, 12, 10),
+        new THREE.MeshBasicMaterial({ color: 0xf2e8d5 })
+      )
+    );
+
+    const addLabel = (text: string, color: string, at: THREE.Vector3) => {
+      const sprite = makeLabelSprite(text, color, 34, 0.085);
+      sprite.position.copy(at);
+      // 夹角弧画在球体内部，会被地球前半面挡住 ⇒ 关掉深度测试，让文字始终读得到
+      sprite.material.depthTest = false;
+      sprite.material.depthWrite = false;
+      // 存下文字：开发钩子据此核对"两条弧各自标的是纬度还是经度"
+      sprite.userData.text = text;
+      geoAngleGroup.add(sprite);
+      return sprite;
+    };
+    gaLatAnchor.copy(
+      flat
+        .clone()
+        .multiplyScalar(Math.cos(latRad / 2))
+        .addScaledVector(up, Math.sin(latRad / 2))
+        .multiplyScalar(ARC_R_LAT * 1.22)
+    );
+    gaLonAnchor
+      .set(Math.cos(lonRad / 2), 0, -Math.sin(lonRad / 2))
+      .multiplyScalar(ARC_R_LON * 1.5);
+    gaLatLabel = addLabel(`纬度 ${Math.abs(info.lat).toFixed(1)}°`, "#ffd76a", gaLatAnchor);
+    gaLonLabel = addLabel(`经度 ${Math.abs(info.lon).toFixed(1)}°`, "#5fd8ff", gaLonAnchor);
+    updateGeoAngleLabels();
+  }
+
+  /* ---- 夹角两标签的**屏幕空间**让位（v1.5.0 修「标签叠字」）----
+     两个标签锚在**选点自己的赤道方向**那条射线上（半径 1.12 / 0.93），
+     选点自己的「地方时」徽标也在这条射线上（半径 1.50）——
+     选点纬度 ≈ 0（纬度弧退化）时三者屏幕上必然挤成一堆。实测最大相交 26.9px，
+     而且**只出现在一部分自转角上**（6 个角里 2 个是干净的）：不扫一圈根本看不出来，
+     这也是"看一眼截图没糊"不能当判据的原因。
+     （注意：触发条件是**低纬度**，不是"经度≈0" —— |lat| 小才有这条公共射线；
+       经度只决定那条射线朝哪儿。）
+
+     为什么最后落到"按屏幕像素推开"：
+       · 错开**几何锚点**没用 —— 镜头顺着那条射线看时，0.4 个单位的距离投影成 0 像素；
+       · 固定沿**相机上方向**错开也只能保证"相对偏移量"，保证不了**上下次序**：
+         实测南半球低纬那一组还剩 7.9px —— 徽标本来就落在经度标签下方时，
+         把经度标签往下推等于往徽标身上推。
+     所以按屏幕盒**自上而下依次下推**：只往下推、不打乱上下次序（否则标签会跳来跳去），
+     推的像素数按该标签所在深度的"1 世界单位 = 多少像素"换回世界位移。
+     只动标签、不动弧：弧画的仍然是该点真正的经纬度（G4/G5 守着这一点）。 */
+  const GA_LABEL_GAP = 6;
+  /**
+   * 让位总开关：`false` = 退回「标签钉在自己的几何锚点上」的旧行为。
+   * 留着它是为了**牙齿测试**：回归里同一个选点、同一圈自转角跑两遍，
+   * 关掉必须红、打开必须绿 —— 否则你没法证明那条"不许叠字"的判据真的咬得住
+   * （本项目已多次踩过"判据恒真、写了个寂寞"）。
+   */
+  let gaSeparateEnabled = true;
+  const tmpSepUp = new THREE.Vector3();
+  const tmpSepQuat = new THREE.Quaternion();
+
+  /** 精灵的屏幕盒（CSS 像素）：中心 + 半宽半高 + 「1 世界单位 = 多少像素」 */
+  function screenBoxOf(sprite: THREE.Sprite) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    const wp = sprite.getWorldPosition(new THREE.Vector3());
+    const n = wp.clone().project(camera);
+    const dist = Math.max(1e-3, wp.distanceTo(camera.position));
+    const k = rect.height / (2 * dist * Math.tan((camera.fov * DEG) / 2));
+    return {
+      cy: (-n.y * 0.5 + 0.5) * rect.height,
+      hh: (sprite.scale.y / 2) * k,
+      k
+    };
+  }
+
+  /**
+   * 每帧摆夹角两标签与「地方时」徽标。必须放在 `controls.update()` **之后** ——
+   * 让位依赖当帧最终的相机姿态，用上一帧的姿态会慢半拍、拖影时看着在飘。
+   */
+  function updateGeoAngleLabels() {
+    if (!geoAngleGroup.visible) {
+      // 演示关掉时把徽标放回原位，否则会停在上一次被推开的落脚点
+      if (markerClock && markerLabelAnchor) {
+        markerClock.sprite.position.copy(markerLabelAnchor);
+      }
+      return;
+    }
+    tmpSepUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    spinGroup.getWorldQuaternion(tmpSepQuat);
+    tmpSepUp.applyQuaternion(tmpSepQuat.invert());
+
+    const items: {
+      sprite: THREE.Sprite;
+      box: { cy: number; hh: number; k: number };
+    }[] = [];
+    const collect = (sprite: THREE.Sprite | null, anchor: THREE.Vector3 | null) => {
+      if (!sprite || !anchor) {
+        return;
+      }
+      sprite.position.copy(anchor);
+      items.push({ sprite, box: screenBoxOf(sprite) });
+    };
+    collect(gaLatLabel, gaLatAnchor);
+    collect(gaLonLabel, gaLonAnchor);
+    collect(markerClock ? markerClock.sprite : null, markerLabelAnchor);
+
+    if (!gaSeparateEnabled) {
+      return;
+    }
+
+    items.sort((a, b) => a.box.cy - b.box.cy);
+    let cursor = -Infinity;
+    for (const item of items) {
+      const pushPx = Math.max(0, cursor + GA_LABEL_GAP - (item.box.cy - item.box.hh));
+      if (pushPx > 0) {
+        item.sprite.position.addScaledVector(tmpSepUp, -pushPx / item.box.k);
+        item.box.cy += pushPx;
+      }
+      cursor = item.box.cy + item.box.hh;
+    }
+  }
 
   const axisGroup = new THREE.Group();
   const axisGeometry = new THREE.BufferGeometry().setFromPoints([
@@ -1542,6 +2036,8 @@ function buildEngine(container: HTMLDivElement): Engine {
   let markerLatLon: MarkerInfo | null = null;
   /** 标记点旁的「地方时」浮动标签 */
   let markerClock: { sprite: THREE.Sprite; draw: (text: string) => void } | null = null;
+  /** 徽标的几何锚点（半径 1.5 处）：屏幕让位以它为基点，见 updateGeoAngleLabels */
+  let markerLabelAnchor: THREE.Vector3 | null = null;
 
   function clearMarker() {
     markerGroup.traverse((child) => {
@@ -1557,6 +2053,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     });
     markerGroup.clear();
     markerClock = null;
+    markerLabelAnchor = null;
     markerLatLon = null;
   }
 
@@ -1589,7 +2086,8 @@ function buildEngine(container: HTMLDivElement): Engine {
 
     // 该点的地方时：随自转/公转实时改写
     markerClock = makeDynamicLabel("#ffd76a", 42, 0.1);
-    markerClock.sprite.position.copy(direction.clone().multiplyScalar(1.5));
+    markerLabelAnchor = direction.clone().multiplyScalar(1.5);
+    markerClock.sprite.position.copy(markerLabelAnchor);
     markerClock.draw(`地方时 ${formatClock(localHoursAt(lon, subsolarLon))}`);
     markerGroup.add(markerClock.sprite);
   }
@@ -1714,12 +2212,14 @@ function buildEngine(container: HTMLDivElement): Engine {
     // 太阳方向（地球 → 太阳）
     sunDir.copy(earthPos).multiplyScalar(-1).normalize();
 
-    // 地轴指向空间固定方向 AXIS_WORLD（四季成因）；
+    // 地轴指向空间固定方向 axisWorld（四季成因）。
     // tiltGroup 只承担姿态，不再"模拟"自转——真实的连续自转由 spinGroup 承担，
     // 这样贴图会真的转动，地球特写视角下能看到白天/黑夜在球面上滚过。
-    tiltGroup.quaternion.setFromUnitVectors(WORLD_UP, AXIS_WORLD);
+    // 垂直档（需求③）下 axisWorld 是世界 +Y：太阳方向永远落在轨道面上、与地轴垂直
+    // ⇒ 直射点纬度恒为 0、全球终年昼夜平分、没有极昼极夜，也就没有四季。
+    tiltGroup.quaternion.setFromUnitVectors(WORLD_UP, axisWorld);
 
-    declination = Math.asin(THREE.MathUtils.clamp(sunDir.dot(AXIS_WORLD), -1, 1)) / DEG;
+    declination = Math.asin(THREE.MathUtils.clamp(sunDir.dot(axisWorld), -1, 1)) / DEG;
 
     // 昼夜着色器
     earthMaterial.uniforms.uSunDir.value.copy(sunDir);
@@ -1912,14 +2412,14 @@ function buildEngine(container: HTMLDivElement): Engine {
       }
       // 与地轴垂直的「上」参考：把世界 +Z 投影到地轴垂面（退化时改用 +X），
       // 否则视线（沿地轴）与 camera.up 平行，取景会翻滚不定
-      tmpPoleUp.set(0, 0, 1).addScaledVector(AXIS_WORLD, -AXIS_WORLD.z);
+      tmpPoleUp.set(0, 0, 1).addScaledVector(axisWorld, -axisWorld.z);
       if (tmpPoleUp.lengthSq() < 1e-6) {
-        tmpPoleUp.set(1, 0, 0).addScaledVector(AXIS_WORLD, -AXIS_WORLD.x);
+        tmpPoleUp.set(1, 0, 0).addScaledVector(axisWorld, -axisWorld.x);
       }
       pv.camera.up.copy(tmpPoleUp.normalize());
       pv.camera.position
         .copy(earthPos)
-        .addScaledVector(AXIS_WORLD, pv.pole === "north" ? POLE_VIEW_DIST : -POLE_VIEW_DIST);
+        .addScaledVector(axisWorld, pv.pole === "north" ? POLE_VIEW_DIST : -POLE_VIEW_DIST);
       pv.camera.lookAt(earthPos);
       pv.camera.updateProjectionMatrix();
 
@@ -2078,6 +2578,8 @@ function buildEngine(container: HTMLDivElement): Engine {
     controls.update();
     // 相机姿态可能刚被改变（切换视角/自动旋转），逐帧重算直射点标签的让位方向
     updateSubsolarLabelPosition();
+    // 夹角两标签的让位方向同样依赖当帧相机姿态（见 updateGeoAngleLabels 的注释）
+    updateGeoAngleLabels();
     // 五带文字标注：必须放在 controls.update() 之后——它依赖当帧最终的相机姿态，
     // 用来把标签摆到球面轮廓内最靠左的位置（避让中央的晨昏线与直射点标签）。
     updateZoneLabels();
@@ -2142,16 +2644,22 @@ function buildEngine(container: HTMLDivElement): Engine {
     }
   }
 
-  /* ---- 地表素材：影像 / 纯白（纯白优先，两者互斥） ---- */
+  /* ---- 地表素材：卫星影像 / 双色底图 / 纯白，三选一 ---- */
   let earthTexture: THREE.Texture | null = null;
+  let baseTexture: THREE.Texture | null = null;
   let nightTexture: THREE.Texture | null = null;
-  const surfaceState = { texture: true, white: false };
+  const surfaceState = { texture: true, baseMap: false, white: false };
   function applySurface(): void {
-    const hasTex = surfaceState.texture && !surfaceState.white && earthTexture ? 1 : 0;
+    // 三种素材各自判断"开了而且贴图已加载"。贴图是异步到的，所以每次到达都要重跑本函数。
+    const hasTex = surfaceState.texture && earthTexture ? 1 : 0;
+    const hasBase = surfaceState.baseMap && baseTexture ? 1 : 0;
     earthMaterial.uniforms.uHasTex.value = hasTex;
     earthMaterial.uniforms.dayMap.value = hasTex ? earthTexture : null;
+    earthMaterial.uniforms.uHasBase.value = hasBase;
+    earthMaterial.uniforms.baseMap.value = hasBase ? baseTexture : null;
+    earthMaterial.uniforms.uBase.value = surfaceState.baseMap ? 1 : 0;
     earthMaterial.uniforms.uWhite.value = surfaceState.white ? 1 : 0;
-    // 夜间灯光贴图与「影像 / 纯白」无关：纯白模式下着色器会主动忽略它，
+    // 夜间灯光贴图与「素材三选一」无关：纯白模式下着色器会主动忽略它，
     // 这里始终把已加载的贴图挂上去，开关由 uNight 控制。
     earthMaterial.uniforms.uHasNight.value = nightTexture ? 1 : 0;
     earthMaterial.uniforms.nightMap.value = nightTexture ?? null;
@@ -2184,6 +2692,7 @@ function buildEngine(container: HTMLDivElement): Engine {
     orbitGroup,
     earthLabel,
     earthTexture: null,
+    baseTexture: null,
     nightTexture: null,
     autoRotateWanted: true,
     setOrbitNu,
@@ -2196,10 +2705,106 @@ function buildEngine(container: HTMLDivElement): Engine {
     setSpinDragging: (active: boolean) => {
       spinDragging = active;
     },
-    applySurface: (options: { texture: boolean; white: boolean }) => {
+    applySurface: (options: { texture: boolean; baseMap: boolean; white: boolean }) => {
       surfaceState.texture = options.texture;
+      surfaceState.baseMap = options.baseMap;
       surfaceState.white = options.white;
       applySurface();
+    },
+    setAxisMode: (mode: AxisMode) => {
+      if (mode === axisMode) {
+        return;
+      }
+      axisMode = mode;
+      axisWorld = axisWorldFor(mode);
+      // 地轴换了方向，必须重跑一遍姿态与光照，否则画面要等下一次 setOrbitNu 才更新。
+      // 传当前 nu 而不是别的位置：这一档只改"怎么歪"，不该顺带把公转位置挪走。
+      setOrbitNu(nu);
+    },
+    setGridStep: (stepDeg: number) => {
+      if (stepDeg === gridStepDeg) {
+        return;
+      }
+      buildGraticule(stepDeg);
+      // 重建后新线的可见性要跟上当前开关（gridGroup.visible 由 React 侧设，但新加的
+      // 子节点继承的是父组的 visible，所以这里无需逐个处理）
+    },
+    readGridStep: () => gridStepDeg,
+    readGeoAngle: () => {
+      /** 点串两端的**方向夹角**（度）：弧画的度数对不对，只跟方向有关、与半径无关 */
+      const span = (pts: THREE.Vector3[]): number => {
+        if (pts.length < 2) {
+          return -1;
+        }
+        const a = pts[0].clone().normalize();
+        const b = pts[pts.length - 1].clone().normalize();
+        return Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1)) / DEG;
+      };
+      const dirs = (list: MarkerInfo[]) =>
+        list.map((e) => ({ lat: +e.lat.toFixed(3), lon: +e.lon.toFixed(3) }));
+      return {
+        visible: geoAngleGroup.visible,
+        lat: geoAnglePoint.lat,
+        lon: geoAnglePoint.lon,
+        latArcDeg: span(geoLatArcPts),
+        lonArcDeg: span(geoLonArcPts),
+        parts: geoAngleGroup.children.filter(
+          (c) => c instanceof THREE.Mesh || c instanceof THREE.Line
+        ).length,
+        latEdges: dirs(geoLatEdges),
+        lonEdges: dirs(geoLonEdges),
+        latArcEnds: dirs(geoLatArcEnds),
+        lonArcEnds: dirs(geoLonArcEnds),
+        labels: geoAngleGroup.children
+          .filter((c): c is THREE.Sprite => c instanceof THREE.Sprite)
+          .map((c) => String((c.userData as { text?: string }).text ?? ""))
+      };
+    },
+    readAxis: () => [axisWorld.x, axisWorld.y, axisWorld.z],
+    setBackground: (white: boolean) => {
+      scene.background = new THREE.Color(white ? BG_WHITE : BG_SPACE);
+    },
+    setTransparent: (on: boolean) => {
+      earthMaterial.uniforms.uGhost.value = on ? 1 : 0;
+      // 透明档必须停止写深度：否则背半球的经纬线仍被地球挡住，"透过去看"就无从谈起。
+      // 不透明档恢复写深度，遮挡关系与以前完全一致。
+      earthMaterial.depthWrite = !on;
+      earthMaterial.needsUpdate = true;
+    },
+    setGeoAngle: (on: boolean, info: MarkerInfo) => {
+      geoAngleGroup.visible = on;
+      if (on) {
+        updateGeoAngle(info);
+      }
+    },
+    /** 开发自检：关掉夹角标签的屏幕让位 ⇒ 退回旧行为，用来做「判据咬得住吗」的牙齿测试 */
+    setLabelSeparate: (on: boolean) => {
+      gaSeparateEnabled = on;
+      updateGeoAngleLabels();
+    },
+    /**
+     * 开发自检：改夹角线粗细。牙齿测试用 —— 先量「细」再量「粗」，
+     * 同一次运行内就能证明"线宽判据"确实咬得住（而不是恒真的空判据）。
+     */
+    setAngleThickness: (scale: number) => {
+      gaThickScale = scale;
+      if (geoAngleGroup.visible) {
+        updateGeoAngle(geoAnglePoint);
+      }
+    },
+    readGeoArcScreen: () => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      // 组的世界矩阵平时由渲染循环刷新；这个钩子可能被单独调用，先自己刷一遍父链
+      geoAngleGroup.updateWorldMatrix(true, false);
+      const project = (pts: THREE.Vector3[]) =>
+        pts.map((p) => {
+          const n = geoAngleGroup.localToWorld(p.clone()).project(camera);
+          return {
+            x: (n.x * 0.5 + 0.5) * rect.width,
+            y: (-n.y * 0.5 + 0.5) * rect.height
+          };
+        });
+      return { lat: project(geoLatArcPts), lon: project(geoLonArcPts) };
     },
     readDeclination: () => declination,
     readNu: () => nu,
@@ -2275,6 +2880,67 @@ function buildEngine(container: HTMLDivElement): Engine {
         rayPoint: toPx(earthPos.clone().add(sunDir))
       };
     },
+    /**
+     * 开发自检：夹角两标签 +「地方时」徽标在画布上的像素包围盒（CSS 像素）。
+     *
+     * 为什么要它：这三个标签都钉在**本初子午线正方向**这条射线上
+     * （半径 0.93 / 1.12 / 1.50），选点经度 ≈ 0 时屏幕上必然挤成一堆 ——
+     * 而这正是教学上最自然的例子（赤道 × 本初子午线）。
+     * 判"叠没叠"只能看**屏幕像素**：世界坐标差 0.2 个单位，镜头一斜可能只差几像素，
+     * 也可能差出 100 像素（取决于那条射线与视线的夹角）。
+     *
+     * 盒子按 sprite 的 scale 算（沿相机右/上方向取半宽半高再投影）——
+     * 比文字实际占地略大（贴图四周有留白），所以"盒子不重叠"是**保守**结论：
+     * 盒子都错开了，文字一定错得开。
+     */
+    readGeoLabelBoxes: () => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const toPx = (v: THREE.Vector3) => {
+        const n = v.clone().project(camera);
+        return {
+          x: (n.x * 0.5 + 0.5) * rect.width,
+          y: (-n.y * 0.5 + 0.5) * rect.height
+        };
+      };
+      const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+      const boxOf = (sprite: THREE.Sprite | null, tag: string) => {
+        if (!sprite) {
+          return null;
+        }
+        const wp = sprite.getWorldPosition(new THREE.Vector3());
+        const hw = sprite.scale.x / 2;
+        const hh = sprite.scale.y / 2;
+        const a = toPx(wp.clone().addScaledVector(camRight, -hw));
+        const b = toPx(wp.clone().addScaledVector(camRight, hw));
+        const c = toPx(wp.clone().addScaledVector(camUp, -hh));
+        const d = toPx(wp.clone().addScaledVector(camUp, hh));
+        return {
+          tag,
+          text: String((sprite.userData as { text?: string }).text ?? ""),
+          // 只在**夹角演示开着**并且这个精灵本身可见时才算数
+          visible: sprite.visible && geoAngleGroup.visible,
+          x0: Math.min(a.x, b.x),
+          x1: Math.max(a.x, b.x),
+          y0: Math.min(c.y, d.y),
+          y1: Math.max(c.y, d.y),
+          cx: (a.x + b.x) / 2,
+          cy: (c.y + d.y) / 2
+        };
+      };
+      // 徽标的文字是每帧重绘的，userData.text 由 makeDynamicLabel 的 draw 之外单独记
+      const clockSprite = markerClock ? markerClock.sprite : null;
+      if (clockSprite) {
+        clockSprite.userData.text = `地方时 ${formatClock(
+          markerLatLon ? localHoursAt(markerLatLon.lon, subsolarLon) : 12
+        )}`;
+      }
+      return [
+        boxOf(gaLatLabel, "lat"),
+        boxOf(gaLonLabel, "lon"),
+        boxOf(clockSprite, "clock")
+      ].filter((b) => b !== null);
+    },
     onNuChange: null,
     onViewChange: null,
     onSpinChange: null,
@@ -2314,6 +2980,16 @@ function buildEngine(container: HTMLDivElement): Engine {
       nightLights: earthMaterial.uniforms.uNight.value === 1,
       nightOff: earthMaterial.uniforms.uNoNight.value === 1,
       hasNight: earthMaterial.uniforms.uHasNight.value === 1,
+      base: earthMaterial.uniforms.uBase.value === 1,
+      hasBase: earthMaterial.uniforms.uHasBase.value === 1,
+      ghost: earthMaterial.uniforms.uGhost.value === 1,
+      ghostAlpha: earthMaterial.uniforms.uGhost.value === 1 ? GHOST_ALPHA : 1,
+      geoAngle: geoAngleGroup.visible,
+      whiteBg: (scene.background as THREE.Color).getHex() === BG_WHITE,
+      gridStep: gridStepDeg,
+      gridLines: gridGroup.children.filter((c) => c instanceof THREE.Line).length,
+      axis: axisGroup.visible,
+      stars: starsPoints.visible,
       climateLabels: zoneLabelGroup.visible
     }),
     readZoneLabels: () => {
@@ -2401,6 +3077,24 @@ function buildEngine(container: HTMLDivElement): Engine {
     }
   );
 
+  // 双色底图（大洲深灰 / 海洋浅蓝，2048×1024，与 earth.jpg 同投影同尺寸，共用 UV）。
+  // 素材由 `scripts/make_basemap.py` 从 Natural Earth 陆地矢量栅格化而来 —— 不含云、
+  // 不含任何政治边界，只有"是陆地 / 是海洋"两种情况。加载失败时退回纯色球体。
+  new THREE.TextureLoader().load(
+    "./textures/earth_base.png",
+    (texture) => {
+      texture.colorSpace = THREE.NoColorSpace;
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      baseTexture = texture;
+      engine.baseTexture = texture;
+      applySurface();
+    },
+    undefined,
+    () => {
+      // 加载失败：底图档退回纯色球体，其余功能不受影响。
+    }
+  );
+
   // 夜面灯光底图（NASA 城市灯光，2048×1024，与白天贴图同投影同尺寸，直接共用 UV）。
   // 加载失败时着色器退回原来的暗蓝夜面，其它功能不受影响。
   new THREE.TextureLoader().load(
@@ -2470,6 +3164,116 @@ const SPIN_TICKS: KnobTick[] = [0, 90, 180, 270].map((value) => ({
   color: "#7d8899"
 }));
 
+/* ---------------- 经纬度平面位置图（需求④）---------------- */
+
+/**
+ * 平面图画布尺寸：360×180 —— **故意取经纬度的原值**（经度差 360、纬度差 180），
+ * 这样 viewBox 坐标就等于"经度 + 180 / 纬度取反 + 90"，画线与算点都不用再换算一遍。
+ * 配套的 preserveAspectRatio="none" 让这张 2:1 的图拉伸填满容器。
+ */
+const PLANE_W = 360;
+const PLANE_H = 180;
+/** 每 30° 一条辅助线。零点线（本初子午线 / 赤道）不在这里，单独画粗以突出"零点" */
+const PLANE_MERIDIANS = [30, 60, 90, 120, 150, 210, 240, 270, 300, 330];
+const PLANE_PARALLELS = [30, 60, 120, 150];
+
+/**
+ * 经纬度 → 平面图上的百分比位置。
+ * ⚠ 经度必须先归一到 (−180, 180]：太阳直射经线的读数在代码里可能落在 0~360 区间，
+ * 不归一的话 190° 这种值会让点跑到图的左边框外（视觉上"点消失了"）。
+ */
+function planeDotAt(lat: number, lon: number): { left: string; top: string } {
+  const norm = (((lon + 180) % 360) + 360) % 360 - 180;
+  return {
+    left: `${((norm + 180) / 360) * 100}%`,
+    top: `${((90 - lat) / 180) * 100}%`
+  };
+}
+
+/* ---------------- 经纬度夹角示意图（需求⑤，二维）---------------- */
+
+/**
+ * 为什么有了三维的夹角弧还要这张二维图：
+ *  三维那条弧挂在自转坐标系上，地球一转就转到背面去了 —— 讲定义时（"纬度到底是哪两条线
+ *  的夹角"）需要一张**永远正对读者、永远那一副样子**的图。这张剖面示意图就是干这个的：
+ *  左图是自赤道面侧看（量纬度），右图是自北极俯视（量经度），两张合起来正好是课本上
+ *  分开画的那两幅。
+ *  图上一切都在 244×112 的 viewBox 内按经纬度真值作图，不是画着像 —— 纬度 30° 的弧
+ *  圆心角就是 30°。
+ */
+function GeoAngleDiagram({ lat, lon }: { lat: number; lon: number }) {
+  const R = 40;
+  // 左图：自赤道面侧看，圆心 (54,56)
+  const cx = 54;
+  const cy = 56;
+  const lr = (lat * Math.PI) / 180;
+  const gr = (lon * Math.PI) / 180;
+  const ar = 19;
+  const mid = lr / 2;
+  // 右图：自北极俯视，圆心 (186,56)
+  const ox = 186;
+  const oy = 56;
+  const oar = 25;
+  const omid = gr / 2;
+  return (
+    <svg
+      className="geo-diagram"
+      viewBox="0 0 244 112"
+      width="100%"
+      role="img"
+      aria-label={`经纬度夹角示意：纬度 ${Math.abs(lat).toFixed(1)} 度、经度 ${Math.abs(lon).toFixed(1)} 度`}
+    >
+      {/* ---- 左：自赤道面侧看，量的角是纬度 ---- */}
+      <circle className="geo-globe" cx={cx} cy={cy} r={R} />
+      <line className="geo-axis" x1={cx} y1={cy - R - 8} x2={cx} y2={cy + R + 8} />
+      <line className="geo-equator" x1={cx - R - 6} y1={cy} x2={cx + R + 6} y2={cy} />
+      {/* 半径 C→P 与 P 到赤道面的垂线：把"该点的纬度"翻译成圆心处的夹角 */}
+      <line className="geo-radius" x1={cx} y1={cy} x2={cx + R * Math.cos(lr)} y2={cy - R * Math.sin(lr)} />
+      <line
+        className="geo-drop"
+        x1={cx + R * Math.cos(lr)}
+        y1={cy - R * Math.sin(lr)}
+        x2={cx + R * Math.cos(lr)}
+        y2={cy}
+      />
+      <path
+        className="geo-arc-lat"
+        d={`M${cx + ar},${cy} A${ar},${ar} 0 0 0 ${cx + ar * Math.cos(lr)},${cy - ar * Math.sin(lr)}`}
+      />
+      <circle className="geo-dot" cx={cx + R * Math.cos(lr)} cy={cy - R * Math.sin(lr)} r={2.6} />
+      <text className="geo-label is-lat" x={cx + (ar + 10) * Math.cos(mid)} y={cy - (ar + 10) * Math.sin(mid)}>
+        纬度
+      </text>
+      <text className="geo-label is-faint" x={cx - R - 4} y={cy - 5} textAnchor="start">
+        赤道面
+      </text>
+      <text className="geo-label is-faint" x={cx + 5} y={cy - R - 11} textAnchor="start">
+        地轴
+      </text>
+
+      {/* ---- 右：自北极俯视，量的角是经度 ---- */}
+      <circle className="geo-globe" cx={ox} cy={oy} r={R} />
+      <line className="geo-equator" x1={ox} y1={oy} x2={ox + R} y2={oy} />
+      <line className="geo-radius" x1={ox} y1={oy} x2={ox + R * Math.cos(gr)} y2={oy - R * Math.sin(gr)} />
+      <path
+        className="geo-arc-lon"
+        d={`M${ox + oar},${oy} A${oar},${oar} 0 0 ${Math.abs(lon) > 180 ? 1 : 0} ${ox + oar * Math.cos(gr)},${oy - oar * Math.sin(gr)}`}
+      />
+      <circle className="geo-dot" cx={ox} cy={oy} r={2} />
+      <circle className="geo-dot" cx={ox + R * Math.cos(gr)} cy={oy - R * Math.sin(gr)} r={2.6} />
+      <text className="geo-label is-lon" x={ox + (oar + 11) * Math.cos(omid)} y={oy - (oar + 11) * Math.sin(omid)}>
+        经度
+      </text>
+      <text className="geo-label is-faint" x={ox + R - 12} y={oy + 13} textAnchor="start">
+        本初子午线
+      </text>
+      <text className="geo-label is-faint" x={ox - R - 2} y={oy + R + 12} textAnchor="start">
+        自北极俯视
+      </text>
+    </svg>
+  );
+}
+
 interface LayerDef {
   key: keyof LayerState;
   label: string;
@@ -2482,31 +3286,42 @@ interface LayerDef {
   disabledIn?: (layers: LayerState) => string | null;
 }
 
-/** 图层按用途分组，避免十几个开关堆成一坨不好找 */
+/**
+ * 图层按用途分组，避免十几个开关堆成一坨不好找。
+ *
+ * v1.5.0 重排（需求⑦）：原来只有三组、且「地球表面」一组塞了 10 项，
+ * 分不清"换地表素材"和"叠一层光效"是两类事。现在按**它到底改了画面的什么**切四组：
+ *   ① 地表素材：只换球面本身贴什么（三选一，互斥）
+ *   ② 线网：球面上画的线
+ *   ③ 光照与分区：昼夜、直射、五带、时区
+ *   ④ 太阳与画布：天上的东西 + 画布底色
+ */
 const LAYER_GROUPS: { title: string; items: LayerDef[] }[] = [
   {
-    title: "地球表面",
+    title: "地表素材",
     items: [
-      { key: "texture", label: "地球影像", color: "#3f6b4f" },
+      { key: "texture", label: "卫星影像", color: "#3f6b4f" },
+      { key: "baseMap", label: "双色底图（大洲·海洋）", color: "#a8d8f0" },
+      /*
+        这里**故意不加** `disabledIn: whiteBg` —— 别照着「星空背景」那条顺手对称过来。
+        白球叠白底确实会"看不见球"，但那是一个**有意义的档位**：
+        纯白地球 + 纯白背景 + 经纬网 = 一张可直接投影/打印的经纬网图，
+        正是「纯白背景（投影·打印）」这个选项存在的理由。把它禁掉等于砍掉能力。
+        （星空不同：星点是纯装饰，在白底上既不承载信息也无法形成"网"，禁掉只是省一个开关。）
+      */
+      { key: "white", label: "纯白地球", color: "#ffffff" },
       {
         key: "nightLights",
         label: "夜间灯光（夜面城市灯光）",
         color: "#ffcf5a",
         disabledIn: (l) => (l.nightOff ? "已关闭黑夜，夜面与城市灯光一起消失" : null)
-      },
-      { key: "nightOff", label: "关闭黑夜（整球均匀受光）", color: "#8ecbff" },
-      { key: "white", label: "纯白地球（不贴影像）", color: "#ffffff" },
-      { key: "climate", label: "五带（热·温·寒）", color: "#ff6b3d" },
-      { key: "timezone", label: "全球时区（24 个）", color: "#5a86ff" },
-      { key: "terminator", label: "晨昏线（昼夜分界）", color: "#ffd34d" },
-      { key: "subsolar", label: "太阳直射点", color: "#ff8c3a" },
-      { key: "zone", label: "太阳直射带（回归线间）", color: "#ffc23d" }
+      }
     ]
   },
   {
     title: "线网",
     items: [
-      { key: "grid", label: "经纬网（每 15°）", color: "#ffffff" },
+      { key: "grid", label: "经纬网", color: "#ffffff" },
       { key: "equator", label: "赤道 0°", color: "#ff3b30" },
       { key: "tropics", label: "南北回归线 23.5°", color: "#ffa502" },
       { key: "polar", label: "南北极圈 66.5°", color: "#2ee6ff" },
@@ -2515,12 +3330,25 @@ const LAYER_GROUPS: { title: string; items: LayerDef[] }[] = [
     ]
   },
   {
-    title: "太阳与公转",
+    title: "光照与分区",
+    items: [
+      { key: "nightOff", label: "关闭黑夜（整球均匀受光）", color: "#8ecbff" },
+      { key: "terminator", label: "晨昏线（昼夜分界）", color: "#ffd34d" },
+      { key: "subsolar", label: "太阳直射点", color: "#ff8c3a" },
+      { key: "zone", label: "太阳直射带（回归线间）", color: "#ffc23d" },
+      { key: "climate", label: "五带（热·温·寒）", color: "#ff6b3d" },
+      { key: "timezone", label: "全球时区（24 个）", color: "#5a86ff" }
+    ]
+  },
+  {
+    title: "太阳与画布",
     items: [
       { key: "orbit", label: "公转轨道·近远日点", color: "#9fb6d8" },
       { key: "sunDisplay", label: "太阳", color: "#ffdf6b" },
       { key: "rays", label: "平行太阳光", color: "#ffc23d" },
-      { key: "stars", label: "星空背景", color: "#8ea2c9" }
+      { key: "stars", label: "星空背景", color: "#8ea2c9",
+        disabledIn: (l) => (l.whiteBg ? "纯白背景下星点与底色同色，看不见" : null) },
+      { key: "whiteBg", label: "纯白背景（投影·打印）", color: "#f2e8d5" }
     ]
   }
 ];
@@ -2546,6 +3374,7 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
 
   const [layers, setLayers] = useState<LayerState>({
     texture: true,
+    baseMap: false,
     // 夜面灯光默认开启：黑的那一侧直接是城市灯光，昼夜对比一目了然
     nightLights: true,
     // 黑夜效果默认**保留**（和 v1.4.6 一致）：昼夜交替本来就是这颗球要讲的主线，
@@ -2561,6 +3390,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     timezone: false,
     axis: true,
     stars: true,
+    // 深空背景是主场（星空 + 地球）；纯白背景是"投影/打印"档，默认关
+    whiteBg: false,
     orbit: true,
     terminator: true,
     sunDisplay: true,
@@ -2568,6 +3399,14 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     subsolar: true,
     zone: true
   });
+  /** 地轴档位（需求③）：默认倾斜 23.5°，即黄赤交角档 */
+  const [axisMode, setAxisMode] = useState<AxisMode>("oblique");
+  /** 经纬网疏密（需求⑥）：角度间隔，默认 15° */
+  const [gridStep, setGridStep] = useState<number>(DEFAULT_GRID_STEP);
+  /** 透明地球（需求⑤）：让背半球的经纬线透出来 */
+  const [ghost, setGhost] = useState(false);
+  /** 经纬度夹角演示（需求⑤）：把"纬度/经度是哪两条线的夹角"画到球里 */
+  const [geoOn, setGeoOn] = useState(false);
   const [autoRotate, setAutoRotate] = useState(true);
   const [marker, setMarker] = useState<MarkerInfo | null>(null);
   const [nu, setNu] = useState<number>(SEASONS[1].nu);
@@ -2575,11 +3414,12 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   const [spinning, setSpinning] = useState(false);
   const [rotating, setRotating] = useState(true);
   const [spinDeg, setSpinDeg] = useState(0);
-  /** 各浮动栏的最小化状态：把画面尽量让给地球。左栏三块自 v1.4.8 起合成一栏，故只剩一个键 */
+  /** 各浮动栏的最小化状态：把画面尽量让给地球。左栏三块自 v1.4.8 起合成一栏 */
   const [open, setOpen] = useState({
     rail: true,
     panel: true,
-    hint: true
+    /** v1.5.0：底部「图层」栏（由原先那条 .globe-hint 提示条改造而来） */
+    layers: true
   });
   const togglePanel = (key: keyof typeof open) =>
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -2590,11 +3430,15 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
    * （1120×740 实测）下把上面两块收掉就能把「极地投影」顶进可视区。若合成一栏后
    * 只留整栏一个开关，这条已经存在、课堂上用得上的操作路径就没了 ——
    * 合并是为了整齐，不该顺手砍掉能力。分节标题本身即开关，视觉层级与右栏一致。
+   *
+   * v1.5.0：`poles` 并入 `view`。原来的「视角」按钮在右栏、「极地投影」在左栏，
+   * 两者回答的是同一个问题（从哪个方向看地球），却被拆到两栏去了 —— 现在合成
+   * 左栏第三节「视角与投影」，主视角、自动旋转、两张极地子图同处一节。
    */
   const [railOpen, setRailOpen] = useState({
     knobs: true,
     subsolar: true,
-    poles: true
+    view: true
   });
   const toggleRailSection = (key: keyof typeof railOpen) =>
     setRailOpen((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -2690,6 +3534,9 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       }),
       readGeometry: () => engine.readGeometry(),
       readSubsolarLabelBox: () => engine.readSubsolarLabelBox(),
+      readGeoLabelBoxes: () => engine.readGeoLabelBoxes(),
+      /** 开发自检：关掉夹角标签的屏幕让位（牙齿测试用：关掉必须能测出叠字） */
+      setLabelSeparate: (on: boolean) => engine.setLabelSeparate(on),
       setSpin: (deg: number) => engine.setSpinAngle(deg),
       /** 开发自检：冻结/恢复自转推进，便于在固定自转角下反复读取同一帧的布局 */
       setRotate: (on: boolean) => engine.setRotate(on),
@@ -2795,6 +3642,18 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       },
       setLayers: (patch: Partial<LayerState>) =>
         setLayers((prev) => ({ ...prev, ...patch })),
+      /* ---- v1.5.0 新增自检钩子 ----
+         ⚠ 一律走 **React 状态**（与用户点按钮同一条路），不要直接调 engine.setXxx：
+         那是"只改引擎、不改 UI"的近路，拿它验出来的绿是假绿（见 setNu/setOrbit 那条注释）。 */
+      setAxisMode: (mode: AxisMode) => setAxisMode(mode),
+      setGridStep: (step: number) => setGridStep(step),
+      setGhost: (on: boolean) => setGhost(on),
+      setGeoAngle: (on: boolean) => setGeoOn(on),
+      readGeoAngle: () => engine.readGeoAngle(),
+      /** 开发自检：夹角线粗细（牙齿测试）+ 弧的屏幕点（在真实帧上量线宽） */
+      setAngleThickness: (scale: number) => engine.setAngleThickness(scale),
+      readGeoArcScreen: () => engine.readGeoArcScreen(),
+      readGridStep: () => engine.readGridStep(),
       /** 开发自检：地轴两端投影到屏幕的位置（验证极地俯视时极点确实落在画面中心） */
       readPoleAxis: () => {
         const rect = engine.renderer.domElement.getBoundingClientRect();
@@ -2806,10 +3665,14 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
           };
         };
         const base = engine.earthAnchor.position;
+        // 用**当前档位**的地轴，而不是倾斜档的常量：垂直档切换后这里必须跟着变，
+        // 否则"地轴真的立直了"就没有任何可断言的证据。
+        const axis = new THREE.Vector3(...engine.readAxis());
         return {
           view: engine.readGeometry().view,
-          north: proj(base.clone().addScaledVector(AXIS_WORLD, 1)),
-          south: proj(base.clone().addScaledVector(AXIS_WORLD, -1)),
+          axis: [+axis.x.toFixed(3), +axis.y.toFixed(3), +axis.z.toFixed(3)],
+          north: proj(base.clone().addScaledVector(axis, 1)),
+          south: proj(base.clone().addScaledVector(axis, -1)),
           earth: proj(base.clone())
         };
       },
@@ -2841,7 +3704,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
   // 依赖 polesMounted 而不是某一个开关 —— v1.4.8 起宿主 div 的存亡取决于
   // 「整栏展开」与「极地投影这一节展开」**两个条件同时成立**，少算一个就会出现
   // 「宿主已经卸载、引擎还拿着脱离 DOM 的画布每帧渲染」。
-  const polesMounted = open.rail && railOpen.poles;
+  // v1.5.0：极地投影并入左栏第三节「视角与投影」，故跟着 railOpen.view 走。
+  const polesMounted = open.rail && railOpen.view;
   useEffect(() => {
     const engine = engineRef.current;
     if (!engine) {
@@ -2870,7 +3734,8 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     engine.polarGroup.visible = layers.polar;
     engine.meridianGroup.visible = layers.meridian;
     engine.axisGroup.visible = layers.axis;
-    engine.starsPoints.visible = layers.stars;
+    // 纯白背景下星点与背景同色 ⇒ 一片看不见的星，直接不显示（开关也置灰说明原因）
+    engine.starsPoints.visible = layers.stars && !layers.whiteBg;
     engine.terminatorMesh.visible = layers.terminator;
     engine.terminatorLabel.visible = layers.terminator;
     engine.sunGroup.visible = layers.sunDisplay;
@@ -2880,13 +3745,42 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     // 五带 / 时区叠加球壳
     engine.overlayMaterial.uniforms.uClimate.value = layers.climate ? 1 : 0;
     engine.overlayMaterial.uniforms.uTz.value = layers.timezone ? 1 : 0;
-    // 地表素材：纯白优先于影像（两者同时勾选时以纯白为准）
-    engine.applySurface({ texture: layers.texture, white: layers.white });
+    // 地表素材三选一：影像 / 双色底图 / 纯白
+    engine.applySurface({
+      texture: layers.texture,
+      baseMap: layers.baseMap,
+      white: layers.white
+    });
     // 夜面灯光底图开关（贴图本身在加载完成后由 applySurface 挂上）
     engine.earthMaterial.uniforms.uNight.value = layers.nightLights ? 1 : 0;
     // 关闭黑夜：着色器把昼夜混合系数钉在 1，夜面与城市灯光一并消失
     engine.earthMaterial.uniforms.uNoNight.value = layers.nightOff ? 1 : 0;
   }, [layers]);
+
+  // 画布背景（需求②）：深空 / 纯白
+  useEffect(() => {
+    engineRef.current?.setBackground(layers.whiteBg);
+  }, [layers.whiteBg]);
+
+  // 地轴档位（需求③）
+  useEffect(() => {
+    engineRef.current?.setAxisMode(axisMode);
+  }, [axisMode]);
+
+  // 经纬网疏密（需求⑥）
+  useEffect(() => {
+    engineRef.current?.setGridStep(gridStep);
+  }, [gridStep]);
+
+  // 透明地球（需求⑤）
+  useEffect(() => {
+    engineRef.current?.setTransparent(ghost);
+  }, [ghost]);
+
+  // 经纬度夹角演示（需求⑤）：未选点时用默认示例点，保证这一节永远有东西可讲
+  useEffect(() => {
+    engineRef.current?.setGeoAngle(geoOn, marker ?? DEMO_POINT);
+  }, [geoOn, marker]);
 
   // 公转轨道与地球标签只在公转视角显示（特写时轨道会横穿地球、标签会遮挡画面）
   useEffect(() => {
@@ -2945,12 +3839,24 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
         return prev;
       }
       const next = { ...prev, [key]: !prev[key] };
-      // 「地球影像」与「纯白地球」互斥：勾选其一会自动取消另一个，避免同时亮着却看不出效果
+      // 地表素材是**三选一**（卫星影像 / 双色底图 / 纯白地球）：点亮其中一个就关掉另两个。
+      // 为什么不做成单选按钮组：这三种素材在别处也用「图层开关」这个词在讲，
+      // 而且"全部关掉"是一个有意义的档位（露出兜底纯色球，用来讲球面几何）。
+      if (key === "texture" && next.texture) {
+        next.baseMap = false;
+        next.white = false;
+      }
+      if (key === "baseMap" && next.baseMap) {
+        next.texture = false;
+        next.white = false;
+      }
       if (key === "white" && next.white) {
         next.texture = false;
+        next.baseMap = false;
       }
-      if (key === "texture" && next.texture) {
-        next.white = false;
+      // 纯白背景与星空互斥：白底上的白色星点等于没有，留着只会让人以为图层坏了
+      if (key === "whiteBg" && next.whiteBg) {
+        next.stars = false;
       }
       return next;
     });
@@ -2990,7 +3896,13 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
     markerLastRef.current = null;
   }
 
-  const declination = declinationForNu(nu);
+  /**
+   * 地轴向量（按档位）。React 侧的一切读数都从这一个量推 —— 直射点纬度、四季说明、
+   * 极昼极夜、平面图上的晨昏线，全都跟着它走。引擎内部也有一份（`axisWorld`），
+   * 但那台是给渲染用的；两边的"档位"是同一个 React 状态，所以不会背离。
+   */
+  const axisVertical = axisMode === "vertical";
+  const declination = declinationForNu(nu, axisVertical ? WORLD_UP : AXIS_WORLD);
 
   // 由公转位置推导当前节气：环形距离（单位：度）
   function seasonDistance(key: SeasonKey): number {
@@ -3008,8 +3920,11 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
       nearestKey = item.key;
     }
   }
-  const seasonNote =
-    nearestD < 1.0
+  const seasonNote = axisVertical
+    ? // 垂直档：这里必须**单独写一句**，不能落到下面"直射赤道、昼夜等长"那个兜底分支上 ——
+      // 兜底分支读起来像"今天正好是二分日"，而这一档说的是**终年如此**，是两种完全不同的结论。
+      "地轴与轨道面垂直：太阳终年直射赤道，全球各地终年昼夜等长，既没有四季更替，也没有极昼极夜。"
+    : nearestD < 1.0
       ? SEASON_NOTES[nearestKey]
       : declination > 0
         ? `太阳直射点位于北纬 ${declination.toFixed(1)}°。直射点在南北回归线之间往返移动，此时北半球昼长夜短。`
@@ -3017,8 +3932,36 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
           ? `太阳直射点位于南纬 ${Math.abs(declination).toFixed(1)}°。直射点在南北回归线之间往返移动，此时北半球昼短夜长。`
           : "太阳直射赤道，全球昼夜等长。";
 
+  /**
+   * 平面位置图上的晨昏线。等距圆柱坐标里太阳高度角为 0 的轨迹（时角 H = 经度 − 直射经度）：
+   *   sinφ·sinδ + cosφ·cosδ·cosH = 0  ⇒  φ = atan(−cosH / tanδ)
+   * δ=0（二分日）时分母为 0，轨迹退化成**直射经线 ±90° 那两条经线**，得单独画 ——
+   * 不能硬代公式，那样会得到 atan(±∞)，各点乱跳。
+   */
+  const terminatorPath = (() => {
+    if (!layers.terminator) {
+      return "";
+    }
+    const norm = (((clock.subsolarLon + 180) % 360) + 360) % 360 - 180;
+    if (Math.abs(declination) < 0.5) {
+      return (
+        `M${norm + 90 + 180},0 L${norm + 90 + 180},${PLANE_H} ` +
+        `M${norm - 90 + 180},0 L${norm - 90 + 180},${PLANE_H}`
+      );
+    }
+    const tanD = Math.tan(declination * DEG);
+    const pts: string[] = [];
+    for (let h = -180; h <= 180; h += 2) {
+      const lat = Math.atan(-Math.cos(h * DEG) / tanD) / DEG;
+      pts.push(`${h + norm + 180},${90 - lat}`);
+    }
+    return `M${pts.join(" L")}`;
+  })();
+
   const distanceAu = 1 - ORBIT_E * Math.cos(nu * DEG);
   const nearAphelion = distanceAu > 1;
+  /** 夹角演示与位置图共用的"当前演示点"：球面选过点就用选点，否则用示例点 */
+  const geoPoint = marker ?? DEMO_POINT;
 
   /* ---- 地方时 / 区时 ---- */
   // 太阳直射经线上地方时为 12:00，其余经线按「每向东 15° 早 1 小时」推算。
@@ -3051,243 +3994,83 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
 
   return (
     <div className="globe-app">
-      <div className="globe-canvas" ref={mountRef} />
+      {/* 舞台：画布 + 左右两条浮动栏。v1.5.0 起把这一层单独套出来，是为了让底部
+          「图层」栏成为一个**正常的流式元素**，而不是又一条绝对定位的浮层 ——
+          浮层之间只能靠调 top/bottom 的魔数互不重叠（v1.4.6 左栏重叠 135px 就是这么来的），
+          流式布局则从结构上不可能压住对方，也不必为"提示条多高"留一个猜出来的 60px。 */}
+      <div className="globe-stage">
+        <div className="globe-canvas" ref={mountRef} />
 
-      {/* 左栏「演示台」（.globe-rail）：一栏三节 —— 公转与自转 / 太阳直射点回归运动 / 极地投影。
-          v1.4.8 之前这里是三张各自带边框、各自带收起按钮的独立卡片，三处不齐：
-          ① 右边缘不齐：实测 .globe-knobs / .globe-subsolar 的右边缘都在 214，
-             而 .globe-poles 是 width:auto，缩到画布宽只有 170，右边白白空出 44px；
-          ② 标题三套风格（.knob-name / .subsolar-title / .pole-title），层级看不出来；
-          ③ 三张卡各自再排一遍内边距，竖向净多出 100px 以上。
-          现在合成**一张卡 + 三个 <section> + 统一的 h2**：边框、内边距、分节虚线、
-          h2 的字级/字距/颜色全部与右栏「控制台」共用同一套 CSS 规则
-          （见 styles.css 里 .globe-panel / .globe-rail 的合并选择器），
-          每节正文一律占满内容宽、左边缘与 h2 对齐 —— 右栏的「整齐」就是这么来的。 */}
-      <div className={open.rail ? "globe-rail" : "globe-rail is-collapsed"}>
-        <button
-          type="button"
-          className="panel-toggle"
-          title={open.rail ? "收起演示台" : "展开演示台"}
-          onClick={() => togglePanel("rail")}
-        >
-          {open.rail ? "—" : "演示台 ＋"}
-        </button>
-        {open.rail && (
-          <>
-        {/* ① 自转 / 公转旋钮：整块从右栏抽出来放左边 —— 右手拖旋钮、左手不挡画面，
-            右栏留给参数读数。 */}
-        <section>
-          <h2>
-            <button
-              type="button"
-              className="rail-section-toggle"
-              aria-expanded={railOpen.knobs}
-              onClick={() => toggleRailSection("knobs")}
-            >
-              <span>公转与自转</span>
-              <span className="rail-section-caret">{railOpen.knobs ? "▾" : "▸"}</span>
-            </button>
-          </h2>
-          {railOpen.knobs && (
-            <>
-        <div className="knob-block">
-          <Knob
-            value={nu}
-            size={116}
-            accent="#e0a83c"
-            ticks={SEASON_TICKS}
-            ariaLabel="公转位置旋钮"
-            onDrag={(deg) => {
-              setSpinning(false);
-              setNu(deg);
-            }}
-          />
-          <div className="knob-head">
-            <span className="knob-name">公转位置</span>
-            <strong className="knob-value">{nu.toFixed(0)}°</strong>
-          </div>
-          <span className="knob-sub">{nearestSeasonText}</span>
+        {/* 左栏「演示台」（.globe-rail）：一栏三节 —— 公转与自转 / 地轴倾角与太阳直射点 /
+            视角与投影。三节都是"**动手改状态**"的入口：转旋钮、切档位、换视角。
+            与右栏「控制台」的分工是一条界：左边改，右边读。
+
+            v1.4.8 之前这里是三张各自带边框、各自带收起按钮的独立卡片，三处不齐：
+            ① 右边缘不齐：实测 .globe-knobs / .globe-subsolar 的右边缘都在 214，
+               而 .globe-poles 是 width:auto，缩到画布宽只有 170，右边白白空出 44px；
+            ② 标题三套风格（.knob-name / .subsolar-title / .pole-title），层级看不出来；
+            ③ 三张卡各自再排一遍内边距，竖向净多出 100px 以上。
+            现在合成**一张卡 + 三个 <section> + 统一的 h2**：边框、内边距、分节虚线、
+            h2 的字级/字距/颜色全部与右栏「控制台」共用同一套 CSS 规则
+            （见 styles.css 里 .globe-panel / .globe-rail 的合并选择器），
+            每节正文一律占满内容宽、左边缘与 h2 对齐 —— 右栏的「整齐」就是这么来的。 */}
+        <div className={open.rail ? "globe-rail" : "globe-rail is-collapsed"}>
           <button
             type="button"
-            className={spinning ? "spin-btn is-on" : "spin-btn"}
-            onClick={() => setSpinning((v) => !v)}
+            className="panel-toggle"
+            title={open.rail ? "收起演示台" : "展开演示台"}
+            onClick={() => togglePanel("rail")}
           >
-            {spinning ? "演示中" : "自动公转"}
+            {open.rail ? "—" : "演示台 ＋"}
           </button>
-        </div>
-
-        <div className="knob-block">
-          <Knob
-            value={spinKnobValue}
-            size={116}
-            accent="#3f8cff"
-            wrap={false}
-            ticks={SPIN_TICKS}
-            ariaLabel="地球自转旋钮"
-            onDrag={(deg) => {
-              setSpinDragValue(deg);
-              engineRef.current?.setSpinAngle(deg);
-            }}
-            onDragStart={() => engineRef.current?.setSpinDragging(true)}
-            onDragEnd={() => {
-              engineRef.current?.setSpinDragging(false);
-              setSpinDragValue(null);
-            }}
-          />
-          <div className="knob-head">
-            <span className="knob-name">地球自转</span>
-            <strong className="knob-value">{Math.round(spinDeg)}°</strong>
-          </div>
-          <span className="knob-sub">可一圈圈连续转动</span>
-          <button
-            type="button"
-            className={rotating ? "spin-btn is-on" : "spin-btn"}
-            onClick={() => setRotating((v) => !v)}
-          >
-            {rotating ? "自转中" : "已暂停"}
-          </button>
-        </div>
-
-        <p className="knob-deck-hint">
-          按住圆盘绕中心拖动即可自由转动；旋钮刻度为二分二至 / 四象限。
-        </p>
-            </>
-          )}
-        </section>
-
-        {/* ② 太阳直射点回归运动（2D 曲线）：横轴与上面「公转位置」旋钮同一个量，
-            所以转旋钮时曲线上的橙点与三维画面里光柱打到的纬度永远一致。 */}
-        <section>
-          <h2>
-            <button
-              type="button"
-              className="rail-section-toggle"
-              aria-expanded={railOpen.subsolar}
-              onClick={() => toggleRailSection("subsolar")}
-            >
-              <span>太阳直射点回归运动</span>
-              <span className="rail-section-caret">{railOpen.subsolar ? "▾" : "▸"}</span>
-            </button>
-          </h2>
-          {railOpen.subsolar && <SubsolarCurve nu={nu} onJump={jumpToNu} />}
-        </section>
-
-        {/* ③ 极地投影：两台相机分别位于地轴南北两端、沿地轴看向球心，各自一块独立小画布，
-            与主视图互不影响；画布由引擎在挂载时塞进宿主 div（WebGL 上下文归引擎管）。
-            两行读数给出此刻两极是极昼还是极夜 —— 这两张图存在的意义就是看极昼极夜的范围。 */}
-        <section>
-          <h2>
-            <button
-              type="button"
-              className="rail-section-toggle"
-              aria-expanded={railOpen.poles}
-              onClick={() => toggleRailSection("poles")}
-            >
-              <span>极地投影</span>
-              <span className="rail-section-caret">{railOpen.poles ? "▾" : "▸"}</span>
-            </button>
-          </h2>
-          {railOpen.poles && (
+          {open.rail && (
             <>
-              <div className="readout-row">
-                <span>自北极俯视</span>
-                <strong>{polarState(true)}</strong>
-              </div>
-              <div className="pole-canvas" ref={northPoleHostRef} />
-              <div className="readout-row">
-                <span>自南极俯视</span>
-                <strong>{polarState(false)}</strong>
-              </div>
-              <div className="pole-canvas" ref={southPoleHostRef} />
-              <p className="knob-hint">
-                相机位于地轴两端、沿地轴俯视球心：经线在极点交汇成一点，自转方向自北极看是逆时针、自南极看是顺时针。
-              </p>
-            </>
-          )}
-        </section>
-          </>
-        )}
-      </div>
-
-      <aside className={open.panel ? "globe-panel" : "globe-panel is-collapsed"}>
-        <button
-          type="button"
-          className="panel-toggle"
-          title={open.panel ? "收起面板" : "展开面板"}
-          onClick={() => togglePanel("panel")}
-        >
-          {open.panel ? "—" : "控制台 ＋"}
-        </button>
-        {open.panel && (
-          <div className="panel-body">
-        <section>
-          <h2>图层</h2>
-          {LAYER_GROUPS.map((group) => (
-            <div className="layer-group" key={group.title}>
-              <div className="layer-group-title">{group.title}</div>
-              <ul className="layer-list">
-                {group.items.map((item) => {
-                  const disabledReason = layerDisabledReason(item.key, layers);
-                  return (
-                  <Fragment key={item.key}>
-                    <li className={disabledReason ? "is-disabled" : undefined}>
-                      <label title={disabledReason ?? undefined}>
-                        <input
-                          type="checkbox"
-                          checked={layers[item.key]}
-                          disabled={disabledReason !== null}
-                          onChange={() => toggleLayer(item.key)}
-                        />
-                        <span className="layer-chip" style={{ background: item.color }} />
-                        <span className="layer-label">{item.label}</span>
-                      </label>
-                      {disabledReason && (
-                        <span className="layer-disabled-note">{disabledReason}</span>
-                      )}
-                    </li>
-                    {/* 五带的图例与使用说明直接跟在「五带」这一项下面：
-                        它解释的就是上面这个开关，放在图层列表末尾会和「时区」「星空」等
-                        无关项混在一起，看不出是谁的注解。 */}
-                    {item.key === "climate" && (
-                      <li className="zone-legend-item">
-                        <div className="zone-legend">
-                          <span>
-                            <i style={{ background: "#59b8ff" }} />
-                            北寒带 66.5°N 以北
-                          </span>
-                          <span>
-                            <i style={{ background: "#4ddc7a" }} />
-                            北温带 23.5°~66.5°N
-                          </span>
-                          <span>
-                            <i style={{ background: "#ff6b3d" }} />
-                            热带 23.5°N~23.5°S
-                          </span>
-                          <span>
-                            <i style={{ background: "#4ddc7a" }} />
-                            南温带 23.5°~66.5°S
-                          </span>
-                          <span>
-                            <i style={{ background: "#59b8ff" }} />
-                            南寒带 66.5°S 以南
-                          </span>
-                        </div>
-                        <p className="knob-hint">
-                          球面上五带的文字标注只在「地球特写」视角显示。
-                        </p>
-                      </li>
-                    )}
-                  </Fragment>
-                  );
-                })}
-              </ul>
+          {/* ① 公转与自转：整块从右栏抽出来放左边 —— 右手拖旋钮、左手不挡画面，
+              右栏留给参数读数。
+              v1.5.0：把「二分二至」四个按钮从右栏搬到这里。它们与公转旋钮做的是
+              **同一件事**（把 ν 设到某个值），原先一个在左一个在右，等于把同一个
+              操作拆成两处找。 */}
+          <section>
+            <h2>
+              <button
+                type="button"
+                className="rail-section-toggle"
+                aria-expanded={railOpen.knobs}
+                onClick={() => toggleRailSection("knobs")}
+              >
+                <span>公转与自转</span>
+                <span className="rail-section-caret">{railOpen.knobs ? "▾" : "▸"}</span>
+              </button>
+            </h2>
+            {railOpen.knobs && (
+              <>
+          <div className="knob-block">
+            <Knob
+              value={nu}
+              size={116}
+              accent="#e0a83c"
+              ticks={SEASON_TICKS}
+              ariaLabel="公转位置旋钮"
+              onDrag={(deg) => {
+                setSpinning(false);
+                setNu(deg);
+              }}
+            />
+            <div className="knob-head">
+              <span className="knob-name">公转位置</span>
+              <strong className="knob-value">{nu.toFixed(0)}°</strong>
             </div>
-          ))}
-        </section>
+            <span className="knob-sub">{nearestSeasonText}</span>
+            <button
+              type="button"
+              className={spinning ? "spin-btn is-on" : "spin-btn"}
+              onClick={() => setSpinning((v) => !v)}
+            >
+              {spinning ? "演示中" : "自动公转"}
+            </button>
+          </div>
 
-        <section>
-          <h2>公转与四季</h2>
-          <div className="season-grid">
+          <div className="season-grid is-compact">
             {SEASONS.map((item) => (
               <button
                 key={item.key}
@@ -3300,41 +4083,180 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
               </button>
             ))}
           </div>
-          <p className="knob-hint">
-            公转位置改由左侧「公转位置」旋钮自由转动（刻度为二分二至），
-            也可点上面的按钮快速定位。
+
+          <div className="knob-block">
+            <Knob
+              value={spinKnobValue}
+              size={116}
+              accent="#3f8cff"
+              wrap={false}
+              ticks={SPIN_TICKS}
+              ariaLabel="地球自转旋钮"
+              onDrag={(deg) => {
+                setSpinDragValue(deg);
+                engineRef.current?.setSpinAngle(deg);
+              }}
+              onDragStart={() => engineRef.current?.setSpinDragging(true)}
+              onDragEnd={() => {
+                engineRef.current?.setSpinDragging(false);
+                setSpinDragValue(null);
+              }}
+            />
+            <div className="knob-head">
+              <span className="knob-name">地球自转</span>
+              <strong className="knob-value">{Math.round(spinDeg)}°</strong>
+            </div>
+            <span className="knob-sub">可一圈圈连续转动</span>
+            <button
+              type="button"
+              className={rotating ? "spin-btn is-on" : "spin-btn"}
+              onClick={() => setRotating((v) => !v)}
+            >
+              {rotating ? "自转中" : "已暂停"}
+            </button>
+          </div>
+
+          <p className="knob-deck-hint">
+            按住圆盘绕中心拖动即可自由转动；旋钮刻度为二分二至 / 四象限。
           </p>
+              </>
+            )}
+          </section>
 
-          <div className="readout-row">
-            <span>太阳直射点</span>
-            <strong>{formatDecl(declination)}</strong>
-          </div>
-          <div className="readout-row">
-            <span>日地距离</span>
-            <strong>
-              {distanceAu.toFixed(3)} AU{nearAphelion ? "（偏远）" : "（偏近）"}
-            </strong>
-          </div>
-          <p className="season-note">{seasonNote}</p>
-        </section>
+          {/* ② 地轴倾角 + 太阳直射点回归运动（2D 曲线）
+              v1.5.0 把「地轴倾角」并进这一节：地轴倾角最直接的后果就是**直射点的
+              回归运动**。切到「垂直」档，下面那条曲线当场被拉平成赤道 —— 把开关与
+              曲线放在同一节里，学生点一下就能看见因果关系，不必跨栏对照。
 
+              曲线横轴与上面「公转位置」旋钮是同一个量（ν），所以转旋钮时曲线上的橙点
+              与三维画面里光柱打到的纬度永远一致。 */}
+          <section>
+            <h2>
+              <button
+                type="button"
+                className="rail-section-toggle"
+                aria-expanded={railOpen.subsolar}
+                onClick={() => toggleRailSection("subsolar")}
+              >
+                <span>地轴倾角与太阳直射点</span>
+                <span className="rail-section-caret">{railOpen.subsolar ? "▾" : "▸"}</span>
+              </button>
+            </h2>
+            {railOpen.subsolar && (
+              <>
+                <div className="seg-row" role="group" aria-label="地轴倾角">
+                  <span className="seg-label">地轴</span>
+                  <button
+                    type="button"
+                    className={axisMode === "oblique" ? "is-on" : ""}
+                    data-axis="oblique"
+                    onClick={() => setAxisMode("oblique")}
+                  >
+                    倾斜 23.5°
+                  </button>
+                  <button
+                    type="button"
+                    className={axisMode === "vertical" ? "is-on" : ""}
+                    data-axis="vertical"
+                    onClick={() => setAxisMode("vertical")}
+                  >
+                    垂直
+                  </button>
+                </div>
+                <SubsolarCurve
+                  nu={nu}
+                  obliquity={axisMode === "vertical" ? 0 : EARTH_TILT}
+                  onJump={jumpToNu}
+                />
+              </>
+            )}
+          </section>
+
+          {/* ③ 视角与投影：主视角预设 + 自动旋转 + 极地投影两张子图。
+              v1.5.0 把右栏的「视角」搬过来与前两版就有的「极地投影」合并 ——
+              两者回答的是**同一个问题**（从哪个方向看这颗球），原先一左一右，
+              老师要连着用就得在屏幕上两头找。
+
+              极地投影：两台相机分别位于地轴南北两端、沿地轴看向球心，各自一块独立小画布，
+              与主视图互不影响；画布由引擎在挂载时塞进宿主 div（WebGL 上下文归引擎管）。
+              两行读数给出此刻两极是极昼还是极夜 —— 这两张图存在的意义就是看极昼极夜的范围。 */}
+          <section>
+            <h2>
+              <button
+                type="button"
+                className="rail-section-toggle"
+                aria-expanded={railOpen.view}
+                onClick={() => toggleRailSection("view")}
+              >
+                <span>视角与投影</span>
+                <span className="rail-section-caret">{railOpen.view ? "▾" : "▸"}</span>
+              </button>
+            </h2>
+            {railOpen.view && (
+              <>
+                <div className="view-actions">
+                  {VIEW_DEFS.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      className={view === item.key ? "is-on" : ""}
+                      onClick={() => applyView(item.key)}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                  <button type="button" onClick={resetView}>
+                    复位视角
+                  </button>
+                  <button
+                    type="button"
+                    className={autoRotate ? "is-on" : ""}
+                    onClick={() => setAutoRotate((v) => !v)}
+                  >
+                    {autoRotate ? "自动旋转：开" : "自动旋转：关"}
+                  </button>
+                </div>
+                {viewHint && <p className="teach-note">{viewHint}</p>}
+                <div className="readout-row">
+                  <span>自北极俯视</span>
+                  <strong>{polarState(true)}</strong>
+                </div>
+                <div className="pole-canvas" ref={northPoleHostRef} />
+                <div className="readout-row">
+                  <span>自南极俯视</span>
+                  <strong>{polarState(false)}</strong>
+                </div>
+                <div className="pole-canvas" ref={southPoleHostRef} />
+                <p className="knob-hint">
+                  相机位于地轴两端、沿地轴俯视球心：经线在极点交汇成一点，自转方向自北极看是逆时针、自南极看是顺时针。
+                </p>
+              </>
+            )}
+          </section>
+            </>
+          )}
+        </div>
+
+      <aside className={open.panel ? "globe-panel" : "globe-panel is-collapsed"}>
+        <button
+          type="button"
+          className="panel-toggle"
+          title={open.panel ? "收起面板" : "展开面板"}
+          onClick={() => togglePanel("panel")}
+        >
+          {open.panel ? "—" : "控制台 ＋"}
+        </button>
+        {open.panel && (
+          <div className="panel-body">
+        {/* ---- 右栏「控制台」：只读 ---- 
+            v1.5.0 重排（需求⑦）把原先 7 节收敛成 4 节，两条规矩：
+             ① 同一主题不许拆到两栏：「坐标读取·地方时」与「自转与地方时」原本是两节，
+                讲的是同一件事（经度 ↔ 时间），名字里还各带一次"地方时"，现在合并成一节。
+             ② 大块只读清单不占读数栏：图层那一整块（19 项）搬到底部「图层」栏。
+            「教学提示」的两条都讲公转轨道，并进左栏第二节；「视角」并入左栏第三节。
+            剩下四节：坐标与地方时 / 经纬度位置图 / 经纬度是怎么量出来的 / 公转与四季。 */}
         <section>
-          <h2>自转与地方时</h2>
-          <p className="knob-hint">
-            地球自转改由左侧「地球自转」旋钮控制：按住圆盘可一圈圈连续转动，
-            松手后若「自转中」会接着自动转。
-          </p>
-          <div className="readout-row">
-            <span>太阳直射经线</span>
-            <strong>{formatLon(clock.subsolarLon)}</strong>
-          </div>
-          <p className="teach-note">
-            太阳直射经线的地方时恒为 <b>12:00</b>；每向东 15°，地方时早 1 小时。
-          </p>
-        </section>
-
-        <section>
-          <h2>坐标读取 · 地方时</h2>
+          <h2>坐标与地方时</h2>
           {marker ? (
             <div className="coord-card">
               <div className="coord-row">{formatLat(marker.lat)}</div>
@@ -3362,47 +4284,154 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
               切到「地球特写」后点击球面任意位置，即可读取该点经纬度与当地地方时。
             </p>
           )}
+          <div className="readout-row">
+            <span>太阳直射经线</span>
+            <strong>{formatLon(clock.subsolarLon)}</strong>
+          </div>
           <p className="teach-note">
             <b>地方时</b>：太阳位于该地正上方时为正午 12:00，随地球自转持续变化。
             由于地球自西向东转，<b>东边比西边先看到日出</b>，每向东 15° 地方时早 1 小时。
+            太阳直射经线的地方时恒为 <b>12:00</b>，它就是全球地方时的零点线。
           </p>
         </section>
 
+        {/* 经纬度平面位置图（需求④）
+            为什么值得单独占一节：**球面是弯的**。"点在球上哪儿"与"点在图上哪一格
+            （东经多少度、北纬多少度）是两种空间感；对着平面图找经纬度比对着球找容易得多。
+            底图直接复用双色底图那张素材（同投影、同尺寸）⇒ 平面图与球面用的是同一套海陆
+            轮廓、同一组配色，不会出现"两处画的陆地不一样"。三者同处一张图：
+            红点＝选点、橙点＝此刻太阳直射点、黄线＝晨昏线。 */}
         <section>
-          <h2>视角</h2>
-          <div className="view-actions">
-            {VIEW_DEFS.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={view === item.key ? "is-on" : ""}
-                onClick={() => applyView(item.key)}
+          <h2>经纬度位置图</h2>
+          <div className="plane-map">
+            <div className="plane-map-frame">
+              <img
+                src="./textures/earth_base.png"
+                alt="世界海陆底图（等距圆柱投影，海洋浅蓝、大洲深灰）"
+                draggable={false}
+              />
+              <svg
+                className="plane-map-grid"
+                viewBox={`0 0 ${PLANE_W} ${PLANE_H}`}
+                preserveAspectRatio="none"
+                aria-hidden="true"
               >
-                {item.label}
-              </button>
-            ))}
-            <button type="button" onClick={resetView}>
-              复位视角
-            </button>
-            <button
-              type="button"
-              className={autoRotate ? "is-on" : ""}
-              onClick={() => setAutoRotate((v) => !v)}
-            >
-              {autoRotate ? "自动旋转：开" : "自动旋转：关"}
-            </button>
+                {PLANE_MERIDIANS.map((x) => (
+                  <line key={`m${x}`} x1={x} y1={0} x2={x} y2={PLANE_H} />
+                ))}
+                {PLANE_PARALLELS.map((y) => (
+                  <line key={`p${y}`} x1={0} y1={y} x2={PLANE_W} y2={y} />
+                ))}
+                {/* 本初子午线与赤道画重一些：这两条是经纬度的**零点**，读图先认它们 */}
+                <line className="is-prime" x1={180} y1={0} x2={180} y2={PLANE_H} />
+                <line className="is-equator" x1={0} y1={90} x2={PLANE_W} y2={90} />
+                {terminatorPath && (
+                  <path className="plane-map-terminator" d={terminatorPath} />
+                )}
+              </svg>
+              {/* 直射点常显：它给出"此刻哪条经线的地方是正午" */}
+              <span
+                className="plane-map-dot is-subsolar"
+                style={planeDotAt(declination, clock.subsolarLon)}
+                title="太阳直射点"
+              />
+              {marker && (
+                <span
+                  className="plane-map-dot is-marker"
+                  style={planeDotAt(marker.lat, marker.lon)}
+                  data-plane-marker="1"
+                />
+              )}
+            </div>
+            <p className="plane-map-axis">
+              横轴＝经度（西 180° → 0° → 东 180°）· 纵轴＝纬度（北 90° → 0° → 南 90°）
+              <br />
+              红点＝所选点
+              {marker ? `（${marker.lon.toFixed(1)}°, ${marker.lat.toFixed(1)}°）` : "（未选点）"}
+              · 橙点＝太阳直射点 · 黄线＝晨昏线
+            </p>
           </div>
-          {viewHint && <p className="teach-note">{viewHint}</p>}
+        </section>
+
+        {/* 经纬度是怎么量出来的（需求⑤）
+            这一节回答的是"定义"，不是"读数"。光看球面上那些线，学生记不住"纬度是哪两条线的
+            夹角"——**线是结果，夹角才是定义**。所以这里一手在三维球里把夹角画出来
+            （透明地球 + 两条弧），一手配一张二维剖面示意图：三维图会随自转转到背面，
+            二维示意图永远正对读者，讲定义时用它更稳。 */}
+        <section>
+          <h2>经纬度是怎么量出来的</h2>
+          <div className="switch-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={ghost}
+                data-ghost="1"
+                onChange={(event) => setGhost(event.target.checked)}
+              />
+              <span>透明地球（看见背面的经纬线）</span>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={geoOn}
+                data-geo-angle="1"
+                onChange={(event) => setGeoOn(event.target.checked)}
+              />
+              <span>夹角演示（画出两条夹角弧）</span>
+            </label>
+          </div>
+
+          <GeoAngleDiagram lat={geoPoint.lat} lon={geoPoint.lon} />
+
+          <div className="readout-row">
+            <span>演示点</span>
+            <strong>{marker ? "球面所选点" : "示例 · 北京"}</strong>
+          </div>
+          <div className="readout-row">
+            <span>纬度（与赤道面的夹角）</span>
+            <strong data-geo-lat="">
+              {Math.abs(geoPoint.lat).toFixed(1)}°{geoPoint.lat >= 0 ? "N" : "S"}
+            </strong>
+          </div>
+          <div className="readout-row">
+            <span>经度（与本初子午面的夹角）</span>
+            <strong data-geo-lon="">
+              {Math.abs(geoPoint.lon).toFixed(1)}°{geoPoint.lon >= 0 ? "E" : "W"}
+            </strong>
+          </div>
+          <p className="teach-note">
+            <b>纬度</b>量的是<b>竖起来</b>的那个角：地心→该点 与 地心→赤道面 的夹角。
+            所以纬度 0° 在赤道、90° 在极点，同一条纬线上各点纬度相同。
+            <b>经度</b>量的是<b>转过去</b>的那个角：该点所在子午面 与 本初子午面 的夹角。
+            所以经度 0° 在本初子午线上，向东为正、向西为负。
+          </p>
+          {!marker && (
+            <p className="knob-hint">
+              还没选点，先用示例点（北京 39.9°N, 116.4°E）。在「地球特写」下点球面即可换成该点。
+            </p>
+          )}
         </section>
 
         <section>
-          <h2>教学提示</h2>
+          <h2>公转与四季</h2>
+          <div className="readout-row">
+            <span>太阳直射点</span>
+            <strong>{formatDecl(declination)}</strong>
+          </div>
+          <div className="readout-row">
+            <span>日地距离</span>
+            <strong>
+              {distanceAu.toFixed(3)} AU{nearAphelion ? "（偏远）" : "（偏近）"}
+            </strong>
+          </div>
+          <p className="season-note">{seasonNote}</p>
           <p className="teach-note">
             近日点约在 <b>1月初</b>（冬至后约两周），远日点约在 <b>7月初</b>（夏至后约两周）。
           </p>
           <p className="teach-note is-warn">
             注意：为便于观察，图中<b>轨道偏心率已放大</b>。实际上地球轨道非常接近正圆，
-            <b>四季的形成主要取决于地轴倾斜（23.5°）</b>，而不是日地距离的远近。
+            <b>四季的形成主要取决于地轴倾斜（23.5°）</b>，而不是日地距离的远近 ——
+            把左侧「地轴倾角」切到<b>垂直</b>档就能看出：日地距离照旧在变，四季却没了。
           </p>
         </section>
 
@@ -3417,22 +4446,113 @@ export default function EarthGlobe({ roster }: { roster: PlayerInfo[] }) {
           </div>
         )}
       </aside>
+      </div>
 
-      <footer className={open.hint ? "globe-hint" : "globe-hint is-collapsed"}>
-        <button
-          type="button"
-          className="panel-toggle"
-          title={open.hint ? "收起提示" : "展开提示"}
-          onClick={() => togglePanel("hint")}
-        >
-          {open.hint ? "—" : "操作提示 ＋"}
-        </button>
-        {open.hint && (
+      {/* 底部「图层」栏（需求⑦）
+          为什么把 19 个图层开关整块搬到下边栏，而不是继续留在右栏：
+           ① 它原来一个人占了右栏将近一半高度，把「读数」挤到要滚两屏才看得全 ——
+              而它与读数根本不是一类事（一个是"画什么"，一个是"读什么"）；
+           ② 图层项全是短标签，**天生适合横排**：竖着排 19 行要 400+px，横排成四列只要
+              四五行的位置，而且分组标题成了列头，比原来"标题 + 缩进列表"更一目了然；
+           ③ 用户本来就有下边栏的位置（原先那条操作提示）—— 把提示收进这一栏的栏头，
+              屏幕底部仍然是**一块**而不是两块，净高度反而省了。
+
+          「经纬网」的疏密档位（需求⑥）就挂在线网那一列里：它改的就是这一列画什么线，
+          放在别处又要跨栏找。 */}
+      <div className={open.layers ? "globe-layers" : "globe-layers is-collapsed"}>
+        <div className="layers-head">
+          <span className="layers-title">图层</span>
           <span className="hint-text">
-            拖动旋转 · 滚轮缩放 · 旋钮调自转与公转 · 「地球特写」点球面读经纬度 · 「自由视角」右键拖动在太空移动
+            拖动旋转 · 滚轮缩放 · 「地球特写」点球面读经纬度 · 「自由视角」右键拖动在太空移动
           </span>
+          <button
+            type="button"
+            className="layers-toggle"
+            title={open.layers ? "收起图层栏" : "展开图层栏"}
+            onClick={() => togglePanel("layers")}
+            data-layers-toggle="1"
+          >
+            {open.layers ? "收起 ▾" : "图层 ＋"}
+          </button>
+        </div>
+        {open.layers && (
+          <div className="layers-body">
+            {LAYER_GROUPS.map((group) => (
+              <div className="layer-col" key={group.title}>
+                <div className="layer-group-title">{group.title}</div>
+                <ul className="layer-list">
+                  {group.items.map((item) => {
+                    const disabledReason = layerDisabledReason(item.key, layers);
+                    return (
+                      <li key={item.key} className={disabledReason ? "is-disabled" : undefined}>
+                        <label title={disabledReason ?? undefined}>
+                          <input
+                            type="checkbox"
+                            checked={layers[item.key]}
+                            disabled={disabledReason !== null}
+                            data-layer={item.key}
+                            onChange={() => toggleLayer(item.key)}
+                          />
+                          <span className="layer-chip" style={{ background: item.color }} />
+                          <span className="layer-label">{item.label}</span>
+                        </label>
+                        {disabledReason && (
+                          <span className="layer-disabled-note">{disabledReason}</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {group.title === "线网" && (
+                  <div className="seg-row is-grid-step" role="group" aria-label="经纬网疏密">
+                    <span className="seg-label">疏密</span>
+                    {GRID_STEPS.map((step) => (
+                      <button
+                        key={step}
+                        type="button"
+                        className={gridStep === step ? "is-on" : ""}
+                        data-grid-step={step}
+                        title={`经线与纬线每 ${step}° 一条`}
+                        onClick={() => setGridStep(step)}
+                      >
+                        {step}°
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {/* 五带图例只在该图层打开时出现：它是那一项的注解，不是常驻装饰 */}
+            {layers.climate && (
+              <div className="zone-legend">
+                <span>
+                  <i style={{ background: "#59b8ff" }} />
+                  北寒带 66.5°N 以北
+                </span>
+                <span>
+                  <i style={{ background: "#4ddc7a" }} />
+                  北温带 23.5°~66.5°N
+                </span>
+                <span>
+                  <i style={{ background: "#ff6b3d" }} />
+                  热带 23.5°N~23.5°S
+                </span>
+                <span>
+                  <i style={{ background: "#4ddc7a" }} />
+                  南温带 23.5°~66.5°S
+                </span>
+                <span>
+                  <i style={{ background: "#59b8ff" }} />
+                  南寒带 66.5°S 以南
+                </span>
+                <span className="zone-legend-note">
+                  球面上的五带文字标注只在「地球特写」视角显示
+                </span>
+              </div>
+            )}
+          </div>
         )}
-      </footer>
+      </div>
     </div>
   );
 }

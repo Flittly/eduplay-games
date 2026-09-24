@@ -222,8 +222,43 @@ export function levelsFor(minH: number, maxH: number, interval: number, base = 0
   return out;
 }
 
-/** 给某一层挑一条「最值得标注」的折线（最长的那条） */
-export function longestPolyline(lv: ContourLevel): ContourPolyline | null {
+/**
+ * 等高距候选档（米）。
+ *
+ * 必须与界面 chip 行**同源** —— 两边各写一份的话，一旦自动落档落到了
+ * 界面没列的档位，就会出现"一个 chip 都没亮着"的状态。
+ *
+ * 下探到 20 m 是因为新增的**平原样本**：华北平原 30 km 内高差只有 40 m，
+ * 而这一版之前最小档是 100 m ⇒ 一条等高线都画不出来，平面图是一片空白。
+ */
+export const CONTOUR_INTERVAL_STEPS = [20, 50, 100, 200, 500, 1000];
+
+/** 想要几条线：低于这个数就认为"没画出东西" */
+export const CONTOUR_MIN_LEVELS = 3;
+
+/**
+ * 按样本自动落一档等高距。
+ *
+ * 山峰（贡嘎 2204~7414 m）用 200 m 一档正好出 26 条；
+ * 同一个 200 m 用在平原上出 **0 条**。所以换地形时要检查当前档位够不够用：
+ * 不够就落到"仍能出 ≥ `CONTOUR_MIN_LEVELS` 条线"里**最粗**的那一档
+ * （线太少也不好看，太密则糊成一片）。
+ *
+ * 放在 `contour.ts` 而不是 `engine.ts`，是为了能 Node 单测 ——
+ * engine 依赖 three.js 与 DOM，进不了纯逻辑测试。
+ */
+export function pickContourInterval(minH: number, maxH: number, preferred: number): number {
+  const count = (iv: number) => levelsFor(minH, maxH, iv, 0).length;
+  if (count(preferred) >= CONTOUR_MIN_LEVELS) {
+    return preferred;
+  }
+  const ok = [...CONTOUR_INTERVAL_STEPS]
+    .sort((a, b) => b - a)
+    .filter((iv) => count(iv) >= CONTOUR_MIN_LEVELS);
+  return ok.length ? ok[0] : CONTOUR_INTERVAL_STEPS[0];
+}
+
+/** 给某一层挑一条「最值得标注」的折线（最长的那条） */export function longestPolyline(lv: ContourLevel): ContourPolyline | null {
   let best: ContourPolyline | null = null;
   let bestLen = -1;
   for (const p of lv.polylines) {

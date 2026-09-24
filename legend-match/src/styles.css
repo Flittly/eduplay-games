@@ -8,6 +8,30 @@
   --water-l: #9dc4dd;
   --green: #2f7d4f;
   --ink-2: #5a5044;
+
+  /* ── 卡片底卡（"风格统一"落在版式上的地方）──────────────────────────────
+     v1.1.0 的 73 张图例来自三类完全不同的源头（教材图抠图 / 图标库 / 按教材补绘），
+     素材本身不可能长得一样；**靠同一套底卡**（同底色、同边框、同硬投影比例、
+     同留白比例、同一道内凹底槽）把它们收成一套，是"混来源不显杂"的关键。
+     两处用同一组变量：牌面上的 .lcard 与消除时的 .legend-focus-symbol。
+     留白用 clamp(px, %, px)：小卡上保住符号尺寸，大卡上留白跟着放大、比例一致。
+     刻意**不加圆角** —— 全局按钮已经用 border-radius:0 定了直角的调子，
+     只给卡片加圆角会造出一处新的不统一。 */
+  --card-ground: #fbf6ea;
+  --card-bw: 3px;
+  --card-drop: 4px;
+  /* 内边距**必须是定值**，不能写成百分比。
+     百分比 padding 按"各自的包含块"解析，不是按卡片自己：
+       .lcard 是 position:absolute，包含块是整块牌面（1280 下 1252px）⇒ 4% = 50px；
+       .gallery-thumb 是网格项，包含块只有 ~116px ⇒ 4% = 4.64px。
+     于是 clamp(3px, 4%, 8px) 实测出来是"缩略图 4.64px、其余 8px"—— 看着像统一，
+     其实是两拨值，而且上限一改就整体跳档（牌面那处纯属被 8px 上限兜住）。
+     定值 6px 让四处逐字节相同，且比原来的 8px 给符号多留 4px 净空：
+     单卡 169px 的符号从 147px 涨到 157px，最挤牌面（末关单卡 130px）从 108 涨到 112。 */
+  --card-pad: 6px;
+  --card-well:
+    inset 0 0 0 1px rgba(26, 26, 26, 0.07),
+    inset 0 -3px 5px rgba(26, 26, 26, 0.055);
 }
 
 * {
@@ -226,6 +250,7 @@ button:disabled {
   font-size: 12px;
 }
 
+.lobby-tier,
 .lobby-level,
 .lobby-cats,
 .lobby-mode {
@@ -342,6 +367,64 @@ button:disabled {
   color: var(--brown);
   line-height: 1.7;
   text-transform: none;
+}
+
+/* ---------------------------------------------------------------- 组别选择
+ * 开局前唯一必须做的决定，所以选中态不能像普通按钮那样只靠边框深浅：
+ * 直接整块翻成红底纸字 + 右上角挂一枚金色"已选"角标，扫一眼就知道现在选的是哪档。
+ * 用 [aria-pressed] 而不是 .is-active 一个类名，是为了让屏幕阅读器也读得出选中态。 */
+.mode-cards.is-tier {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.mode-cards.is-tier button {
+  gap: 6px;
+  padding: 16px 18px;
+}
+
+.mode-cards.is-tier button em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.7;
+  letter-spacing: 0;
+  color: var(--brown);
+}
+
+.mode-cards.is-tier button em.tier-note {
+  padding-left: 10px;
+  border-left: 4px solid var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.mode-cards.is-tier button[aria-pressed="true"] {
+  background: var(--red);
+}
+
+.mode-cards.is-tier button[aria-pressed="true"] strong,
+.mode-cards.is-tier button[aria-pressed="true"] span,
+.mode-cards.is-tier button[aria-pressed="true"] em {
+  color: var(--paper);
+}
+
+.mode-cards.is-tier button[aria-pressed="true"] em.tier-note {
+  border-left-color: var(--paper);
+}
+
+.mode-cards.is-tier button[aria-pressed="true"]::after {
+  content: "已选";
+  position: absolute;
+  top: -13px;
+  right: -9px;
+  padding: 3px 9px;
+  border: 3px solid var(--ink);
+  background: var(--gold);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 
 /* ---------------------------------------------------------------- 游戏外框 */
@@ -462,6 +545,51 @@ button:disabled {
 }
 
 /* ---------------------------------------------------------------- 牌面 */
+/* ── 底卡（凡是"展示一条图例"的容器都用这一套）──────────────────────────────
+   四处：牌面 .lcard / 消除时放大 .legend-focus-symbol / 图鉴缩略 .gallery-thumb /
+         图鉴详情 .gallery-detail-symbol。
+   新增展示位**必须加进这份名单**，否则会出现第五种卡片外观 —— 这正是 v1.0.0
+   把"底卡"画进 73 张 SVG 里的老毛病（每个素材自带背景与画框，改一次要改 73 处）。
+   底卡统一的是"符号待的那个窗口"：**同底色、同边框宽、同边框色、同内边距、同一道内凹底槽**
+   —— 这五项在四处逐字节相同（真机实测，见 .workbuddy/tmp/lm11verify/）。
+   **投影不在统一范围内** —— 硬投影是"这是一块能拿起来的实体牌"的记号（牌面、放大卡），
+   图鉴缩略是平铺列表项，硬投影只会让 73 张缩略图变吵。 */
+.lcard,
+.legend-focus-symbol,
+.gallery-thumb,
+.gallery-detail-symbol {
+  background: var(--card-ground);
+  border: var(--card-bw) solid var(--ink);
+  padding: var(--card-pad);
+  position: relative;
+  display: grid;
+  /* 行/列轨道必须显式占满容器（minmax(0,1fr)），否则 img 的 height:100% 会失效：
+     auto 轨道的高度"由内容定"、而内容的高度"按轨道算"，两头互相依赖 ⇒ 百分比被判成
+     auto ⇒ 高度退回按图片自身 1:1 比例算 = 宽度，得到 151×151 的**方盒**塞进牌面
+     151×112 的内容盒 ⇒ 纵向溢出 39px，被 overflow:hidden 平切掉。
+     症状是**只有一部分图例显形**：方块状的（核电站三叶、水库三角）底边被切平，
+     横放的线状符号恰好落在框中间，肉眼看不出问题 —— 所以极易漏掉。
+     牌面 .lcard 的宽高比是 1.3（gameData.CARD_ASPECT），只有它会中招；
+     图鉴缩略/详情/放大卡都是 aspect-ratio 1/1 的正方盒，高度本就够。 */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+}
+
+/* 内凹底槽：给每个符号一道**同一道光圈**，细线符号与实心图形因此坐在同一个"窗口"里。
+   放在 ::before 而不是加进各处的 box-shadow —— 后者会被 :hover / .is-selected /
+   @keyframes 里的 box-shadow 整条覆盖，得在四五个地方各抄一遍，迟早漏一个。 */
+.lcard::before,
+.legend-focus-symbol::before,
+.gallery-thumb::before,
+.gallery-detail-symbol::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: var(--card-well);
+}
+
 .card-board {
   position: relative;
   width: 100%;
@@ -471,12 +599,7 @@ button:disabled {
 .lcard {
   position: absolute;
   transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
-  display: grid;
-  place-items: center;
-  padding: 4px;
-  background: #fbf6ea;
-  border: 3px solid var(--ink);
-  box-shadow: 4px 4px 0 var(--ink);
+  box-shadow: var(--card-drop) var(--card-drop) 0 var(--ink);
   overflow: hidden;
   letter-spacing: 0;
   text-transform: none;
@@ -501,10 +624,11 @@ button:disabled {
   word-break: break-all;
 }
 
+/* 名称牌：同一张底卡，只换"记号"—— 纸色压低 + 双线框，一眼能看出这不是符号牌 */
 .lcard.is-name {
   background: var(--paper);
   border-style: double;
-  border-width: 6px;
+  border-width: calc(var(--card-bw) * 2);
 }
 
 .lcard.is-selected {
@@ -549,12 +673,12 @@ button:disabled {
 
 @keyframes legend-hint {
   from {
-    background: #fbf6ea;
-    box-shadow: 4px 4px 0 var(--ink);
+    background: var(--card-ground);
+    box-shadow: var(--card-drop) var(--card-drop) 0 var(--ink);
   }
   to {
     background: var(--gold);
-    box-shadow: 0 0 0 4px var(--red), 4px 4px 0 var(--ink);
+    box-shadow: 0 0 0 4px var(--red), var(--card-drop) var(--card-drop) 0 var(--ink);
   }
 }
 
@@ -619,13 +743,8 @@ button:disabled {
 }
 
 .legend-focus-symbol {
-  border: 4px solid var(--ink);
-  background: #fbf6ea;
-  box-shadow: 6px 6px 0 var(--ink);
+  box-shadow: var(--card-drop) var(--card-drop) 0 var(--ink);
   aspect-ratio: 1 / 1;
-  display: grid;
-  place-items: center;
-  padding: 8px;
 }
 
 .legend-focus-symbol img {
@@ -725,6 +844,26 @@ button:disabled {
   font-weight: 900;
   letter-spacing: 0.08em;
   color: var(--red);
+}
+
+/* 成绩单上的组别标签：分数离开组别就没有可比性，所以这行必须显眼。 */
+.legend-result-mode {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}
+
+.legend-result-mode span {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 3px 10px;
+  border: 3px solid var(--ink);
+  background: var(--gold);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .legend-big-score {
@@ -1167,11 +1306,6 @@ button:disabled {
 
 .gallery-thumb {
   aspect-ratio: 1 / 1;
-  border: 3px solid var(--ink);
-  background: var(--paper);
-  display: grid;
-  place-items: center;
-  padding: 4px;
 }
 
 .gallery-thumb img {
@@ -1190,6 +1324,19 @@ button:disabled {
   font-size: 10px;
   font-weight: 700;
   color: var(--ink-2);
+}
+
+/* 进阶条目的角标：图鉴切到"全部"时，能一眼看出哪 19 条是高级组才考的。 */
+.gallery-tier-tag {
+  font-style: normal;
+  align-self: center;
+  padding: 1px 8px;
+  border: 2px solid var(--ink);
+  background: var(--gold);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--ink);
 }
 
 .gallery-empty {
@@ -1213,12 +1360,7 @@ button:disabled {
   width: min(240px, 52vw);
   margin: 0 auto 14px;
   aspect-ratio: 1 / 1;
-  border: 4px solid var(--ink);
-  background: #fbf6ea;
-  box-shadow: 6px 6px 0 var(--ink);
-  display: grid;
-  place-items: center;
-  padding: 8px;
+  box-shadow: var(--card-drop) var(--card-drop) 0 var(--ink);
 }
 
 .gallery-detail-symbol img {

@@ -1,12 +1,15 @@
 {
   "name": "@eduplay/mountain-zones",
   "private": true,
-  "version": "2.1.1",
+  "version": "2.4.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test:data": "rolldown src/zonation.ts --format cjs --file scripts/_zonation.cjs && rolldown src/contour.ts --format cjs --file scripts/_contour.cjs && rolldown src/dem.ts --format cjs --file scripts/_dem.cjs && rolldown src/data/index.ts --format cjs --file scripts/_data.cjs && rolldown src/runoff.ts --format cjs --file scripts/_runoff.cjs && rolldown src/locmap.ts --format cjs --file scripts/_locmap.cjs && rolldown src/data/locations.ts --format cjs --file scripts/_locations.cjs && rolldown src/data/china-map.ts --format cjs --file scripts/_chinamap.cjs && node scripts/zonation.test.cjs && node scripts/contour.test.cjs && node scripts/dem.test.cjs && node scripts/runoff.test.cjs && node scripts/locmap.test.cjs && node scripts/typography.test.cjs"
+    "test:data": "rolldown src/zonation.ts --format cjs --file scripts/_zonation.cjs && rolldown src/layout.ts --format cjs --file scripts/_layout.cjs && rolldown src/contour.ts --format cjs --file scripts/_contour.cjs && rolldown src/dem.ts --format cjs --file scripts/_dem.cjs && rolldown src/data/index.ts --format cjs --file scripts/_data.cjs && rolldown src/runoff.ts --format cjs --file scripts/_runoff.cjs && rolldown src/locmap.ts --format cjs --file scripts/_locmap.cjs && rolldown src/data/locations.ts --format cjs --file scripts/_locations.cjs && rolldown src/data/china-map.ts --format cjs --file scripts/_chinamap.cjs && rolldown src/landform.ts --format cjs --file scripts/_landform.cjs && rolldown src/skeleton.ts --format cjs --file scripts/_skeleton.cjs && rolldown src/data/landforms.ts --format cjs --file scripts/_landforms.cjs && node scripts/zonation.test.cjs && node scripts/contour.test.cjs && node scripts/dem.test.cjs && node scripts/runoff.test.cjs && node scripts/locmap.test.cjs && node scripts/typography.test.cjs && node scripts/landform.test.cjs && node scripts/layout.test.cjs && node scripts/skeleton.test.cjs && node scripts/template.test.cjs",
+    "gen:templates": "rolldown src/landform.ts --format cjs --file scripts/_landform.cjs && node scripts/gen_templates.cjs",
+    "gen:landforms": "rolldown src/dem.ts --format cjs --file scripts/_dem.cjs && rolldown src/data/index.ts --format cjs --file scripts/_data.cjs && rolldown src/landform.ts --format cjs --file scripts/_landform.cjs && node scripts/gen_landforms.cjs",
+    "gen:all": "npm run gen:templates && npm run gen:landforms"
   },
   "dependencies": {
     "react": "^19.2.8",

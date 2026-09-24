@@ -1,0 +1,440 @@
+[
+ {
+  "name": "居民点",
+  "id": "jumindian",
+  "file": "jumindian.png",
+  "cat": "city"
+ },
+ {
+  "name": "公路",
+  "id": "gonglu",
+  "file": "gonglu.png",
+  "cat": "transport"
+ },
+ {
+  "name": "铁路",
+  "id": "tielu",
+  "file": "tielu.png",
+  "cat": "transport"
+ },
+ {
+  "name": "高速铁路",
+  "id": "gaosu_tielu",
+  "file": "gaosu_tielu.png",
+  "cat": "transport"
+ },
+ {
+  "name": "高速公路",
+  "id": "gaosu_gonglu",
+  "file": "gaosu_gonglu.png",
+  "cat": "transport"
+ },
+ {
+  "name": "山峰",
+  "id": "shanfeng",
+  "file": "shanfeng.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "火山",
+  "id": "huoshan",
+  "file": "huoshan.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "洲界",
+  "id": "zhoujie",
+  "file": "zhoujie.png",
+  "cat": "boundary"
+ },
+ {
+  "name": "长城",
+  "id": "changcheng",
+  "file": "changcheng.png",
+  "cat": "heritage"
+ },
+ {
+  "name": "关隘",
+  "id": "guanai",
+  "file": "guanai.png",
+  "cat": "heritage"
+ },
+ {
+  "name": "水库",
+  "id": "shuiku",
+  "file": "shuiku.png",
+  "cat": "water"
+ },
+ {
+  "name": "水电站",
+  "id": "shuidianzhan",
+  "file": "shuidianzhan.png",
+  "cat": "resource"
+ },
+ {
+  "name": "国界",
+  "id": "guojie",
+  "file": "guojie.png",
+  "cat": "boundary"
+ },
+ {
+  "name": "未定国界",
+  "id": "weiding_guojie",
+  "file": "weiding_guojie.png",
+  "cat": "boundary"
+ },
+ {
+  "name": "机场",
+  "id": "jichang",
+  "file": "jichang.png",
+  "cat": "transport"
+ },
+ {
+  "name": "沙漠",
+  "id": "shamo",
+  "file": "shamo.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "时令河",
+  "id": "shiling_he",
+  "file": "shiling_he.png",
+  "cat": "water"
+ },
+ {
+  "name": "时令湖",
+  "id": "shiling_hu",
+  "file": "shiling_hu.png",
+  "cat": "water"
+ },
+ {
+  "name": "中国省、自治区、直辖市界",
+  "id": "shengjie",
+  "file": "shengjie.png",
+  "cat": "boundary"
+ },
+ {
+  "name": "港口",
+  "id": "gangkou",
+  "file": "gangkou.png",
+  "cat": "transport"
+ },
+ {
+  "name": "航海线",
+  "id": "hanghaixian",
+  "file": "hanghaixian.png",
+  "cat": "transport"
+ },
+ {
+  "name": "瀑布",
+  "id": "pubu",
+  "file": "pubu.png",
+  "cat": "water"
+ },
+ {
+  "name": "常年河",
+  "id": "changnian_he",
+  "file": "changnian_he.png",
+  "cat": "water"
+ },
+ {
+  "name": "湖泊",
+  "id": "hupo",
+  "file": "hupo.png",
+  "cat": "water"
+ },
+ {
+  "name": "首都",
+  "id": "shoudu",
+  "file": "shoudu.png",
+  "cat": "city"
+ },
+ {
+  "name": "省级行政中心",
+  "id": "shenghui",
+  "file": "shenghui.png",
+  "cat": "city"
+ },
+ {
+  "name": "一般城市",
+  "id": "chengshi",
+  "file": "chengshi.png",
+  "cat": "city"
+ },
+ {
+  "name": "外国首都",
+  "id": "waiguo_shoudu",
+  "file": "waiguo_shoudu.png",
+  "cat": "city"
+ },
+ {
+  "name": "沼泽",
+  "id": "zhaoze",
+  "file": "zhaoze.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "冰川",
+  "id": "bingchuan",
+  "file": "bingchuan.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "常年积雪",
+  "id": "changnian_jixue",
+  "file": "changnian_jixue.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "珊瑚礁",
+  "id": "shanhu_jiao",
+  "file": "shanhu_jiao.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "三角洲",
+  "id": "sanjiaozhou",
+  "file": "sanjiaozhou.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "泉",
+  "id": "quan",
+  "file": "quan.png",
+  "cat": "water"
+ },
+ {
+  "name": "海峡",
+  "id": "haixia",
+  "file": "haixia.png",
+  "cat": "water"
+ },
+ {
+  "name": "隧道",
+  "id": "suidao",
+  "file": "suidao.png",
+  "cat": "transport"
+ },
+ {
+  "name": "桥梁",
+  "id": "qiaoliang",
+  "file": "qiaoliang.png",
+  "cat": "transport"
+ },
+ {
+  "name": "煤矿",
+  "id": "meikuang",
+  "file": "meikuang.png",
+  "cat": "resource"
+ },
+ {
+  "name": "铁矿",
+  "id": "tiekuang",
+  "file": "tiekuang.png",
+  "cat": "resource"
+ },
+ {
+  "name": "石油",
+  "id": "shiyou",
+  "file": "shiyou.png",
+  "cat": "resource"
+ },
+ {
+  "name": "天然气",
+  "id": "tianranqi",
+  "file": "tianranqi.png",
+  "cat": "resource"
+ },
+ {
+  "name": "有色金属矿",
+  "id": "youse_kuang",
+  "file": "youse_kuang.png",
+  "cat": "resource"
+ },
+ {
+  "name": "火电站",
+  "id": "huodianzhan",
+  "file": "huodianzhan.png",
+  "cat": "resource"
+ },
+ {
+  "name": "核电站",
+  "id": "hedianzhan",
+  "file": "hedianzhan.png",
+  "cat": "resource"
+ },
+ {
+  "name": "渔场",
+  "id": "yuchang",
+  "file": "yuchang.png",
+  "cat": "resource"
+ },
+ {
+  "name": "盐场",
+  "id": "yanchang",
+  "file": "yanchang.png",
+  "cat": "resource"
+ },
+ {
+  "name": "名胜古迹",
+  "id": "mingsheng",
+  "file": "mingsheng.png",
+  "cat": "heritage"
+ },
+ {
+  "name": "自然保护区",
+  "id": "baohuqu",
+  "file": "baohuqu.png",
+  "cat": "heritage"
+ },
+ {
+  "name": "指向标",
+  "id": "zhixiangbiao",
+  "file": "zhixiangbiao.png",
+  "cat": "mapbase"
+ },
+ {
+  "name": "台风路径",
+  "id": "taifeng_lujing",
+  "file": "taifeng_lujing.png",
+  "cat": "climate"
+ },
+ {
+  "name": "地区界",
+  "id": "diqujie",
+  "file": "diqujie.png",
+  "cat": "boundary"
+ },
+ {
+  "name": "特别行政区界",
+  "id": "tebie_xingzhengqujie",
+  "file": "tebie_xingzhengqujie.png",
+  "cat": "boundary"
+ },
+ {
+  "name": "等高线",
+  "id": "denggaoxian",
+  "file": "denggaoxian.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "等深线",
+  "id": "dengshenxian",
+  "file": "dengshenxian.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "海岸线",
+  "id": "haianxian",
+  "file": "haianxian.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "海沟",
+  "id": "haigou",
+  "file": "haigou.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "板块界线",
+  "id": "bankuai_jiexian",
+  "file": "bankuai_jiexian.png",
+  "cat": "terrain"
+ },
+ {
+  "name": "运河",
+  "id": "yunhe",
+  "file": "yunhe.png",
+  "cat": "water"
+ },
+ {
+  "name": "引水路线",
+  "id": "yinshui_luxian",
+  "file": "yinshui_luxian.png",
+  "cat": "water"
+ },
+ {
+  "name": "复线铁路",
+  "id": "fuxian_tielu",
+  "file": "fuxian_tielu.png",
+  "cat": "transport"
+ },
+ {
+  "name": "管道",
+  "id": "guandao",
+  "file": "guandao.png",
+  "cat": "transport"
+ },
+ {
+  "name": "航空线",
+  "id": "hangkongxian",
+  "file": "hangkongxian.png",
+  "cat": "transport"
+ },
+ {
+  "name": "输电线路",
+  "id": "shudian_luxian",
+  "file": "shudian_luxian.png",
+  "cat": "resource"
+ },
+ {
+  "name": "比例尺",
+  "id": "bilichi",
+  "file": "bilichi.png",
+  "cat": "mapbase"
+ },
+ {
+  "name": "经线",
+  "id": "jingxian",
+  "file": "jingxian.png",
+  "cat": "mapbase"
+ },
+ {
+  "name": "纬线",
+  "id": "weixian",
+  "file": "weixian.png",
+  "cat": "mapbase"
+ },
+ {
+  "name": "赤道",
+  "id": "chidao",
+  "file": "chidao.png",
+  "cat": "mapbase"
+ },
+ {
+  "name": "南北回归线",
+  "id": "huiguixian",
+  "file": "huiguixian.png",
+  "cat": "mapbase"
+ },
+ {
+  "name": "南北极圈",
+  "id": "jiquan",
+  "file": "jiquan.png",
+  "cat": "mapbase"
+ },
+ {
+  "name": "等温线",
+  "id": "dengwenxian",
+  "file": "dengwenxian.png",
+  "cat": "climate"
+ },
+ {
+  "name": "等降水量线",
+  "id": "dengjiangshuiliang",
+  "file": "dengjiangshuiliang.png",
+  "cat": "climate"
+ },
+ {
+  "name": "寒潮路径",
+  "id": "hanchao_lujing",
+  "file": "hanchao_lujing.png",
+  "cat": "climate"
+ },
+ {
+  "name": "沙尘暴路径",
+  "id": "shachenbao_lujing",
+  "file": "shachenbao_lujing.png",
+  "cat": "climate"
+ }
+]

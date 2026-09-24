@@ -4,6 +4,7 @@ import {
   currentPoint,
   nearestSeason,
   xToNu,
+  EARTH_TILT,
   SUBSOLAR_PLOT,
   SUBSOLAR_REF_FONT,
   SUBSOLAR_SVG,
@@ -37,14 +38,21 @@ const REF_FONT = SUBSOLAR_REF_FONT;
 
 export default function SubsolarCurve({
   nu,
+  obliquity = EARTH_TILT,
   onJump
 }: {
   nu: number;
+  /**
+   * 黄赤交角（度），默认 23.44°。地球仪 v1.5.0 起可切「地轴垂直」档（传 0）：
+   * 曲线会被拉平到赤道线上，四个节气刻度点也一起落到赤道 —— 这正是要让学生看到的
+   * "地轴不倾斜 ⇒ 没有回归运动 ⇒ 没有四季"。所以它是**入参**而不是在组件里写死。
+   */
+  obliquity?: number;
   onJump?: (nu: number) => void;
 }) {
-  // PLOT 是模块常量，图表结构（曲线路径、参考线、刻度）与 nu 无关 ⇒ 只算一次
-  const chart = useMemo(() => buildSubsolarChart(PLOT, TICK_FONT), []);
-  const point = currentPoint(nu, PLOT);
+  // 图表结构（曲线路径、参考线、刻度）只与档位有关，与 nu 无关 ⇒ 按档位缓存
+  const chart = useMemo(() => buildSubsolarChart(PLOT, TICK_FONT, obliquity), [obliquity]);
+  const point = currentPoint(nu, PLOT, obliquity);
   const { mark, distance } = nearestSeason(nu);
   const decl = point.decl;
   const declText =
@@ -188,8 +196,14 @@ export default function SubsolarCurve({
         横轴＝公转位置（与左侧旋钮同一个量）。当前
         {distance < 1 ? `正处${mark.label}` : `临近${mark.label}`}（{mark.date}）。
       </p>
-      {onJump && (
-        <p className="subsolar-hint">拖动橙点（或点曲线任意位置），地球连续转到那天。</p>
+      {obliquity === 0 ? (
+        <p className="subsolar-hint is-warn">
+          地轴垂直：直射点终年落在赤道，曲线被拉平 —— 没有回归运动，也就没有四季。
+        </p>
+      ) : (
+        onJump && (
+          <p className="subsolar-hint">拖动橙点（或点曲线任意位置），地球连续转到那天。</p>
+        )
       )}
     </div>
   );

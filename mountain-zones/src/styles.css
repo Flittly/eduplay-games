@@ -177,6 +177,41 @@ button {
   white-space: nowrap;
 }
 
+/**
+ * 部位图例放**右下**：右上被自然带图例占着，左下是读数卡 / 画剖面条。
+ * 不加这个覆盖会与自然带图例**完全重叠**（同 top/right），
+ * 症状是"打开标注之后自然带图例花了"。
+ */
+.mz-legend.is-parts {
+  top: auto;
+  bottom: 12px;
+}
+
+.mz-legend.is-parts .mz-legend-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.mz-legend-count {
+  margin-left: auto;
+  font-style: normal;
+  font-size: var(--fs-2xs);
+  opacity: 0.72;
+  font-variant-numeric: tabular-nums;
+}
+
+.mz-legend-note {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.22);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--ink-3);
+  max-width: 156px;
+}
+
 .mz-hovercard {
   position: absolute;
   bottom: 14px;
@@ -438,6 +473,23 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/**
+ * 「自动」小标：贴在垂直夸张读数右边，表示当前倍数是按样本坡度自动推荐的。
+ *
+ * 不复用 `.mz-num` 是因为它带 `margin-left:auto`（把自己推到行尾），
+ * 两个都带 auto 的话自由空间会被平分，读数与小标之间就裂开一道缝。
+ */
+.mz-auto-tag {
+  margin-left: 6px;
+  font-size: var(--fs-2xs);
+  font-style: normal;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--teal, #2a9d8f);
+  color: #fff;
+}
+
 .mz-badge {
   margin-left: auto;
   font-size: var(--fs-2xs);
@@ -476,6 +528,44 @@ button {
 .mz-chip.is-on {
   background: var(--ink);
   color: var(--paper-3);
+}
+
+/**
+ * 部位标注按钮：色点 + 名称 + 检出数。
+ *
+ * 用 `inline-flex` 而不是靠空格排：检出数要固定贴右边，
+ * 三个按钮的宽度就会随名称长短不一（山峰 2 字 / 山脊 2 字，但计数 1 位数 vs 2 位数），
+ * 用 flex + `margin-left:auto` 才能把计数对齐成一列。
+ */
+.mz-chip.is-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mz-chip.is-part:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.mz-chip.is-part:disabled:hover {
+  background: var(--paper-3);
+}
+
+.mz-chip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  flex: 0 0 auto;
+}
+
+.mz-chip-n {
+  margin-left: auto;
+  font-style: normal;
+  font-size: var(--fs-2xs);
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
 }
 
 .mz-hint {
@@ -862,4 +952,414 @@ button {
   font-style: normal;
   font-weight: 800;
   color: #8a5a12;
+}
+
+/* ------------------------------------------------------------------ */
+/* 手画剖面：画点提示条 / 被拒理由 / 段列表 / 剖面对比图说明            */
+/* ------------------------------------------------------------------ */
+
+/* 处于画剖面模式时把光标换成十字 —— 不做这个，
+   学生会以为"点了没反应"，其实是模式没开 */
+.mz-stage.is-picking {
+  cursor: crosshair;
+}
+
+/* 舞台左下角的操作提示条：与右上角的山名标签对称 */
+.mz-pickbar {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: var(--paper-3);
+  border: var(--edge);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.mz-pickbar b {
+  font-size: var(--fs-md);
+  font-weight: 800;
+}
+
+.mz-pickbar span {
+  color: var(--ink-2);
+}
+
+.mz-pickbar-count {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mz-pickbar-x {
+  padding: 2px 8px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.mz-pickbar-x:hover {
+  background: var(--ink);
+  color: var(--paper-3);
+}
+
+/* 被拒绝的理由（两点太近 / 超过 4 段）：照实念给学生听，给足警示色 */
+.mz-notice {
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-left: 4px solid var(--red);
+  background: rgba(204, 0, 0, 0.07);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--red);
+}
+
+/* 起点已定、等终点 */
+.mz-pending {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-left: 4px solid var(--blue);
+  background: rgba(42, 111, 158, 0.08);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--blue);
+  font-variant-numeric: tabular-nums;
+}
+
+.mz-linkbtn {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  color: var(--blue);
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mz-seglist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.mz-segrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 6px;
+  border: 2px solid var(--ink);
+  background: var(--paper-3);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 序号圆：做成圆的、而不是方片，是为了和图上那个中点标记长得一样 ——
+   这一列数字与三维线、投影图纸、剖面对比图四处的颜色与序号全部同源 */
+.mz-segdot {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--paper-3);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+}
+
+.mz-segmeta {
+  white-space: nowrap;
+}
+
+.mz-segdel {
+  margin-left: auto;
+  padding: 1px 6px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.mz-segdel:hover {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--paper-3);
+}
+
+/* 剖面对比图的说明条：绝对定位压在画布右下角，
+   这样不用给底栏加一层 wrapper、原有 flex 布局一点不动 */
+.mz-profile-cap {
+  position: absolute;
+  right: 10px;
+  bottom: 6px;
+  padding: 3px 8px;
+  background: rgba(250, 245, 234, 0.9);
+  border: 2px solid var(--ink);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--ink-2);
+  pointer-events: none;
+}
+
+/* 参数栏里按「地形类型」分组的地形选择：左侧类型名固定宽度，
+   右边 chip 自动换行 —— 这样"平原/高原/山地/丘陵/盆地"五类在视觉上就分开了 */
+.mz-pickgroup {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.mz-pickgroup-label {
+  flex: 0 0 30px;
+  padding-top: 3px;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  color: var(--ink-3);
+}
+
+.mz-pickgroup .mz-btn-row {
+  flex: 1 1 auto;
+  margin-top: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* 地貌图鉴：类型 / 部位 双标签筛选 + 样本卡片                          */
+/* ------------------------------------------------------------------ */
+
+.mz-dexwrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 筛选条固定在上方，卡片区自己滚动 —— 否则筛完标签还要往上滚才能看到卡片 */
+.mz-dexfilter {
+  flex: 0 0 auto;
+  padding: 7px 12px 5px;
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper-2);
+}
+
+.mz-dexfilter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.mz-dexfilter-row + .mz-dexfilter-row {
+  margin-top: 5px;
+}
+
+.mz-dexfilter-label {
+  width: 58px;
+  flex: 0 0 auto;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--ink-2);
+}
+
+/* 筛不出东西的标签要灰掉 —— 亮着的标签点下去"没反应"最伤课堂节奏 */
+.mz-dexfilter .mz-chip:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.mz-dexgrid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px 26px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 7px;
+  align-content: start;
+}
+
+.mz-dexcard {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 9px;
+  border: 2px solid var(--ink);
+  background: var(--paper-3);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mz-dexcard:hover {
+  background: var(--paper-2);
+}
+
+.mz-dexcard.is-on {
+  border-color: var(--red);
+  background: rgba(204, 0, 0, 0.07);
+  box-shadow: inset 4px 0 0 var(--red);
+}
+
+.mz-dexcard-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.mz-dexcard-name {
+  font-size: var(--fs-md);
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.mz-dexcard-type {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  color: var(--paper-3);
+}
+
+.mz-dexcard-alt {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.mz-dexcard-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.mz-dexpart {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 1px 5px;
+  border: 1.5px solid var(--ink-3);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.mz-dexpart b {
+  font-weight: 800;
+  color: var(--blue);
+  font-variant-numeric: tabular-nums;
+}
+
+.mz-dexpart.is-none {
+  border-style: dashed;
+  color: var(--ink-3);
+}
+
+.mz-dexcard-rule {
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+/* 声明与判据不符：内部一致性告警，正常情况下永远不该出现 */
+.mz-dexcard-bad {
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  color: var(--red);
+}
+
+.mz-dexcard-warn {
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: #8a5a12;
+}
+
+/* ============ v2.4.0：模板地形的两处标记 ============
+ *
+ * 1. 参数栏的「说明卡」：模板地形没有真实经纬度 ⇒ 不画中国地图，改画它。
+ *    尺寸和位置刻意贴着 `.mz-locmap`（同样是 `margin-top: 2px` + 2px 墨边），
+ *    这样切到模板地形时，参数栏的高度不会突然跳一下。
+ * 2. 图鉴卡片上的「模板」角标。
+ */
+
+.mz-tplcard {
+  margin-top: 2px;
+  padding: 8px 9px;
+  border: 2px solid var(--ink);
+  background: var(--paper-3);
+}
+
+.mz-tplcard-lead {
+  margin: 0 0 6px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.mz-tplcard-list {
+  margin: 0;
+  padding-left: 1.15em;
+  font-size: var(--fs-2xs);
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+
+.mz-tplcard-note {
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px dotted var(--ink-3);
+  font-size: var(--fs-2xs);
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.mz-tplcard-note span {
+  display: inline-block;
+  margin-right: 6px;
+  font-weight: 800;
+  color: var(--ink-3);
+}
+
+/* ⚠️ `margin-right: auto` 不能去掉：`.mz-dexcard-head` 是 space-between，
+ *    加上第三个元素后会把三段**均分**，角标就会飘到卡片中间去。
+ *    用 auto 把它顶在名字右边，类型标签仍然贴最右。 */
+.mz-dexcard-tpl {
+  flex: 0 0 auto;
+  margin-right: auto;
+  padding: 1px 5px;
+  border: 2px dashed var(--ink-3);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  color: var(--ink-3);
 }

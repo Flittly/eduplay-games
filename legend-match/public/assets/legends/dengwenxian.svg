@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" font-family="'Arial Black','Franklin Gothic Heavy','Microsoft YaHei','PingFang SC',sans-serif">
-<rect x="0" y="0" width="240" height="240" fill="#f2e8d5"/>
-<rect x="5" y="5" width="230" height="230" fill="none" stroke="#1a1a1a" stroke-width="4"/>
-<path d="M16 190C24.28 189.64 50.84 198.44 62 188C73.16 177.56 68.28 146.76 78 132C87.72 117.24 102.68 116.08 116 106C129.32 95.92 138.32 85 152 76C165.68 67 178.32 61.04 192 56C205.68 50.96 221.52 49.44 228 48" fill="none" stroke="#cc0000" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/><path d="M16 226C25.72 225.64 56.32 229.4 70 224C83.68 218.6 80.48 203.2 92 196C103.52 188.8 118.16 188.32 134 184C149.84 179.68 163.08 174.88 180 172C196.92 169.12 219.36 168.72 228 168" fill="none" stroke="#cc0000" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/><text x="150" y="40" font-size="26" text-anchor="middle" font-weight="800" fill="#cc0000">20℃</text><text x="74" y="214" font-size="26" text-anchor="middle" font-weight="800" fill="#cc0000">10℃</text>
-</svg>

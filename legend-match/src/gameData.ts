@@ -6,13 +6,74 @@
  * （scripts/*.test.cjs 用 rolldown 把本文件打成 CJS 后 require）。
  */
 import type {
-  CardLayout, CardSpec, LegendItem, MatchAction, MatchState
+  CardLayout, CardSpec, GameMode, LegendItem, MatchAction, MatchState
 } from "./types";
 
-// ---------------------------------------------------------------- 关卡配置
-/** 六关逐关加量：对数 6 → 16。 */
-export const LEVEL_PAIRS = [6, 8, 10, 12, 14, 16];
-export const LEVEL_COUNT = LEVEL_PAIRS.length;
+// ---------------------------------------------------------------- 组别（模式）
+/**
+ * 两个组别各自的关卡对数表。
+ *
+ * 初中组整体降一档（4→14 对），因为它的题库只有 54 条、且大多是"一眼能认"
+ * 的常用图例 —— 用高级组那套 6→16 对会让开场就压得太满，反而不适合入门。
+ */
+export interface ModeConfig {
+  id: GameMode;
+  name: string;
+  /** 每关需要配对的对数（长度 = 关卡数） */
+  pairs: number[];
+  /** 抽牌窗口的下限类别数（理由见 windowFor） */
+  minWindow: number;
+  /** 大厅卡片上的一行说明 */
+  blurb: string;
+  /** 大厅卡片上的一行补充 */
+  note: string;
+}
+
+export const MODES: Record<GameMode, ModeConfig> = {
+  junior: {
+    id: "junior",
+    name: "初中组",
+    pairs: [4, 6, 8, 10, 12, 14],
+    minWindow: 3,
+    blurb: "课本正文必会的常用图例",
+    note: "标准图例页里的每一条都在这里"
+  },
+  senior: {
+    id: "senior",
+    name: "高级组",
+    pairs: [6, 8, 10, 12, 14, 16],
+    minWindow: 2,
+    blurb: "含全部分辨形细目，同类干扰更强",
+    note: "等深线、海沟、复线铁路、管道这类容易看混的都在"
+  }
+};
+
+/** 大厅里的显示顺序：先易后难 */
+export const MODE_ORDER: GameMode[] = ["junior", "senior"];
+export const DEFAULT_MODE: GameMode = "junior";
+
+export function modeConfig(mode: GameMode): ModeConfig {
+  return MODES[mode] ?? MODES[DEFAULT_MODE];
+}
+
+export function levelCount(mode: GameMode): number {
+  return modeConfig(mode).pairs.length;
+}
+
+export function pairsForLevel(mode: GameMode, levelIndex: number): number {
+  const list = modeConfig(mode).pairs;
+  const i = Math.max(0, Math.min(levelIndex, list.length - 1));
+  return list[i];
+}
+
+export function totalPairs(mode: GameMode): number {
+  return modeConfig(mode).pairs.reduce((a, b) => a + b, 0);
+}
+
+/** 某个组别能出场的图例：高级组＝全部，初中组＝只取 tier==="basic"。 */
+export function legendsForMode(all: LegendItem[], mode: GameMode): LegendItem[] {
+  return mode === "senior" ? all : all.filter((l) => l.tier === "basic");
+}
 
 export const PAIR_POINTS = 100;
 export const COMBO_STEP = 20;
@@ -30,15 +91,6 @@ export const CARD_MIN_W = 56;
 export const CARD_PAD = 4;
 
 const DEG = Math.PI / 180;
-
-export function pairsForLevel(levelIndex: number): number {
-  const i = Math.max(0, Math.min(levelIndex, LEVEL_PAIRS.length - 1));
-  return LEVEL_PAIRS[i];
-}
-
-export function totalPairs(): number {
-  return LEVEL_PAIRS.reduce((a, b) => a + b, 0);
-}
 
 // ---------------------------------------------------------------- 随机
 /** 可复现的伪随机数（同一 seed 必然给出同一副牌面）。 */
@@ -66,24 +118,77 @@ export function shuffle<T>(items: T[], rnd: () => number): T[] {
 
 // ---------------------------------------------------------------- 抽牌
 /**
- * 按关卡抽图例。
+ * 本关的抽牌窗口（参与抽牌的**目标**类别数）。
  *
- * 难度曲线不靠"牌更多"单独支撑 —— 更要紧的是**同类干扰**：
- * 高关卡把候选池收窄到 2~3 个类别里（比如全是交通类），
- * 一堆长得像的符号混在一起才真正考人。
+ * v1.0.0 之前是 `类别数 − 关卡`。类别从 7 涨到 9 之后这条式子会出问题：
+ * 末关窗口留成 4 类，同类拥挤度从 ≥5 掉到 4，整条"越往后越容易看混"的
+ * 难度曲线就断了。改成**按类别数等比收缩**：
  *
- * 做法：类别按条目数从多到少排序，每关取一段"滑动窗口"，窗口宽度随关卡收窄；
- * 起点按关卡轮转，保证条目少的类别（地图基础 / 气候图线）也能轮到上场。
- * 池子不够凑满对数时继续沿轮转补类别，绝不会抽不满。
+ *     窗口 = max(minWindow, ⌊类别数 × 0.7^关卡⌋)
+ *
+ * 两个细节都是有理由的，别随手改：
+ * - 用 `floor` 而不是 `round`：`x·0.7^k` 单调减、floor 保单调 ⇒ 窗口一定
+ *   单调不增。用 round 会在某几关上把窗口弹回去，拥挤度跟着非单调。
+ * - `minWindow` 分模式给（初中组 3 / 高级组 2）：它决定窗口最窄收到几类。
+ *   初中组不跟高级组一样收到 2 类，是因为它只有 54 条、9 个类别 ——
+ *   收成 2 类时能挑的只剩最大的那几个类别，条目少的类别（人文景观 2 条、
+ *   气候图线 3 条）就彻底没机会出场了。
+ *   注意：**"窗口够厚"不是靠 minWindow 保证的**，是靠 windowStarts 挑起点
+ *   （否则薄窗口会触发补类别、把曲线拉塌，实测过）。
  */
-export function pickLegends(
-  all: LegendItem[], levelIndex: number, seed: number
-): LegendItem[] {
-  const pairs = pairsForLevel(levelIndex);
-  const rnd = mulberry32(seed);
+export function windowFor(mode: GameMode, cats: number, levelIndex: number): number {
+  const min = modeConfig(mode).minWindow;
+  const shrink = Math.floor(cats * Math.pow(0.7, Math.max(0, levelIndex)));
+  return Math.max(Math.min(min, cats), shrink);
+}
+
+/**
+ * 本关抽牌的候选池计划。抽牌与"窗口覆盖了哪些类别"共用同一份计算，
+ * 免得测试核对的窗口和实际抽牌的窗口是两套算出来的东西。
+ */
+interface WindowPlan {
+  /** 窗口覆盖的类别（按窗口顺序，长度 = 有效窗口宽度） */
+  cats: string[];
+  /** 本关需要配对的对数 */
+  pairs: number;
+}
+
+/**
+ * 本关窗口的可选起点。
+ *
+ * 为什么不能简单地 `start = 关卡 % 类别数`：类别是按条目数降序排的，
+ * 轮转越靠后，窗口里的类别越薄。薄到凑不满本关对数时，旧代码会**临时并入
+ * 更多类别**（见下面 pickLegends 的兜底循环）—— 窗口实际变宽、同类拥挤度
+ * 反而下降，末关比倒数第二关还松，整条难度曲线就断了。
+ * （实测：初中组第 6 关窗口只有 11 条却要抽 14 对；高级组第 5、6 关同样不够。）
+ *
+ * 所以把起点限制在「窗口自身的条目数 ≥ 本关对数」的那些位置上：
+ * 窗口一定够厚 ⇒ 永远不会触发补类别 ⇒ 窗口宽度就是设计值 ⇒ 拥挤度曲线干净。
+ * 轮转本身保留，条目少的类别照样会被轮到 —— 只是不会让它独自在末关扛 16 对的量。
+ */
+function windowStarts(sizes: number[], windowSize: number, pairs: number): number[] {
+  const total = sizes.length;
+  const enough: number[] = [];
+  for (let s = 0; s < total; s += 1) {
+    let sum = 0;
+    for (let i = 0; i < windowSize; i += 1) {
+      sum += sizes[(s + i) % total];
+    }
+    if (sum >= pairs) {
+      enough.push(s);
+    }
+  }
+  // 题库被裁得很小、所有起点都不够厚时，退回全起点，由 pickLegends 的兜底循环补类别
+  return enough.length > 0 ? enough : [0];
+}
+
+/** 算出本关的窗口类别。类别按条目数从多到少排序，起点只在"够厚"的位置里轮转。 */
+function planWindow(all: LegendItem[], mode: GameMode, levelIndex: number): WindowPlan | null {
+  const bank = legendsForMode(all, mode);
+  const pairs = pairsForLevel(mode, levelIndex);
 
   const byCat = new Map<string, LegendItem[]>();
-  for (const it of all) {
+  for (const it of bank) {
     const list = byCat.get(it.category);
     if (list) {
       list.push(it);
@@ -95,40 +200,87 @@ export function pickLegends(
     const d = byCat.get(b)!.length - byCat.get(a)!.length;
     return d !== 0 ? d : a.localeCompare(b);
   });
-  if (cats.length === 0) {
+  const total = cats.length;
+  if (total === 0) {
+    return null;
+  }
+
+  const windowSize = Math.min(windowFor(mode, total, levelIndex), total);
+  const starts = windowStarts(cats.map((c) => byCat.get(c)!.length), windowSize, pairs);
+  const start = starts[Math.max(0, levelIndex) % starts.length];
+
+  const window: string[] = [];
+  for (let i = 0; i < windowSize; i += 1) {
+    window.push(cats[(start + i) % total]);
+  }
+  return { cats: window, pairs };
+}
+
+/**
+ * 本关窗口覆盖的类别（外部/测试核对"窗口够不够厚"用）。
+ * 抽到的图例必然都来自这些类别 —— 一旦出现窗口外的类别，就说明触发了补类别。
+ */
+export function windowCategories(
+  all: LegendItem[], mode: GameMode, levelIndex: number
+): string[] {
+  return planWindow(all, mode, levelIndex)?.cats ?? [];
+}
+
+/**
+ * 按关卡抽图例。
+ *
+ * 难度曲线不靠"牌更多"单独支撑 —— 更要紧的是**同类干扰**：
+ * 高关卡把候选池收窄到 2~3 个类别里（比如全是交通类），
+ * 一堆长得像的符号混在一起才真正考人。
+ *
+ * 做法：类别按条目数从多到少排序，每关取一段"滑动窗口"，窗口宽度随关卡收窄；
+ * 起点在**够厚的那些位置**里轮转（理由见 windowStarts），
+ * 保证条目少的类别也能轮到上场，同时窗口永远塞得满本关对数。
+ */
+export function pickLegends(
+  all: LegendItem[], mode: GameMode, levelIndex: number, seed: number
+): LegendItem[] {
+  const plan = planWindow(all, mode, levelIndex);
+  if (!plan) {
     return [];
   }
+  const rnd = mulberry32(seed);
 
-  const total = cats.length;
-  const windowSize = Math.max(2, total - Math.max(0, levelIndex));
-  const start = Math.max(0, levelIndex) % total;
-  const pool: LegendItem[] = [];
-  const used = new Set<string>();
-
-  function addCat(offset: number) {
-    const name = cats[offset % total];
-    if (used.has(name)) {
-      return;
+  const byCat = new Map<string, LegendItem[]>();
+  for (const it of legendsForMode(all, mode)) {
+    const list = byCat.get(it.category);
+    if (list) {
+      list.push(it);
+    } else {
+      byCat.set(it.category, [it]);
     }
-    used.add(name);
+  }
+
+  const pool: LegendItem[] = [];
+  for (const name of plan.cats) {
     pool.push(...byCat.get(name)!);
   }
-
-  for (let i = 0; i < windowSize; i += 1) {
-    addCat(start + i);
+  // 兜底：只有题库被裁到"所有起点都不够厚"时才会走到这里，继续沿窗口补类别，
+  // 保证任何时候都抽得满对数（正常数据下窗口自己就够，这个循环不执行）。
+  if (pool.length < plan.pairs) {
+    for (const name of byCat.keys()) {
+      if (pool.length >= plan.pairs) {
+        break;
+      }
+      if (!plan.cats.includes(name)) {
+        pool.push(...byCat.get(name)!);
+      }
+    }
   }
-  for (let i = windowSize; pool.length < pairs && i < windowSize + total; i += 1) {
-    addCat(start + i);
-  }
 
-  return shuffle(pool, rnd).slice(0, pairs);
+  return shuffle(pool, rnd).slice(0, plan.pairs);
 }
 
 /** 一副牌：每个图例出两张卡 —— 一张符号卡 + 一张名称卡，然后整体打乱。 */
 export function buildCards(
-  legends: LegendItem[], levelIndex: number, seed: number
+  legends: LegendItem[], mode: GameMode, levelIndex: number, seed: number
 ): CardSpec[] {
-  const picked = pickLegends(legends, levelIndex, seed);
+  const picked = pickLegends(legends, mode, levelIndex, seed);
   const raw: CardSpec[] = [];
   picked.forEach((it) => {
     raw.push({ uid: `${it.id}::symbol`, legendId: it.id, face: "symbol" });
@@ -207,8 +359,9 @@ export function layoutCards(
 }
 
 // ---------------------------------------------------------------- 状态机
-export function initialMatchState(seed: number): MatchState {
+export function initialMatchState(seed: number, mode: GameMode): MatchState {
   return {
+    mode,
     levelIndex: 0,
     seed,
     cleared: [],
@@ -298,10 +451,11 @@ export function matchReducer(state: MatchState, action: MatchAction): MatchState
       }
       const cleared = [...state.cleared, ...state.focus.pair];
       const matched = state.matched + 1;
-      const done = cleared.length >= pairsForLevel(state.levelIndex) * 2;
+      const done = cleared.length >= pairsForLevel(state.mode, state.levelIndex) * 2;
       let phase: MatchState["phase"] = "play";
       if (done) {
-        phase = state.levelIndex + 1 >= LEVEL_COUNT ? "runDone" : "levelDone";
+        phase =
+          state.levelIndex + 1 >= levelCount(state.mode) ? "runDone" : "levelDone";
       }
       return { ...state, cleared, matched, focus: null, phase, selected: null };
     }
@@ -310,7 +464,7 @@ export function matchReducer(state: MatchState, action: MatchAction): MatchState
       if (state.phase !== "levelDone") {
         return state;
       }
-      const next = initialMatchState(action.seed);
+      const next = initialMatchState(action.seed, state.mode);
       return {
         ...next,
         levelIndex: state.levelIndex + 1,
@@ -332,7 +486,7 @@ export function matchReducer(state: MatchState, action: MatchAction): MatchState
     }
 
     case "restart":
-      return initialMatchState(action.seed);
+      return initialMatchState(action.seed, state.mode);
 
     case "hint": {
       if (state.phase !== "play" || state.focus || state.hintsLeft <= 0) {

@@ -17,7 +17,9 @@ const check = (name, cond, extra) => {
   checks.push({ name, ok: Boolean(cond), extra: extra === undefined ? "" : String(extra) });
 };
 
-const field = dem.createField(data.DEM_SOURCES[0]); // 贡嘎山
+// 点名取贡嘎山，别用 DEM_SOURCES[0]：v2.4.0 把模板地形排到了最前，
+// 下标语义会随清单顺序漂移（同一个坑在 contour.test.cjs 也踩过）。
+const field = dem.createField(data.sourceByTag("gongga"));
 const GRID = field.grid;
 
 /* ===== 1) 无雨：不该有任何产流 ===== */
@@ -149,7 +151,8 @@ for (const [label, net] of [["小雨", light], ["大雨", heavy]]) {
   // 结果测出来的是"雪带面积"而不是"植被稀疏度"。
   //
   // 太白山山顶 3743 m：10°N 雪线 5289 m、40°N 雪线 4011 m，两端都是 0% 越线。
-  const tall = dem.createField(data.DEM_SOURCES[3]); // 太白山
+  // ⚠️ 也不要写成 `DEM_SOURCES[3]`：v2.4.0 插入三个模板后下标 3 已不是太白山。
+  const tall = dem.createField(data.sourceByTag("taibai")); // 太白山
   const latLow = 10;
   const latHigh = 40;
   const snowLow = zd.snowline(latLow, "summer");

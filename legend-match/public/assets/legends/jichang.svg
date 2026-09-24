@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" font-family="'Arial Black','Franklin Gothic Heavy','Microsoft YaHei','PingFang SC',sans-serif">
-<rect x="0" y="0" width="240" height="240" fill="#f2e8d5"/>
-<rect x="5" y="5" width="230" height="230" fill="none" stroke="#1a1a1a" stroke-width="4"/>
-<path d="M120 24 C 132 24, 136 44, 136 66 L136 100 L206 146 L206 166 L136 142 L136 180 L162 200 L162 214 L120 202 L78 214 L78 200 L104 180 L104 142 L34 166 L34 146 L104 100 L104 66 C 104 44, 108 24, 120 24 Z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-</svg>
