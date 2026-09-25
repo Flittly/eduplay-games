@@ -1,0 +1,14 @@
+{
+  "gameCode": "moon_globe",
+  "name": "寰宇月球",
+  "version": "1.4.5",
+  "minPlatformVersion": "0.1.0",
+  "maxPlatformVersion": "1.0.0",
+  "type": "iframe",
+  "sdkVersion": "1",
+  "entry": "web/index.html",
+  "cover": "web/cover.svg",
+  "backendPlugin": null,
+  "requiresRoster": false,
+  "description": "旋转缩放月球看月面细节，拖动滑杆看月相怎样盈亏；可切到日地月系统看月球绕地球公转，点开月面红点读中国探月任务的着陆介绍。适合初中地理「月相」一节。"
+}

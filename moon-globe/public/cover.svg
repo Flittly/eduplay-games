@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- 纸墨拼贴 · 寰宇月球 -->
+  <rect x="9" y="11" width="104" height="104" rx="14" fill="#2b2620"/>
+  <rect x="6" y="6" width="104" height="104" rx="14" fill="#f7f1e3" stroke="#2b2620" stroke-width="3"/>
+  <!-- 深空背景 -->
+  <circle cx="58" cy="62" r="38" fill="#0d1524" stroke="#2b2620" stroke-width="3"/>
+  <!-- 星星 -->
+  <circle cx="92" cy="30" r="1.6" fill="#f7f1e3"/>
+  <circle cx="99" cy="47" r="1.1" fill="#f7f1e3" opacity="0.8"/>
+  <circle cx="86" cy="88" r="1.3" fill="#f7f1e3" opacity="0.9"/>
+  <circle cx="22" cy="44" r="1.2" fill="#f7f1e3" opacity="0.75"/>
+  <circle cx="30" cy="94" r="1.4" fill="#f7f1e3" opacity="0.7"/>
+  <!-- 太阳光：自左侧射来 -->
+  <line x1="8" y1="48" x2="26" y2="48" stroke="#d4a843" stroke-width="1.8"/>
+  <line x1="8" y1="62" x2="26" y2="62" stroke="#d4a843" stroke-width="1.8"/>
+  <line x1="8" y1="76" x2="26" y2="76" stroke="#d4a843" stroke-width="1.8"/>
+  <path d="M26 44 l6 4 -6 4 z" fill="#d4a843"/>
+  <path d="M26 58 l6 4 -6 4 z" fill="#d4a843"/>
+  <path d="M26 72 l6 4 -6 4 z" fill="#d4a843"/>
+  <!-- 月球：左半边被太阳照亮 -->
+  <circle cx="58" cy="62" r="26" fill="#1c2740" stroke="#2b2620" stroke-width="2.6"/>
+  <path d="M58 36 A26 26 0 0 0 58 88 Z" fill="#efe6d2"/>
+  <!-- 月面细节（环形山） -->
+  <circle cx="48" cy="52" r="4.6" fill="#cdc2a8" opacity="0.9"/>
+  <circle cx="44" cy="72" r="3.4" fill="#cdc2a8" opacity="0.85"/>
+  <circle cx="53" cy="64" r="2.4" fill="#cdc2a8" opacity="0.7"/>
+  <circle cx="66" cy="60" r="3.8" fill="#25324e"/>
+  <circle cx="70" cy="74" r="2.6" fill="#25324e"/>
+  <!-- 晨昏线 -->
+  <line x1="58" y1="36" x2="58" y2="88" stroke="#d4a843" stroke-width="1.6" stroke-dasharray="4 3"/>
+  <!-- 地月连线 -->
+  <line x1="58" y1="88" x2="58" y2="108" stroke="#7fb2e5" stroke-width="1.6" stroke-dasharray="4 3"/>
+  <circle cx="58" cy="110" r="3" fill="#3f9be0" stroke="#2b2620" stroke-width="1.6"/>
+  <!-- 印章 -->
+  <rect x="82" y="82" width="22" height="22" rx="4" fill="#33608c" stroke="#2b2620" stroke-width="2.5"/>
+  <text x="93" y="99" font-family="'Kaiti SC','STKaiti',KaiTi,serif" font-size="15" fill="#fdf8ec" text-anchor="middle" font-weight="bold">寰</text>
+</svg>
