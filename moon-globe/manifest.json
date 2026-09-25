@@ -1,7 +1,7 @@
 {
   "gameCode": "moon_globe",
   "name": "寰宇月球",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",

@@ -1990,10 +1990,17 @@ function buildEngine(host: HTMLDivElement, phaseHost: HTMLDivElement): Engine {
     const w = host.clientWidth;
     const h = host.clientHeight;
     if (w > 0 && h > 0) {
+      // ⚠ 第三个参数 `false` ＝"不要写内联 style"，**前提是 CSS 自己钉死了显示尺寸**
+      //   （见 `styles.css` 里 `.moon-canvas canvas { width:100%; height:100% }`）。
+      //   v1.4.5 及以前两处都没给 CSS 尺寸 ⇒ canvas 的显示尺寸退化成属性尺寸
+      //   （= w × devicePixelRatio）⇒ 150% 缩放的屏上画面被放大 1.5 倍、月球跑出可视区
+      //   （v1.4.6 用户反馈① ②）。要改这里的话，CSS 那条规则必须一起看。
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     }
+    // 同理：显示尺寸由 `.phase-canvas canvas { width/height:100% }` 定，
+    // 这里的 PHASE_CANVAS 是**渲染缓冲**的 CSS 尺寸（× DPR 后才是像素数）。
     phaseRenderer.setSize(PHASE_CANVAS, PHASE_CANVAS, false);
     phaseCamera.left = -PHASE_FRUSTUM;
     phaseCamera.right = PHASE_FRUSTUM;
@@ -2647,7 +2654,17 @@ interface PhaseWindowPos {
   y: number;
 }
 
-const PHASE_WINDOW_W = 178;
+/**
+ * 月相小窗的宽度（CSS px）。
+ *
+ * ⚠ 这个数字必须装得下"画布 + 边框 + 内边距"：
+ *   `.phase-canvas` 是 content-box，外框 = 150(PHASE_CANVAS) + 2×2(墨框) = **154px**，
+ *   `.phase-body` 左右各 8px 内边距 ⇒ 卡片内容宽至少要 154 + 16 = 170，
+ *   再加 `.phase-window` 自己的 2×3px 墨框 ⇒ 外框 ≥ 176。
+ *   v1.4.5 及以前是 178（只剩 1px 余量，画布外框还被画布自己盖住 4px）；
+ *   v1.4.6 取 **182** ⇒ 画布外框两边各留 3px，也不至于挤到标题行。
+ */
+const PHASE_WINDOW_W = 182;
 
 export default function MoonGlobe({ roster = [] }: { roster?: PlayerInfo[] }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -2949,7 +2966,7 @@ export default function MoonGlobe({ roster = [] }: { roster?: PlayerInfo[] }) {
   // ---- 自检 API（供真机渲染回归使用）----
   useEffect(() => {
     const api = {
-      version: "1.4.5",
+      version: "1.4.6",
       phaseInfo: (a?: number) => phaseInfo(a === undefined ? engineRef.current?.age() ?? 0 : a),
       age: () => engineRef.current?.age() ?? 0,
       setAge: (a: number) => applyAge(a),

@@ -68,8 +68,22 @@ input {
   inset: 0;
 }
 
+/* ⚠ canvas 的**显示尺寸必须由 CSS 钉死**，不能靠"默认尺寸 = 属性尺寸"。
+ *
+ * three 的 `renderer.setSize(w, h, false)` 只写 `canvas.width/height`（= w × devicePixelRatio），
+ * 第三个参数 `false` 的意思就是"**别**写内联 style"。此时如果 CSS 也不给尺寸，
+ * canvas 作为**替换元素**的显示尺寸就退化成属性尺寸 ⇒ 在 150% 缩放的屏上，
+ * 1120 宽的画布会显示成 1680 宽，而 `.moon-stage{overflow:hidden}` 只露出左上角
+ * ⇒ 画在**渲染画面正中**的月球落到可视区右下角、偏移 465px（v1.4.6 用户反馈②：
+ * 「主窗口中的月球没有在屏幕的最中间」，实测截图里月球被推到右下角只剩小半个）。
+ *
+ * 100% ＝ `.moon-canvas`（inset:0，无内边距）的内容盒 ＝ 舞台尺寸，
+ * 与 `resize()` 里 `host.clientWidth/Height` 传给 `setSize` 的是同一个数 ⇒ 两边永远一致。
+ * 属性尺寸照旧是 w × DPR（那是**渲染分辨率**，DPR>1 时反而更清晰，与布局无关）。 */
 .moon-canvas canvas {
   display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* 地名标注浮层：盖在画布上但**不吃指针**，否则月球拖不动 */
@@ -589,14 +603,27 @@ input {
 .phase-canvas {
   width: 150px;
   height: 150px;
+  /* ⚠ 全局是 `box-sizing: border-box`，这一处**必须**显式改回 content-box：
+     border-box 下 150px 的**外框**只剩 146px 内容宽，而画布是 150px 见方
+     ⇒ 画布盖住右侧与下侧的墨框（旧版本就是这样，DPR=1 时也能量到 4px 溢出）。
+     content-box ⇒ 外框 154px、内容盒 150px，画布正好填在墨框里面。 */
+  box-sizing: content-box;
   margin: 4px auto 0;
   border: 2px solid #2b2620;
   background: #05090f;
   line-height: 0;
 }
 
+/* ⚠ 同 `.moon-canvas canvas`：显示尺寸由 CSS 钉死。
+ * 靠 canvas 的默认尺寸（= 属性尺寸 = 150 × devicePixelRatio）的话，
+ * 150% 缩放的屏上这块画布会显示成 **225px**，塞进 178px 的卡片里
+ * ⇒ 月盘（半径 83.8% 半宽）横向撑到 188px，把"上弦月 / 50.0%"整行都盖掉
+ * （v1.4.6 用户反馈①：「月相小窗中的月相图超过了小窗本身」）。
+ * 挂到 content-box 的 150px 内容盒上，100% 正好等于 PHASE_CANVAS。 */
 .phase-canvas canvas {
   display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .phase-readout {
