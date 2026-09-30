@@ -201,6 +201,77 @@ for (const game of listGames()) {
   built += 1;
   const html = fs.readFileSync(distIndex, "utf8");
   check(`${game}: dist/web 存在且引用了打包产物`, /assets\//.test(html));
+
+  /*
+   * ⚠️ manifest 里声明的 cover / entry 必须在产物里**真的存在**。
+   *
+   * 为什么单列这条：cover 是靠 vite 把 `public/` 原样拷进 `dist/web/` 才生效的，
+   * 一旦忘了建 `public/cover.svg`，**构建和所有单测都会全绿**，
+   * 只有商城的封面变成裂图 —— 属于"全程静默"的一类缺陷。
+   * fish-master v0.0.1 就是这么漏掉的（13 个游戏里唯一一个没写 cover 的）。
+   */
+  const manifestPath = path.join(REPO_ROOT, game, "manifest.json");
+  let manifest = null;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  } catch {
+    manifest = null;
+  }
+  if (manifest) {
+    for (const key of ["cover", "entry"]) {
+      const rel = manifest[key];
+      if (typeof rel !== "string" || rel.length === 0) {
+        check(`${game}: manifest 声明了 ${key}`, false, `缺 ${key} 字段`);
+        continue;
+      }
+      // "web/xxx" → dist/web/xxx
+      const file = path.join(REPO_ROOT, game, "dist", rel);
+      check(
+        `${game}: manifest 的 ${key}（${rel}）在产物里存在`,
+        fs.existsSync(file),
+        `找不到 ${file} —— 商城/入口会裂（cover 要放在 public/ 下才会被 vite 拷进 dist）`
+      );
+    }
+  }
+
+  /*
+   * ⚠️ 运行时会 fetch 的 `public/` 资产，同样必须真的进了产物。
+   *
+   * 为什么单列：判据是"源码里 `fetch("./assets/xxx.json")` 的路径",
+   * 一旦忘了建 `public/assets/xxx.json`（或改了名没同步），
+   * **build 全绿、所有单测全绿、真机渲染也不报错**（fetch 404 被 catch 掉了，
+   * 界面只是"少了一层底图"）—— 与 cover 那条是同一类"全程静默"的缺陷。
+   *
+   * 实现：扫 src/**\/*.tsx? 里所有的 `./assets/....(json|png|svg|jpg)` 字面量，
+   * 逐个核 `dist/web/<相对路径>` 是否存在。
+   */
+  const RUNTIME_ASSET_RE = /["'`]\.\/(assets\/[A-Za-z0-9_./-]+\.(?:json|png|svg|jpg|jpeg|webp))["'`]/g;
+  const srcDir = path.join(REPO_ROOT, game, "src");
+  const wantedAssets = new Set();
+  if (fs.existsSync(srcDir)) {
+    const stack = [srcDir];
+    while (stack.length) {
+      const cur = stack.pop();
+      for (const e of fs.readdirSync(cur, { withFileTypes: true })) {
+        const full = path.join(cur, e.name);
+        if (e.isDirectory()) {
+          stack.push(full);
+          continue;
+        }
+        if (!/\.(ts|tsx)$/.test(e.name)) continue;
+        const txt = fs.readFileSync(full, "utf8");
+        for (const m of txt.matchAll(RUNTIME_ASSET_RE)) wantedAssets.add(m[1]);
+      }
+    }
+  }
+  for (const rel of wantedAssets) {
+    const file = path.join(REPO_ROOT, game, "dist", "web", rel);
+    check(
+      `${game}: 运行时要 fetch 的 ${rel} 在产物里存在`,
+      fs.existsSync(file),
+      `找不到 ${file} —— 源码里 fetch("./${rel}") 会 404，而界面只是"少了一层"，不会报错`
+    );
+  }
 }
 notes.push(
   `dist/ 里不带 manifest 的版本号，所以"产物是不是当前版"这条机器判不了：` +

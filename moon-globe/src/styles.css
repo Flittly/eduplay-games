@@ -592,6 +592,14 @@ input {
   padding: 6px 8px 8px;
 }
 
+/* 小窗「收起」＝只折这一块，**不能**把 `.phase-canvas` 从文档里摘掉：
+ * 画布是引擎命令式 append 进去的（effect 只在挂载时跑一次），宿主一旦离开文档，
+ * 再展开时新宿主里是空的 ⇒ 月相小窗一片空白（v1.4.7 用户反馈）。
+ * 所以收起走 CSS，不走条件渲染 —— 详见 MoonGlobe.tsx 里 `.phase-body` 上方的注释。 */
+.phase-window.is-collapsed .phase-body {
+  display: none;
+}
+
 .phase-sub {
   font-size: 10px;
   font-weight: 800;

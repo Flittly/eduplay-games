@@ -1,0 +1,14 @@
+{
+  "gameCode": "fish_master",
+  "name": "捕鱼达人 · 洋流版",
+  "version": "0.1.0",
+  "minPlatformVersion": "0.1.0",
+  "maxPlatformVersion": "1.0.0",
+  "type": "iframe",
+  "sdkVersion": "1",
+  "entry": "web/index.html",
+  "cover": "web/cover.svg",
+  "backendPlugin": null,
+  "requiresRoster": true,
+  "description": "在世界洋流图上选一处海域下网，先答对这条洋流叫什么、再判对它往哪个方向流，两问全对才能起网。洋流性质决定鱼的种类与品质——秘鲁寒流的上升补偿流渔获最高。教材熟记的洋流要能认能判，其余真实洋流作拓展只需认得名字。"
+}

@@ -2966,7 +2966,7 @@ export default function MoonGlobe({ roster = [] }: { roster?: PlayerInfo[] }) {
   // ---- 自检 API（供真机渲染回归使用）----
   useEffect(() => {
     const api = {
-      version: "1.4.6",
+      version: "1.4.7",
       phaseInfo: (a?: number) => phaseInfo(a === undefined ? engineRef.current?.age() ?? 0 : a),
       age: () => engineRef.current?.age() ?? 0,
       setAge: (a: number) => applyAge(a),
@@ -3371,19 +3371,36 @@ export default function MoonGlobe({ roster = [] }: { roster?: PlayerInfo[] }) {
               {phaseCollapsed ? "▸" : "▾"}
             </button>
           </header>
-          {!phaseCollapsed && (
-            <div className="phase-body">
-              <p className="phase-sub">从地球上看到的月相</p>
-              <div className="phase-canvas" ref={phaseHostRef} />
-              <div className="phase-readout">
-                <span className="phase-name">{info.name}</span>
-                <span className="phase-pct">{info.illuminationPct.toFixed(1)}%</span>
-              </div>
-              <div className="phase-foot">
-                月龄 {info.age.toFixed(2)} 天 · 亮面在{info.side === "right" ? "右" : "左"}
-              </div>
+          {/*
+            ⚠ 这里**不能**写成 `{!phaseCollapsed && (<div className="phase-body">…)}`。
+            条件渲染 = 收起时把 `.phase-body` 整块从文档里摘掉，而画布宿主
+            `.phase-canvas` 就在里面；引擎的 effect 依赖是 `[]`，只在**挂载时**把
+            `phaseRenderer.domElement` append 进来 ⇒ React 再展开时新建的是一个
+            **空** div，没有任何代码把 canvas 搬回去：
+              收起 ⇒ 整页 canvas 2→1；再展开 ⇒ 宿主回来了（rect 位置尺寸都对）
+              但 `childElementCount = 0`，画布区只剩 `.phase-canvas` 的深空底色
+              （实测亮度 8.6 / 最亮 8.6，而正常是 41.9 / 194.2）。
+            症状就是"展开 → 关上 → 再展开，月相不见了"，而文字读数照旧
+            （月相名 / 受照 % 是 React state，与画布无关）—— v1.4.7 用户反馈。
+
+            改法：宿主**常驻文档**，收起只折 `.phase-body`
+            （`.phase-window.is-collapsed .phase-body { display: none }`）。
+            这样 canvas 从不离开文档，往返多少次都在，而且**展开瞬间画面就是现成的**
+            （引擎每帧照旧 renderBoth），没有空帧。
+            主画布（`.moon-canvas`，含 labelHost / orbitLabelHost）本来就是常驻的，
+            所以只有这一处踩坑 —— 以后再想折叠别的画布容器，照这条办。
+          */}
+          <div className="phase-body">
+            <p className="phase-sub">从地球上看到的月相</p>
+            <div className="phase-canvas" ref={phaseHostRef} />
+            <div className="phase-readout">
+              <span className="phase-name">{info.name}</span>
+              <span className="phase-pct">{info.illuminationPct.toFixed(1)}%</span>
             </div>
-          )}
+            <div className="phase-foot">
+              月龄 {info.age.toFixed(2)} 天 · 亮面在{info.side === "right" ? "右" : "左"}
+            </div>
+          </div>
         </section>
 
         <div className="moon-tip">

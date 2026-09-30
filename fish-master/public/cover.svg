@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- 纸墨拼贴 · 捕鱼达人 · 洋流版 -->
+  <rect x="9" y="11" width="104" height="104" rx="14" fill="#2b2620"/>
+  <rect x="6" y="6" width="104" height="104" rx="14" fill="#f7f1e3" stroke="#2b2620" stroke-width="3"/>
+
+  <!-- 海面 -->
+  <rect x="11" y="11" width="94" height="94" rx="10" fill="#dce9f6"/>
+
+  <!-- 陆地：右上角一小块，做空间锚点 -->
+  <path d="M74 14 L104 14 L104 40 L92 46 L78 36 Z" fill="#e6e2d6" stroke="#cfc8b6" stroke-width="1.4"/>
+
+  <!-- 暖流：红，自低纬向高纬 -->
+  <path d="M16 96 C34 92 46 78 58 66" fill="none" stroke="#e0483a" stroke-width="5.2"
+        stroke-linecap="round"/>
+  <path d="M58 66 l-9 1.5 5.5 7.5 z" fill="#e0483a"/>
+
+  <!-- 寒流：蓝，自高纬向低纬 -->
+  <path d="M104 62 C92 70 80 82 66 92" fill="none" stroke="#2f6fb5" stroke-width="5.2"
+        stroke-linecap="round"/>
+  <path d="M66 92 l9-2 -5.5-7 z" fill="#2f6fb5"/>
+
+  <!-- 拓展层：虚线 + 淡色（分层视觉的封面预告） -->
+  <path d="M18 52 C34 46 44 40 54 34" fill="none" stroke="#85a8cc" stroke-width="3.4"
+        stroke-dasharray="7 5" stroke-linecap="round"/>
+  <path d="M54 34 l-8 1 4.6 6.4 z" fill="#85a8cc"/>
+
+  <!-- 渔网：罩在暖流上 -->
+  <path d="M40 70 l16 -8 14 10 -2 14 -18 4 z" fill="none" stroke="#2b2620" stroke-width="2.2"
+        stroke-linejoin="round"/>
+  <path d="M40 70 l30 12 M56 62 l-2 28 M46 66 l16 6 M44 78 l10 -10" fill="none"
+        stroke="#2b2620" stroke-width="1.1" opacity="0.65"/>
+
+  <!-- 印章 -->
+  <rect x="82" y="82" width="22" height="22" rx="4" fill="#33608c" stroke="#2b2620" stroke-width="2.5"/>
+  <text x="93" y="99" font-family="'Kaiti SC','STKaiti',KaiTi,serif" font-size="15"
+        fill="#fdf8ec" text-anchor="middle" font-weight="bold">渔</text>
+</svg>

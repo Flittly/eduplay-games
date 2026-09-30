@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BOARD_SIZES,
   DEFAULT_BOARD_SIZE,
@@ -627,7 +627,26 @@ export default function GeoGomoku({
 
   /* ---------- 皮肤贴图 ---------- */
 
-  const skinCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  /**
+   * 贴图画布的**节点本身**进 state，而不是 useRef —— v1.2.1 修的 bug 就出在这里。
+   *
+   * canvas 只在 `phase !== "setup"` 时才挂载（设置页里整个棋盘都不存在），
+   * 而"要不要重画一次皮肤"的判据必须是 `[画布节点, 图片, viewport, spec]` 四者。
+   * 原先这一项写的是 `useRef` + 读 `.current`，**它不在依赖数组里**，于是：
+   *
+   *   ① 设置页选「卫星影像」⇒ 贴图到手、effect 跑一次，可画布还没挂载 ⇒ 早退（空转）；
+   *   ② 点「开始第 N 局」⇒ 画布挂上来了，但依赖数组一个字都没变 ⇒ **effect 不重跑**；
+   *   ③ 画布始终是空的，透出的是 `.board-stage` 的纸色底（`--paper`）⇒
+   *      学生看到的就是纸纹皮肤，"我在设置里选的皮肤没生效"。
+   *
+   * 顺带解释了另一桩怪事：进对局后再点一次同一个皮肤也不会重画
+   * （state 值没变，React 直接 bail out），**必须先点回「纸纹」再点「卫星影像」** ——
+   * 与用户描述的"必须点到指纹再点回来才会切换"逐字吻合。
+   *
+   * 用**回调 ref** 而不是 ref + 依赖 `phase`：真正决定"能不能画"的是节点在不在，
+   * 不是 phase 叫什么名字。以后若再加一个阶段（比如回看），这里不用跟着改。
+   */
+  const [skinCanvas, setSkinCanvas] = useState<HTMLCanvasElement | null>(null);
   const [textures, setTextures] = useState<Record<string, HTMLImageElement>>({});
 
   useEffect(() => {
@@ -664,18 +683,19 @@ export default function GeoGomoku({
   }, [skin, textures]);
 
   useEffect(() => {
-    const canvas = skinCanvasRef.current;
-    if (!canvas) {
+    // 画布没挂载（还在设置页）就什么都不做；等它挂上来时这个 effect 会**再跑一次**
+    // —— 前提是 skinCanvas 在依赖里，这也正是 v1.2.1 修掉的那一处。
+    if (!skinCanvas) {
       return;
     }
     if (!skinImage) {
       // 换回「纸纹」时必须主动擦掉上一张贴图 ——
       // 这个 effect 早退的话，画布会保留上一张图继续显示，皮肤就"换不回去"了。
-      canvas.getContext("2d")?.clearRect(0, 0, VIEW_W, VIEW_H);
+      skinCanvas.getContext("2d")?.clearRect(0, 0, VIEW_W, VIEW_H);
       return;
     }
-    paintSkin(canvas, skinImage, viewport, spec, VIEW_W);
-  }, [skinImage, viewport, spec]);
+    paintSkin(skinCanvas, skinImage, viewport, spec, VIEW_W);
+  }, [skinCanvas, skinImage, viewport, spec]);
 
   const completedIds = useMemo(
     () => new Set(records.map((record) => record.player.studentId)),
@@ -1563,7 +1583,8 @@ export default function GeoGomoku({
                 */}
                 <div className="board-stage">
                   <canvas
-                    ref={skinCanvasRef}
+                    // 回调 ref：节点一进文档就进 state，皮肤绘制因此能赶在"第一次可见"之前跑完。
+                    ref={setSkinCanvas}
                     className="skin-canvas"
                     width={VIEW_W}
                     height={VIEW_H}
