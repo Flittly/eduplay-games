@@ -122,6 +122,8 @@ import {
   PROJ_GRID,
   RIDGE_LIFT_FADE_DEG,
   RIDGE_LIFT_HALF_DEG,
+  SPAN_X,
+  SPAN_Z,
   buildTerrainData,
   distToPolyline,
   insideChina,
@@ -131,6 +133,15 @@ import {
   ringRadiusDeg
 } from "./geo";
 import { gridToLonLat, projectBounds } from "./proj";
+import {
+  SHAPE_EDGE_ALPHA,
+  SHAPE_FILL_ALPHA,
+  gripOffsetPx,
+  hexToRGB,
+  paintShape,
+  shapeBoxOf,
+  type ShapeBox
+} from "./silhouette";
 import { distanceHint, type Grade } from "./game";
 import {
   addSeconds,
@@ -285,6 +296,115 @@ interface ChinaReliefProps {
   standalone: boolean;
   /** 全部归位后交成绩单 —— 上报平台的活儿在 main.tsx 里，那边才懂协议 */
   onFinish?: (results: SessionResult[]) => void;
+}
+
+/**
+ * 跟手的那一块「地形本体」（v2.2.0）。
+ *
+ * 需求原话：「在进行拖动匹配地形的这个时候，请你将地形的本身显示出来，
+ * 也就是不要只是一个鼠标箭头。颜色整体可以半透明一点。」
+ *
+ * ## 为什么是**真实大小**而不是一个小图标
+ *
+ * 这个游戏的动词是"匹配"。小图标只能告诉学生"我手里是个长条 / 是个团块"，
+ * 而**对齐**这件事只有等比才看得出来 —— 形状与地图上的地形一样大、一样朝向，
+ * 移到位就能直接看出"合不合"。所以一格掩膜画在**一格地图**上：
+ * `cellPx = SPAN_X * mapScale / GRID_W`，与渲染层
+ * `drawImage(off, 0,0,W,H, mapX,mapY, SPAN_X*mapScale, SPAN_Z*mapScale)` 同一口径。
+ *
+ * ## 锚点是"形状的抓取点"，不是包围盒的中心
+ *
+ * 松手时判的是**指针那一点**（`onUp` 里的 `toLonLat`）。所以指针必须压在这块地
+ * 一个**真属于它**的点上，否则"看着对准了，一松手却判没对上"。
+ * 抓取点由 `silhouette.ts` 给出（离形状质心最近的那个掩膜格，见那里的注释），
+ * 于是：**把形状对齐到地图上，指针就正好落在这块地里面** —— 判定与眼睛同源。
+ *
+ * ## ⚠️ 画布节点用**回调 ref 进 state**，不用 `useRef`
+ *
+ * 这块画布只在拖动期间存在（条件渲染）。`useRef` 读出来的节点是**不会**触发
+ * 依赖重跑的，而这个组件恰恰是"先挂载、后出图"：节点在不在才是唯一要紧的条件。
+ * （同类坑在本仓库已经踩过两次：moon_globe 的小窗折叠、geo-gomoku 的皮肤画布，
+ * 见 `pitfalls-archive.md` §93 / §104。）
+ */
+function ShapeGhost({
+  box,
+  cellPxX,
+  cellPxY,
+  x,
+  y,
+  fill,
+  edge,
+  off
+}: {
+  box: ShapeBox;
+  cellPxX: number;
+  cellPxY: number;
+  /** 指针位置（视口坐标） */
+  x: number;
+  y: number;
+  fill: readonly [number, number, number, number];
+  edge: readonly [number, number, number, number];
+  /** 指针是否不在画布内（那种情况松手不判定，形状跟着变淡） */
+  off: boolean;
+}) {
+  const [cv, setCv] = useState<HTMLCanvasElement | null>(null);
+
+  /*
+   * 显示尺寸**显式写在 CSS 上**（不要只设 canvas 的 width/height 属性）：
+   * 属性管的是"位图多少像素"，CSS 管的是"占多大地方"。只设属性的话，
+   * 在没给 CSS 尺寸的容器里显示尺寸会退化成位图尺寸（乘上 dpr）——
+   * 画面被整体放大、还撑爆外面那张卡片。（见 `pitfalls-archive.md` §90。）
+   */
+  const cssW = box.w * cellPxX;
+  const cssH = box.h * cellPxY;
+  /** 抓取点相对左上角的偏移（见 silhouette.ts 的 `gripOffsetPx`） */
+  const grip = gripOffsetPx(box, cellPxX, cellPxY);
+
+  useEffect(() => {
+    if (!cv) {
+      return;
+    }
+    const ctx = cv.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const pw = Math.max(1, Math.round(cssW * dpr));
+    const ph = Math.max(1, Math.round(cssH * dpr));
+    if (cv.width !== pw || cv.height !== ph) {
+      cv.width = pw;
+      cv.height = ph;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, pw, ph);
+
+    // 掩膜是"一格一个像素"的位图，先按格画好，再整张放大到屏幕上
+    // —— 渲染层就是这么做的（575 格的位图铺进 1142 px 的地图），
+    // 所以这里的边缘质感与地图**完全一致**，不会"手里的更毛糙"。
+    const tmp = document.createElement("canvas");
+    tmp.width = box.w;
+    tmp.height = box.h;
+    const tctx = tmp.getContext("2d");
+    if (!tctx) {
+      return;
+    }
+    const img = tctx.createImageData(box.w, box.h);
+    paintShape(img.data, box, fill, edge);
+    tctx.putImageData(img, 0, 0);
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(tmp, 0, 0, box.w, box.h, 0, 0, pw, ph);
+  }, [cv, box, cssW, cssH, fill, edge]);
+
+  return (
+    <canvas
+      // 回调 ref：节点一进文档就进 state，出图才会跑（这个组件是条件渲染的）
+      ref={setCv}
+      className={`cr-shape${off ? " is-off" : ""}`}
+      style={{ left: x - grip.x, top: y - grip.y, width: cssW, height: cssH }}
+      aria-hidden="true"
+    />
+  );
 }
 
 export default function ChinaRelief({ roster, standalone, onFinish }: ChinaReliefProps) {
@@ -1374,19 +1494,79 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
     return () => ro.disconnect();
   }, [stage]);
 
+  /**
+   * 地图在舞台里的摆放（v2.2.0 起**只有这一份**）。
+   *
+   * 吃它的一共三处：渲染层的画布（`terrain.ts` 的 `layout()` 按 `clientWidth` 自算，
+   * 结果必须与这里相同 —— 回归里那条"画布 CSS 尺寸 == 舞台尺寸"就是守这个前提的）、
+   * 影像瓦片层、以及拖动时跟手的「地形本体」。
+   *
+   * 三边各写一遍 `mapLayout(...)` 的后果很具体：地形挪了、影像没挪，
+   * 而画面上只像是"影像有点糊"（v2.0.0 踩过，见 `geo.ts` 的注释）。
+   */
+  const mapFit = useMemo(
+    () => mapLayout(stageBox.w, stageBox.h, introInset),
+    [stageBox.w, stageBox.h, introInset]
+  );
+
   const tiles: TileRect[] = useMemo(() => {
     if (basemap !== "satellite" || !tk || stageBox.w === 0 || stageBox.h === 0) {
       return [];
     }
     // 与画布吃同一个 `introInset`：两边各算一套的话，影像与地形会错开
     // （见 geo.mapLayout 的注释）。mapLayout 内部对预留量做了钳制。
-    return layoutTiles(mapLayout(stageBox.w, stageBox.h, introInset));
-  }, [basemap, tk, stageBox.w, stageBox.h, introInset]);
+    return layoutTiles(mapFit);
+  }, [basemap, tk, stageBox.w, stageBox.h, mapFit]);
 
   // 一批瓦片换了就从零计数（tiles 是 memo 的，只有底图/密钥/尺寸变了才换引用）
   useEffect(() => {
     setTileFail(0);
   }, [tiles]);
+
+  /**
+   * 拖动时跟手的「地形本体」（v2.2.0）。
+   *
+   * ⚠️ 依赖数组里是 **`drag?.item.id`** 而不是整个 `drag`：后者每次
+   * `pointermove` 都是新对象，这个 memo 会每帧重算 —— 而它算出来的
+   * `fill` / `edge` 又是**新数组**，于是画布那个 effect 也每帧重跑一次
+   * （重建 ImageData + 两次 drawImage）。位置（`drag.x/y`）是渲染时现取的，
+   * 不进 memo。**"我手里是哪一块"变了才重算，"我把它挪到哪儿了"不算。**
+   *
+   * `shapeBoxOf` 对地形区要走一趟 22 万格的全网格扫描（几毫秒），
+   * 所以按 `item.id` 缓存：一条只算一次。
+   */
+  const shapeCache = useRef(new Map<string, ShapeBox | null>());
+  const dragShape = useMemo(() => {
+    if (!drag) {
+      return null;
+    }
+    let box = shapeCache.current.get(drag.item.id);
+    if (box === undefined) {
+      box = shapeBoxOf(drag.item, data);
+      shapeCache.current.set(drag.item.id, box);
+    }
+    if (!box) {
+      return null;
+    }
+    /*
+     * 一格掩膜 = 一格地图。
+     *
+     * 渲染层把整张投影网格铺进 `SPAN_X * mapScale` 宽的矩形里
+     * （`terrain.ts`：`ctx.drawImage(off, 0,0, W,H, mapX, mapY, SPAN_X*mapScale, SPAN_Z*mapScale)`），
+     * 所以"一格多少像素"就是这两个数相除。**换了任何一个投影/取景参数，
+     * 这里与那里必须同步地变** —— 各写一套浮点数的话，形状会比地图大一圈或小一圈，
+     * 而画面上只像是"我明明对准了却判错"。
+     */
+    const cellPxX = (SPAN_X * mapFit.mapScale) / GRID_W;
+    const cellPxY = (SPAN_Z * mapFit.mapScale) / GRID_H;
+    /** 地块本色，半透明 —— 底下的地形要透得出来（见 silhouette.ts 的常量注释） */
+    const rgb = hexToRGB(drag.item.color);
+    const fill: [number, number, number, number] = [rgb[0], rgb[1], rgb[2], SHAPE_FILL_ALPHA];
+    /** 描边用 `outlineRGB` —— 与"放下去之后浮出来的那条描边"同一个函数 */
+    const orgb = outlineRGB(drag.item.color);
+    const edge: [number, number, number, number] = [orgb[0], orgb[1], orgb[2], SHAPE_EDGE_ALPHA];
+    return { box, cellPxX, cellPxY, fill, edge };
+  }, [drag?.item.id, data, mapFit]);
 
   /**
    * **真正要下载多少张瓦片** —— 不是 `tiles.length`。
@@ -1827,9 +2007,31 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
           </>
         )}
 
-        {/* 拖动跟随的幽灵卡 + 落点准星 */}
+        {/* 拖动跟随的「地形本体」 + 幽灵卡 + 落点准星 */}
         {drag && drag.moved ? (
           <>
+            {/*
+              **地形本体**（v2.2.0）：把这一条的形状按**真实比例**半透明地画在指针上。
+              用户的原话是「请你将地形的本身显示出来，也就是不要只是一个鼠标箭头」。
+
+              它排在准星与幽灵卡**前面**（z-index 也更低），因为这两样要压在它上面：
+              准星标的是"判定点"，幽灵卡写的是"这是哪一条"。
+
+              它**也不泄漏答案**：形状一直跟着指针，既不显示目标位置，
+              也不显示"现在算不算对"—— 手里拿着什么、指着哪儿，就画什么。
+            */}
+            {dragShape ? (
+              <ShapeGhost
+                box={dragShape.box}
+                cellPxX={dragShape.cellPxX}
+                cellPxY={dragShape.cellPxY}
+                x={drag.x}
+                y={drag.y}
+                fill={dragShape.fill}
+                edge={dragShape.edge}
+                off={drag.lon === null}
+              />
+            ) : null}
             {/*
               **落点准星**（v2.1.0 需求 3）：判定用的就是指针这一点
               （`onUp` 里 `toLonLat(event.clientX, event.clientY)`），
@@ -1842,6 +2044,10 @@ export default function ChinaRelief({ roster, standalone, onFinish }: ChinaRelie
               也不显示"当前算不算对"（提前变绿就等于告诉学生答案在那儿）。
               `is-off` = 指针不在画布内（`drag.lon === null`），松手不会判定 ——
               准星变灰就是在说这件事。
+
+              v2.2.0 起它多了一层意思：**它就是"地形本体"的抓取点** ——
+              形状是"抓取点压在准星上"画的（见 ShapeGhost 的注释），
+              所以对齐了形状，准星就正好落在这块地里面。
             */}
             <div
               className={`cr-drop-pin${drag.lon === null ? " is-off" : ""}`}

@@ -2833,6 +2833,324 @@ check("照片失败态跟着条目走（存的是「哪一条失败过」，所�
     && /\bkey=\{infoItem\.id\}/.test(APP_CODE),
   "有 photoFailedId 状态 + 与当前条目 id 比对 + img 带 key");
 
+/* ===================== 13) 拖动时跟手的「地形本体」（v2.2.0） ===================== */
+
+/*
+ * 需求原话：「在进行拖动匹配地形的这个时候，请你将地形的本身显示出来，
+ * 也就是不要只是一个鼠标箭头。颜色整体可以半透明一点。」
+ *
+ * 这一段的守备对象是 `silhouette.ts` 的**形状掩膜**。它坏掉的样子全是静默的：
+ *
+ *   · 掩膜口径与塑形口径不一致 ⇒ 手里拿的形状和放下去之后浮出来的色块差一圈，
+ *     而这一圈只在海边和岛礁上出现（`ring` 折线与归属位图的差别正好在那里）；
+ *   · 包围盒算小了 ⇒ 形状被**切掉一条边**，画面上看还以为"这块地就长这样"；
+ *   · 抓取点落在形状外面 ⇒ 把形状对齐到地图上，松手却判"没对上"——
+ *     这一条最伤，因为它把"对齐"这个动作本身变成了骗人。
+ *
+ * 所以三类断言各有各的牙齿：
+ *   ① 口径 —— 掩膜格必须**全量**满足塑形判据，围着包围盒的一圈必须**全不**满足；
+ *   ② 紧 —— 包围盒内四边每一边都真的贴着掩膜（没有白边）；
+ *   ③ 同源 —— 抓取点那一点拿去跑**真正的落点判定**必须判对。
+ */
+
+const SIL = require("./_silhouette.cjs");
+const silData = geo.buildTerrainData();
+
+/** 39 条（12 地形区 + 27 山脉），形状接口与 App 侧的 `Item` 同形 */
+const SHAPE_ITEMS = [
+  ...AREAS.map((d) => ({ id: d.id, name: d.name, area: { gridId: d.gridId } })),
+  ...RANGES.map((d) => ({ id: d.id, name: d.name, range: d }))
+];
+
+const SHAPES = SHAPE_ITEMS.map((it) => ({ it, box: SIL.shapeBoxOf(it, silData) }));
+
+const r1 = (v) => Math.round(v * 10) / 10;
+
+check(
+  "39 条一条不落都取得到形状（取不到就会「拖起来只有名字、没有形状」——正是用户报的那个现象）",
+  SHAPES.length === 39 && SHAPES.every((s) => s.box !== null),
+  `${SHAPES.filter((s) => s.box).length}/39`
+);
+
+check(
+  "形状是「一格一像素」的位图：掩膜格数 == mask 里 1 的个数（两个数不一致说明裁包围盒时漏了格）",
+  SHAPES.every((s) => {
+    let n = 0;
+    for (let k = 0; k < s.box.mask.length; k++) {
+      n += s.box.mask[k] ? 1 : 0;
+    }
+    return n === s.box.cells;
+  }),
+  SHAPES.map((s) => `${s.it.name} ${s.box.cells}`).slice(0, 3).join(" / ") + " …"
+);
+
+/* ---- ① 口径：掩膜 ↔ 塑形，逐格核对（框内全量，不抽样） ---- */
+/*
+ * 地形区那一支比的是**区域归属位图**（`data.region`，投影网格那一份），
+ * 山脉那一支比的是 `distToRange(...) <= corridorHalfDeg(...)`。
+ * 这两个判据与 `App.tsx` 的 `applyItem` 写高度场时用的是**同一批格子**，
+ * 所以这里逐格比是"能比"的 —— 而不是"看起来差不多"。
+ */
+const KIND_BAD = { area: 0, range: 0 };
+const KIND_TOTAL = { area: 0, range: 0 };
+for (const { it, box } of SHAPES) {
+  for (let j = 0; j < box.h; j++) {
+    for (let i = 0; i < box.w; i++) {
+      if (!box.mask[j * box.w + i]) {
+        continue;
+      }
+      const k = (box.j0 + j) * PW + (box.i0 + i);
+      if (it.area) {
+        KIND_TOTAL.area++;
+        if (silData.region[k] !== it.area.gridId) {
+          KIND_BAD.area++;
+        }
+      } else {
+        KIND_TOTAL.range++;
+        const ll = proj.gridToLonLat(geo.PROJ_GRID, box.i0 + i, box.j0 + j);
+        if (geo.distToRange(ll.lon, ll.lat, it.range) > geo.corridorHalfDeg(it.range)) {
+          KIND_BAD.range++;
+        }
+      }
+    }
+  }
+}
+
+check(
+  "地形区掩膜 == 区域归属位图上属于它的格子（与塑形/命中/判定用的是同一张位图）",
+  KIND_BAD.area === 0,
+  `逐格核对 ${KIND_TOTAL.area} 格，不一致 ${KIND_BAD.area} 格`
+);
+
+check(
+  "山脉掩膜 == 走带半宽以内（`distToRange <= corridorHalfDeg`，与 buildRidge 同一个函数）",
+  KIND_BAD.range === 0,
+  `逐格核对 ${KIND_TOTAL.range} 格，不一致 ${KIND_BAD.range} 格`
+);
+
+/* ---- ② 紧：包围盒外扩一圈必须为空（否则形状会被切掉一条边） ---- */
+/*
+ * 这条正是"包围盒算小了"的照妖镜：算小了 ⇒ 紧贴外边的那一圈里**还有**该属于
+ * 掩膜的格。而算大了只会让形状外面多一圈透明，看不出来（所以只查紧、不查松）。
+ */
+const LOOSE_EDGE = (() => {
+  let hits = 0;
+  let checked = 0;
+  for (const { it, box } of SHAPES) {
+    // 上边一行、下边一行整行，左边一列、右边一列整列（外扩 1 格）
+    const ring = [];
+    for (let i = -1; i <= box.w; i++) {
+      ring.push([i, -1], [i, box.h]);
+    }
+    for (let j = 0; j < box.h; j++) {
+      ring.push([-1, j], [box.w, j]);
+    }
+    for (const [i, j] of ring) {
+      const gi = box.i0 + i;
+      const gj = box.j0 + j;
+      if (gi < 0 || gj < 0 || gi >= PW || gj >= PH) {
+        continue;
+      }
+      checked++;
+      const k = gj * PW + gi;
+      if (it.area) {
+        if (silData.region[k] === it.area.gridId) {
+          hits++;
+        }
+      } else {
+        const ll = proj.gridToLonLat(geo.PROJ_GRID, gi, gj);
+        if (geo.distToRange(ll.lon, ll.lat, it.range) <= geo.corridorHalfDeg(it.range) && silData.land[k]) {
+          hits++;
+        }
+      }
+    }
+  }
+  return { hits, checked };
+})();
+
+check(
+  "包围盒是紧的：外扩一格那一圈里**一格都不该**属于掩膜（不然形状会被切掉一条边）",
+  LOOSE_EDGE.hits === 0,
+  `查了 ${LOOSE_EDGE.checked} 格，落网 ${LOOSE_EDGE.hits} 格`
+);
+
+/* ---- ③ 同源：抓取点拿去跑真正的落点判定，必须判对 ---- */
+/*
+ * 这一条是整套东西的地基。学生看到的是"把形状对齐在地图上"，
+ * 而松手时程序判的是**指针那一点**。抓取点就是"指针压在形状上的哪一格"，
+ * 所以：**抓取点落在形状里 ⟺ 对齐之后判定成立**。两者一旦分家，
+ * 学生遇到的就是"我明明对准了，它说我错了"——比没有这个功能还糟。
+ */
+const GRIP = (() => {
+  const names = new Map();
+  AREAS.forEach((a) => names.set(a.gridId, a.name));
+  let inMask = 0;
+  let areaStrict = 0;
+  let areaLoose = 0;
+  let rangeOk = 0;
+  const areaBad = [];
+  const rangeBad = [];
+  for (const { it, box } of SHAPES) {
+    if (box.mask[box.gripJ * box.w + box.gripI]) {
+      inMask++;
+    }
+    const ll = proj.gridToLonLat(geo.PROJ_GRID, box.i0 + box.gripI, box.j0 + box.gripJ);
+    if (it.area) {
+      const v = geo.judgeAreaDrop(
+        ll.lon,
+        ll.lat,
+        it.area.gridId,
+        silData.src.region,
+        names,
+        Math.max(0.8, geo.ringRadiusDeg(AREAS.find((a) => a.gridId === it.area.gridId).ring))
+      );
+      if (v.ok && v.loose) {
+        areaLoose++;
+      } else if (v.ok) {
+        areaStrict++;
+      } else {
+        areaBad.push(`${it.name}：${v.message}`);
+      }
+    } else {
+      const v = geo.judgeRangeDrop(ll.lon, ll.lat, it.id, RANGES, 0.85);
+      if (v.ok) {
+        rangeOk++;
+      } else {
+        rangeBad.push(`${it.name}：${v.message}`);
+      }
+    }
+  }
+  return { inMask, areaStrict, areaLoose, rangeOk, areaBad, rangeBad };
+})();
+
+check(
+  "抓取点一定落在掩膜里（落在外面 ⇒ 对齐之后一松手就判错，功能比没有还糟）",
+  GRIP.inMask === 39,
+  `${GRIP.inMask}/39`
+);
+
+check(
+  "把形状对齐到地图上 ⇒ 抓取点跑真正的落点判定必须判对（地形区 12 条全中）",
+  GRIP.areaBad.length === 0,
+  `严格归位 ${GRIP.areaStrict} 条 / 宽容归位 ${GRIP.areaLoose} 条${GRIP.areaBad.length ? "｜" + GRIP.areaBad.join("；") : ""}`
+);
+
+check(
+  "把形状对齐到地图上 ⇒ 抓取点跑真正的落点判定必须判对（山脉 27 条全中）",
+  GRIP.rangeBad.length === 0,
+  `${GRIP.rangeOk}/27${GRIP.rangeBad.length ? "｜" + GRIP.rangeBad.join("；") : ""}`
+);
+
+/* ---- ④ paintShape：两层加起来正好是整张掩膜 ---- */
+/*
+ * 少一层就是"只有填色没有轮廓"或反过来。**边界格 = 四邻里有不是掩膜的那一格**
+ * （与渲染层 `isOwnerEdge` 同一套），所以"内部 + 边界 == cells"是一个真正的等式，
+ * 不是"差不多"。
+ */
+const PAINT = (() => {
+  let fill = 0;
+  let edge = 0;
+  let other = 0;
+  let noEdge = 0;
+  let worstEdgeShare = 0;
+  let worstEdgeWho = "";
+  for (const { it, box } of SHAPES) {
+    const rgba = new Uint8ClampedArray(box.w * box.h * 4);
+    SIL.paintShape(rgba, box, [200, 100, 50, SIL.SHAPE_FILL_ALPHA], [58, 50, 38, SIL.SHAPE_EDGE_ALPHA]);
+    let e = 0;
+    for (let k = 0; k < box.w * box.h; k++) {
+      const a = rgba[k * 4 + 3];
+      if (a === SIL.SHAPE_FILL_ALPHA) {
+        fill++;
+      } else if (a === SIL.SHAPE_EDGE_ALPHA) {
+        edge++;
+        e++;
+      } else if (a !== 0 || box.mask[k]) {
+        other++;
+      }
+    }
+    if (e === 0) {
+      noEdge++;
+    }
+    const share = e / box.cells;
+    if (share > worstEdgeShare) {
+      worstEdgeShare = share;
+      worstEdgeWho = `${it.name} ${(share * 100).toFixed(1)}%`;
+    }
+  }
+  return { fill, edge, other, noEdge, worstEdgeShare, worstEdgeWho };
+})();
+
+check(
+  "paintShape：内部格 + 边界格 == 掩膜格数（39 条合计），且没有第三种像素",
+  PAINT.fill + PAINT.edge === KIND_TOTAL.area + KIND_TOTAL.range && PAINT.other === 0,
+  `内部 ${PAINT.fill} + 边界 ${PAINT.edge} = ${PAINT.fill + PAINT.edge}（掩膜共 ${KIND_TOTAL.area + KIND_TOTAL.range}）`
+);
+
+check(
+  "每条形状都真的画出了一圈描边（`fill + edge == cells` 这条等式在「一个边界格都没有」时也成立，所以要单独查）",
+  PAINT.noEdge === 0,
+  `39 条里没有描边的 ${PAINT.noEdge} 条`
+);
+
+check(
+  "描边是一圈**细线**而不是把整块涂满（最坏的一条边界格占比 < 45%）",
+  PAINT.worstEdgeShare < 0.45,
+  `最坏：${PAINT.worstEdgeWho}`
+);
+
+check(
+  "两层都是半透明的（用户要的「颜色整体可以半透明一点」，不透明的贴纸会把地图盖住）",
+  SIL.SHAPE_FILL_ALPHA > 0 && SIL.SHAPE_FILL_ALPHA < 160 && SIL.SHAPE_EDGE_ALPHA > SIL.SHAPE_FILL_ALPHA && SIL.SHAPE_EDGE_ALPHA < 255,
+  `填色 ${r1(SIL.SHAPE_FILL_ALPHA / 255)} / 描边 ${r1(SIL.SHAPE_EDGE_ALPHA / 255)}`
+);
+
+check(
+  "形状有大小之分（不是「每条都画成一坨」）：最大的一条与最小的一条差一个数量级以上",
+  (() => {
+    const cells = SHAPES.map((s) => s.box.cells);
+    return Math.max(...cells) / Math.min(...cells) > 10;
+  })(),
+  `最大 ${Math.max(...SHAPES.map((s) => s.box.cells))} 格 / 最小 ${Math.min(...SHAPES.map((s) => s.box.cells))} 格`
+);
+
+/* ---- ⑤ 静态守门：尺寸口径不许有第二份，画布节点不许用 useRef ---- */
+
+const CSS_CODE = fs.readFileSync(path.join(__dirname, "..", "src", "styles.css"), "utf8");
+
+check(
+  "「一格掩膜 = 一格地图」的口径只有一份：App 侧从 `SPAN_X/GRID_W` 推，没有写死像素",
+  /\(SPAN_X \* mapFit\.mapScale\) \/ GRID_W/.test(APP_CODE)
+    && /\(SPAN_Z \* mapFit\.mapScale\) \/ GRID_H/.test(APP_CODE),
+  "cellPx 由 SPAN_X/GRID_W、SPAN_Z/GRID_H 推出"
+);
+
+check(
+  "`mapLayout` 在 App 里只算一份（`mapFit`），影像瓦片层与拖动形状都吃它",
+  (APP_CODE.match(/mapLayout\(/g) || []).length === 1 && /layoutTiles\(mapFit\)/.test(APP_CODE),
+  `App 里 mapLayout( 出现 ${(APP_CODE.match(/mapLayout\(/g) || []).length} 次`
+);
+
+check(
+  "拖动形状的 memo 只依赖 `drag?.item.id`（依赖整个 `drag` 的话每帧重建位图、每次拖动都会卡）",
+  /\[drag\?\.item\.id,\s*data,\s*mapFit\]/.test(APP_CODE),
+  "依赖数组是 drag?.item.id"
+);
+
+check(
+  "形状画布的节点走**回调 ref 进 state**，不是 useRef（它只在拖动期间挂载，useRef 读到的节点不会触发重画）",
+  /const \[cv, setCv\] = useState<HTMLCanvasElement \| null>\(null\)/.test(APP_CODE)
+    && /ref=\{setCv\}/.test(APP_CODE),
+  "useState + ref={setCv}"
+);
+
+check(
+  "CSS 里有 `.cr-shape` 且层级低于幽灵卡与准星（「我手里是什么形状」要让位给「这是哪一条」「判在哪一点」）",
+  /\.cr-shape \{[\s\S]{0,200}z-index: 39;/.test(CSS_CODE)
+    && /\.cr-shape\.is-off \{[\s\S]{0,120}opacity: 0\.38;/.test(CSS_CODE),
+  "z-index 39 + is-off 变淡"
+);
+
 /* ===================== 汇总 ===================== */
 
 

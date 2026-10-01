@@ -1,7 +1,7 @@
 {
   "gameCode": "china_relief",
   "name": "山河塑形·中国地形",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",
