@@ -107,18 +107,79 @@ export function landPartDef(id: LandPartId): LandPartDef {
 
 /** 非极大抑制窗口半径（格）。30 km / 255 格 ≈ 118 m/格，6 格 ≈ 0.7 km */
 export const PEAK_NMS_RADIUS = 6;
-/** 相对起伏的取样半径（格），12 格 ≈ 1.4 km */
-export const PEAK_RELIEF_RADIUS = 12;
 /**
- * 相对起伏阈值 = `max(PEAK_RELIEF_MIN, PEAK_RELIEF_FRAC × 全图高差)`。
+ * 相对起伏的取样半径（格），18 格 ≈ 2.1 km（20 km 图幅）。
  *
- * **必须按全图高差的比例给，不能给绝对值。** 山峰是个*相对*概念：
- * 华北平原上一处比周围高 40 m 的土丘在地图上根本不叫山峰，
- * 而贡嘎山里比周围高 40 m 的地方遍地都是。按比例给，
- * 平原自然就找不出山峰（这正是符合直觉的结论），高山也只挑得出真正的峰。
+ * ⚠ **v2.5.0：12 → 18**。取样圈太小则量不到真正的山脚
+ * （详见下面 `PEAK_SLOPE_MIN_DEG` 的注释与 `drop` 的定义）。
  */
-export const PEAK_RELIEF_FRAC = 0.22;
-export const PEAK_RELIEF_MIN = 45;
+export const PEAK_RELIEF_RADIUS = 18;
+/**
+ * 峰顶相对起伏的**坡度门槛**（度）——按全图起伏在
+ * [`PEAK_SLOPE_MIN_DEG_LOW`, `PEAK_SLOPE_MIN_DEG_HIGH`] 之间线性插值。
+ *
+ * ## v2.5.0：判据从「相对全图起伏的比例」改成「坡度」
+ *
+ * v2.4.x 用的是 `drop ≥ max(45, 0.22 × 全图高差)`。这个写法有个
+ * **参照系错配**：`drop` 量的是「峰顶比**它自己那一圈**的最低点高多少」，
+ * 而门槛参照的是**全图**高差。两座高度悬殊的山放同一张图时，
+ * 矮山永远不合格 —— 实测（模板山地·两座独立山）：
+ *
+ * | 峰 | 海拔 | 自己的落差 | 全图起伏 | 旧门槛 | 结论 |
+ * |---|---|---|---|---|---|
+ * | 主峰 | 4879 m | 1317 m | 3919 m | 862 m | ✓ |
+ * | 副峰 | 3937 m | **652 m** | 3919 m | 862 m | ✗ 差 210 m |
+ *
+ * 而副峰的 652 m 落差**是它作为一座山应有的样子**（它的山脚就在 3285 m）。
+ * 换句话说：旧判据不是「副峰不够像山峰」，而是**门槛被主峰抬高了**。
+ *
+ * ## 新判据：`drop ≥ tan(θ) × 取样半径 × 格距`
+ *
+ * `drop / 半径` 正是**峰顶邻域的平均坡度**，
+ * 所以这个门槛说的是「**这座山陡不陡**」——
+ * 与全图多高、别座山多高**完全无关**。
+ *
+ * ## ⚠ 但坡度不能是一个常数：必须随地形起伏缩放
+ *
+ * 只用固定 22° 时，**模板丘陵与模板盆地双双 0 峰**：
+ *
+ * | 样本 | 起伏 | 落差前3 | 固定 22° 门槛 | 结论 |
+ * |---|---|---|---|---|
+ * | 模板丘陵 | 402 m | 313/ 293 / 288 | 570 m | ✘ 差 257 m |
+ * | 模板盆地（40 km 图幅） | 1467 m | 876 / 869 / 848 | **1141 m** | ✘ 差 265 m |
+ * | 模板山地 | 3919 m | 1317 / 652 | 570 m | ✓ |
+ *
+ * ⇒ **物理上说得通的修正是：山峰该有多陡，取决于它所在地形的起伏量级。**
+ * 高山里的峰本来就比丘陵上的丘陡（贡嘎落差 3454 m、丘陵 313 m，差一个数量级），
+ * 所以门槛不能一刀切。
+ *
+ * θ 按起伏在 8°→24° 之间线性插值（起伏 5000 m 以上取满24°），
+ * 实测满足全部 9 项验收（`probe249v.cjs`）：
+ *
+ * | 样本 | 起伏 | 峰数 |
+ * |---|---|---|
+ * | 贡嘎山 / 珠峰 / 梅里 / 太白 | 2915~5210 |各 **6**（与 v2.4.x 一致，无退化） |
+ * | 华北平原 | 40 | **0** ✓ |
+ * | 内蒙古高原 | 381 | **0** ✓（旧判据下是 6，顺手修掉既有缺陷） |
+ * | 模板山地（两座独立山） | 3919 | **2** ✓ |
+ * | 模板丘陵 | 402 | 6 ✓ |
+ * | 模板盆地 | 1467 | 3 ✓ |
+ */
+export const PEAK_SLOPE_MIN_DEG_LOW = 8;
+export const PEAK_SLOPE_MIN_DEG_HIGH = 24;
+/** 起伏达到这个值（米）时取满 `PEAK_SLOPE_MIN_DEG_HIGH` */
+export const PEAK_SLOPE_FULL_RELIEF_M = 5000;
+/**
+ * 峰判据换算坡度门槛时的**兜底**格距（米）。
+ *
+ * ⚠ **只在调用方没传 `opt.cellM` 时才用**，正常路径由 `landParts`
+ * 用自己的 `spanM` 算出来传下去（20 km 图幅 = 78.4 m，40 km = 156.9 m）。
+ *
+ *第一版把它当成唯一来源，结果**模板盆地（40 km）门槛被算高一倍**、
+ * 丘陵与盆地双双检不出峰。所以：**新增不同图幅的样本时不必改这里**，
+ * 但直接调 `findPeaks` 而不传 `cellM` 的代码会静默按 20 km 算。
+ */
+export const PEAK_CELL_M = 20000 / 255;
 /** 峰之间至少隔这么远（格），避免一座平顶山被标成十几个峰 */
 export const PEAK_MIN_SEP = 9;
 /** 最多标几个峰（鞍部是两两配对，峰多了组合爆炸且没教学意义） */
@@ -135,20 +196,32 @@ export interface PeakPoint {
 export function findPeaks(h: HeightFn, n: number, opt: Partial<{
   nmsRadius: number;
   reliefRadius: number;
-  reliefFrac: number;
-  reliefMin: number;
+  /** 起止坡度门槛（度），按全图起伏线性插值；给`null`则退回v2.4.x 的相对判据 */
+  slopeDegLow: number;
+  slopeDegHigh: number;
+  slopeFullRelief: number;
+  /** 网格格距（米）。坡度门槛要靠它换算成米，**必须由调用方传真实图幅**。 */
+  cellM: number;
   minSep: number;
   maxCount: number;
 }> = {}): PeakPoint[] {
   const nmsRadius = opt.nmsRadius ?? PEAK_NMS_RADIUS;
   const reliefRadius = opt.reliefRadius ?? PEAK_RELIEF_RADIUS;
-  const reliefFrac = opt.reliefFrac ?? PEAK_RELIEF_FRAC;
-  const reliefMin = opt.reliefMin ?? PEAK_RELIEF_MIN;
+  const slopeDegLow = opt.slopeDegLow ?? PEAK_SLOPE_MIN_DEG_LOW;
+  const slopeDegHigh = opt.slopeDegHigh ?? PEAK_SLOPE_MIN_DEG_HIGH;
+  const slopeFullRelief = opt.slopeFullRelief ?? PEAK_SLOPE_FULL_RELIEF_M;
   const minSep = opt.minSep ?? PEAK_MIN_SEP;
   const maxCount = opt.maxCount ?? PEAK_MAX_COUNT;
   if (n < 2 * reliefRadius + 3) {
     return [];
   }
+
+  // ⚠ **坡度门槛要靠格距换算成米**，所以 `cellM` 必须是真实图幅的格距。
+  // 踩过的坑：第一版把格距硬编码成 `20 km / 255`（`PEAK_CELL_M`），
+  // 于是**模板盆地（40 km 图幅、格距 156.9 m）的门槛被算高近一倍**
+  // （1141 m）⇒ 盆地与丘陵双双检不出峰。
+  // ⇒ 现在由 `landParts` 用它自己的 `spanM` 传下来。
+  const cellM = opt.cellM ?? PEAK_CELL_M;
 
   let gmin = Infinity;
   let gmax = -Infinity;
@@ -160,7 +233,10 @@ export function findPeaks(h: HeightFn, n: number, opt: Partial<{
     }
   }
   const relief = gmax - gmin;
-  const thresh = Math.max(reliefMin, reliefFrac * relief);
+  // 坡度门槛随起伏线性上升：起伏越大，允许的峰越陡（见 PEAK_SLOPE_MIN_DEG_LOW）
+  const deg = slopeDegLow +
+    (slopeDegHigh - slopeDegLow) * Math.min(1, relief / slopeFullRelief);
+  const thresh = Math.tan((deg * Math.PI) / 180) * reliefRadius * cellM;
 
   const marg = Math.max(nmsRadius, reliefRadius) + 1;
   const cand: PeakPoint[] = [];
@@ -778,7 +854,7 @@ export function isCappedPart(id: LandPartId, count: number): boolean {
  * 调用方（`engine.ts`）负责在换山/改海拔时才调它，切季节不必重算。
  */
 export function landParts(h: HeightFn, n: number, spanM: number): LandPartMarks {
-  const peaks = findPeaks(h, n);
+  const peaks = findPeaks(h, n, { cellM: spanM / (n - 1) });
   const rv = ridgeValley(h, n, RIDGE_TPI);
   const cliffScan = findCliffs(h, n, spanM / (n - 1));
   return {

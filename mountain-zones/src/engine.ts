@@ -32,6 +32,11 @@ import {
   type LandPartCounts, type LandPartId, type LandPartMarks, type LandTypeId, type ReliefStats
 } from "./landform";
 import { skeletonize, type SkelPt, type SkeletonResult } from "./skeleton";
+import {
+  addMark, clearManualMarks, loadManualMarks, measureCliff, measurePeak, measureSaddle,
+  removeMarkAt, saveManualMarks, seedFromMachine, storageAvailable,
+  type ManualKind, type ManualMark
+} from "./manualMark";
 
 /**
  * 「这个样本里没有可细化的东西」时的占位。
@@ -260,6 +265,18 @@ export interface Snapshot {
     /** 骨架化前后的格子数（界面要如实写"由 N 个检出格缩成 M 段线"） */
     ridgeSkeleton: SkeletonResult;
     valleySkeleton: SkeletonResult;
+    /**
+     * 人工标注状态（v2.4.5）。
+     *
+     * `active` = 画人工的；`marks` = `null`（本机没有）/ `[]`（教师清空过）/ 实际点位。
+     */
+    manual: {
+      active: boolean;
+      count: number;
+      marks: ManualMark[] | null;
+      /** 存储不可用，本次会话有效但关掉浏览器就没了 */
+      sessionOnly: boolean;
+    };
   };
   /** 判据算出来的地形类型（人工声明的地形类型见 `DemSource.landType`，两者应一致） */
   landType: LandTypeId;
@@ -289,6 +306,32 @@ export interface Engine {
   moveSegmentEnd(index: number, which: 0 | 1, p: Pt): void;
   removeSegment(index: number): void;
   clearSegments(): void;
+
+  /* ---------------- 人工标注（v2.4.5）---------------- */
+  /**
+   * 人工标注是否接管。
+   *
+   * `false` = 画机器检出的（v2.4.4 行为）；`true` = 画本机存的那份（没有就是空的）。
+   * 注意它**不查询有没有标注**：`[]`（教师清空过）也算出 `true`，
+   * 否则"清空"会被下一次进游戏悄悄还原成机器结果。
+   */
+  manualMode(): boolean;
+  setManualMode(on: boolean): Snapshot;
+  /** 加一个标注。返回新快照；`duplicate` 会在界面上给一句提示 */
+  addManualMark(kind: ManualKind, i: number, j: number): { snapshot: Snapshot; reason?: "duplicate" };
+  /** 点掉一个标注。`hitCells` 是**格**（UI 把屏幕像素按格距换算好再传进来） */
+  removeManualMark(kind: ManualKind, i: number, j: number, hitCells: number): { snapshot: Snapshot; hit: boolean };
+  /** 一键把机器检出的收进人工标注（每类最多 3 个，见 `seedFromMachine`） */
+  adoptMachineMarks(): Snapshot;
+  /** 清空人工标注（落盘成空数组，于是"删过"这件事也被记住了） */
+  clearAllManualMarks(): Snapshot;
+  /** 删除本机对这个样本的标注记录，回到"未标注"状态 */
+  forgetManualMarks(): Snapshot;
+  /** 存储不可用（隐私模式 / 配额满）：本次会话有效，但关掉浏览器就没了 */
+  manualStorageOK(): boolean;
+  /** 人工标注的当前状态（给界面与回归脚本读） */
+  manualInfo(): { active: boolean; marks: ManualMark[] | null; sessionOnly: boolean };
+
   dispose(): void;
 }
 
@@ -381,6 +424,40 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
   let ridgeSkel = sample.ridgeSkel;
   let valleySkel = sample.valleySkel;
 
+  /* ---------------- 人工标注（v2.4.5）---------------- */
+  /**
+   * 当前样本的人工标注。
+   *
+   * `null` = 本机没有 ⇒ 走机器检出（v2.4.4 的行为原样保留）。
+   * `[]`（空数组）= 教师显式清空过⇒ **画出来是空的**，这是"清空"按钮的结果，
+   * 与"从没有过"必须区分开：前者尊重教师的删除，后者回落到机器。
+   */
+  let manualMarks: ManualMark[] | null = loadManualMarks(field.source.tag);
+  /** 存储不可用（隐私模式/配额满）时的本次会话副本，保证功能在本次仍可用 */
+  let manualSessionOnly = false;
+
+  /** 人工标注是否接管了这一类部位（三类共用一个开关，见 `setManualMode`） */
+  let manualMode = manualMarks !== null;
+
+  /** 当前高度场（人工标注的数值全部现算，必须跟着 `field` 走） */
+  function hOf(i: number, j: number): number {
+    return heightFn(field)(i, j);
+  }
+
+  /** 格距（米）—— 陡崖坡度的分母 */
+  function cellM(): number {
+    return field.spanM / (field.grid - 1);
+  }
+
+  /** 人工标注相关的操作一律走它：改完立刻落盘 + 推图层 + 出快照 */
+  function commitManual(next: ManualMark[]): Snapshot {
+    manualMarks = next;
+    saveManualMarks(params.mountainTag, next);
+    pushAnnotations();
+    pushProjection();
+    return snapshot();
+  }
+
   /*
    * 首个样本也走自动推荐 —— 现在 `DEM_SOURCES[0]` 是模板山地（推荐 ×1），
    * 这行是个 no-op；但只要以后样本顺序变了、或把某个平原放到首位，
@@ -423,22 +500,69 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
     const wantValley = on.has("valley");
     return {
       parts: params.showParts.slice(),
-      peaks: wantPeak ? marks.peaks.map((p) => ({ i: p.i, j: p.j, h: p.h })) : [],
-      saddles: wantSaddle
-        ? marks.saddles.map((s) => ({ i: s.i, j: s.j, h: s.h, drop: s.drop }))
-        : [],
-      cliffs: wantCliff
-        ? marks.cliffs.map((c) => ({
-            i: c.i,
-            j: c.j,
-            slopeDeg: c.slopeDeg,
-            drop: c.drop,
-            lines: c.lines
-          }))
-        : [],
+      peaks: wantPeak ? peaksToDraw() : [],
+      saddles: wantSaddle ? saddlesToDraw() : [],
+      cliffs: wantCliff ? cliffsToDraw() : [],
       ridgeLines: wantRidge ? ridgeSkel.lines : [],
       valleyLines: wantValley ? valleySkel.lines : []
     };
+  }
+
+  /**
+   * 人工标注的**已保证非空**视图。
+   *
+   * 不变式：`manualMode === true` ⇒ `manualMarks !== null`。两处赋值都维持它
+   * ——构造时由 `loadManualMarks(...) !== null` 推出，`addManualMark` 在 null 时先补 `[]`。
+   * 写成函数而不是各处 `?? []`：那会让"人工模式下画出来是空的"这个合法状态
+   * （教师清空过）与"没进入人工模式"混成同一条代码路径。
+   */
+  function manualNow(): ManualMark[] {
+    return manualMarks ?? [];
+  }
+
+  /**
+   * 要画的峰：有**人工标注**时用人工的（h 现算），否则用机器检出的。
+   *
+   * 为什么人工标注优先到"覆盖"而不是"追加"：教师删掉的那一处，
+   * 如果机器结果还在底下垫着，删了等于没删 —— 这是标注功能最容易被察觉的失效。
+   */
+  function peaksToDraw(): Array<{ i: number; j: number; h: number }> {
+    if (manualMode) {
+      return manualNow()
+        .filter((m) => m.kind === "peak")
+        .map((m) => ({ i: m.i, j: m.j, h: measurePeak(hOf, m.i, m.j) }));
+    }
+    return marks.peaks.map((p) => ({ i: p.i, j: p.j, h: p.h }));
+  }
+
+  function saddlesToDraw(): Array<{ i: number; j: number; h: number; drop: number }> {
+    if (manualMode) {
+      return manualNow()
+        .filter((m) => m.kind === "saddle")
+        .map((m) => {
+          const s = measureSaddle(hOf, field.grid, m.i, m.j);
+          return { i: m.i, j: m.j, h: s.h, drop: s.drop };
+        });
+    }
+    return marks.saddles.map((s) => ({ i: s.i, j: s.j, h: s.h, drop: s.drop }));
+  }
+
+  function cliffsToDraw(): Array<{ i: number; j: number; slopeDeg: number; drop: number; lines: number }> {
+    if (manualMode) {
+      return manualNow()
+        .filter((m) => m.kind === "cliff")
+        .map((m) => {
+          const c = measureCliff(hOf, field.grid, cellM(), m.i, m.j);
+          return { i: m.i, j: m.j, slopeDeg: c.slopeDeg, drop: c.drop, lines: c.lines };
+        });
+    }
+    return marks.cliffs.map((c) => ({
+      i: c.i,
+      j: c.j,
+      slopeDeg: c.slopeDeg,
+      drop: c.drop,
+      lines: c.lines
+    }));
   }
 
   function currentAnnotation(): PartAnnotation | null {
@@ -547,6 +671,15 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
       markRecommended = sample.recommended;
       ridgeSkel = sample.ridgeSkel;
       valleySkel = sample.valleySkel;
+      /*
+       * 换样本 ⇒ 人工标注要换成**那座山**的标注（v2.4.5）。
+       *
+       * 这一步漏掉的后果很隐蔽：上一座山的标注会被原样搬到新山上，
+       * 而坐标还是旧网格的 —— 学生看到"另一座山上也标着同样的三处"，但位置全错。
+       * 标注是**按样本 tag 分键**存的，所以这里只是换一次读取。
+       */
+      manualMarks = loadManualMarks(params.mountainTag);
+      manualMode = manualMarks !== null;
       // 新样本的部位点位全变了，标注层必须跟着重建
       pushAnnotations();
       /*
@@ -759,7 +892,20 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
         ridgeLines: ridgeSkel.lines,
         valleyLines: valleySkel.lines,
         ridgeSkeleton: ridgeSkel,
-        valleySkeleton: valleySkel
+        valleySkeleton: valleySkel,
+        /**
+         * 人工标注（v2.4.5）—— 界面与回归脚本读它就知道"现在画的是谁的标注"。
+         *
+         * ⚠️ `counts` 上面那段**永远是机器检出的原始结果**，即使正在画人工标注。
+         * 因为它是"这座山客观上有哪些部位"的答案，不该被"教师标了哪几处"覆盖；
+         * 想看"画出来的那些"读 `snap.annotation`。
+         */
+        manual: {
+          active: manualMode,
+          count: manualMarks === null ? 0 : manualMarks.length,
+          marks: manualMarks,
+          sessionOnly: manualSessionOnly
+        }
       },
       landType: markType.type,
       landTypeReason: markType.reason,
@@ -852,6 +998,99 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
       if (params.segments.length) {
         apply({ segments: [] });
       }
+    },
+
+    /* ---------------- 人工标注（v2.4.5）---------------- */
+    manualMode() {
+      return manualMode;
+    },
+    setManualMode(on) {
+      manualMode = on;
+      pushAnnotations();
+      pushProjection();
+      return snapshot();
+    },
+    addManualMark(kind, i, j) {
+      if (manualMarks === null) {
+        // 从"未标注"直接加第一个点 ⇒ 顺手进入人工模式（否则点画了却看不见）
+        manualMarks = [];
+        manualMode = true;
+      }
+      const r = addMark(manualMarks, kind, i, j);
+      if (r.reason) {
+        return { snapshot: snapshot(), reason: r.reason };
+      }
+      manualMarks = r.marks;
+      manualSessionOnly = !saveManualMarks(params.mountainTag, r.marks);
+      pushAnnotations();
+      pushProjection();
+      return { snapshot: snapshot() };
+    },
+    removeManualMark(kind, i, j, hitCells) {
+      if (manualMarks === null) {
+        return { snapshot: snapshot(), hit: false };
+      }
+      const r = removeMarkAt(manualMarks, kind, i, j, hitCells);
+      if (r.hitIndex < 0) {
+        return { snapshot: snapshot(), hit: false };
+      }
+      manualMarks = r.marks;
+      manualSessionOnly = !saveManualMarks(params.mountainTag, r.marks);
+      pushAnnotations();
+      pushProjection();
+      return { snapshot: snapshot(), hit: true };
+    },
+    adoptMachineMarks() {
+      const seeded = seedFromMachine(marks, 3);
+      manualMarks = seeded;
+      manualMode = true;
+      manualSessionOnly = !saveManualMarks(params.mountainTag, seeded);
+      pushAnnotations();
+      pushProjection();
+      return snapshot();
+    },
+    clearAllManualMarks() {
+      /*
+       * 落盘成**空数组**而不是删键 ——
+       * `loadManualMarks` 读出 `[]` 时 `manualMarks !== null`，于是 `manualMode` 为真、
+       * 画面是空的。这正是"教师清空过"的语义；而 `forgetManualMarks` 才是"从没标过"。
+       */
+      manualMarks = [];
+      saveManualMarks(params.mountainTag, []);
+      pushAnnotations();
+      pushProjection();
+      return snapshot();
+    },
+    forgetManualMarks() {
+      clearManualMarks(params.mountainTag);
+      manualMarks = null;
+      manualMode = false;
+      pushAnnotations();
+      pushProjection();
+      return snapshot();
+    },
+    manualStorageOK() {
+      /*
+       * 两个来源取"或"：
+       *   - `manualSessionOnly === false` ⇒ 上一次保存**确实成功过**（最硬的证据）
+       *   - `storageAvailable()` ⇒ 现在**主动试写**一条哨兵也成功
+       *
+       * ⚠ 只看 `manualSessionOnly` 是不够的（v2.4.5 真机回归 I14 抓到的）：
+       * 它初始是 `false`，只有 `saveManualMarks` 返回 `false` 时才置 `true`
+       * ⇒ **第一次进游戏、还没标任何东西时**，隐私模式的用户看到的也是
+       * "存储正常"，标完第一个点才被告知白标了。
+       * 反过来只看 `storageAvailable()` 也不够：它每帧都可能被调用，
+       * 真写一次太贵，而且**读得到写不了**的环境它才是唯一可靠来源 ——
+       * 所以两者互补，探测试写只在需要时做一次（`manualStorageOK` 是按需调用的）。
+       */
+      return !manualSessionOnly && storageAvailable();
+    },
+    manualInfo() {
+      return {
+        active: manualMode,
+        marks: manualMarks === null ? null : manualMarks.slice(),
+        sessionOnly: manualSessionOnly
+      };
     },
     dispose() {
       view?.dispose();

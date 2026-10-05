@@ -368,6 +368,25 @@ export function createView3d(container: HTMLElement): View3dHandle {
     if (hitT < 0) return null;
     const x = o.x + dir.x * hitT;
     const z = o.z + dir.z * hitT;
+    /*
+     * ⚠️⚠️ 必须在这里做**图幅内**检查，地表分支不能照抄平面分支的写法就完事。
+     *
+     * 病根：`altitudeAtWorld` 对图幅外的坐标是**钳制到边缘**的（边缘外一律给边缘值），
+     * 所以一条射向"图幅外的天空"的射线，`heightAt(t)` 依然会穿过 0
+     * —— 它穿过的不是地形，是**由边缘高度铺出去的那张虚假平面**。
+     * 于是 `pick` 返回了 `gy = 376`（网格只有 0~255）这种越界坐标。
+     *
+     * 为什么现在才暴露：v2.4.5 之前 `pick` 的结果只用来算 `alt`（给 tooltip 显示），
+     * 越界也无所谓；人工标注要拿它**当格坐标写进 localStorage**，
+     * 越界值会被 `addManualMark` 当成"落在图幅外"拒掉 ——
+     * 界面上表现为"点沙盘没反应"，而 `elementFromPoint` / 手势判据全是绿的，
+     * 极难归因（这一版真机回归就是在这儿红了两条）。
+     *
+     * 所以边界检查放在**出口**（两条分支汇合后），而不是只补平面那一支 ——
+     * 补一处的话，下一个人加第三条拾取路径还会再踩一次。
+     */
+    const halfSpan = field.spanM / 2;
+    if (Math.abs(x) > halfSpan || Math.abs(z) > halfSpan) return null;
     const [gx, gy] = worldToGrid(field, x, z);
     return { gx, gy, alt: sampleGrid(field, gx, gy) };
   }

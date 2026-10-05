@@ -543,6 +543,29 @@ button {
   gap: 5px;
 }
 
+/**
+ * 选中态的部位色条。
+ *
+ * ⚠ **v2.5.3**：原先这个 `box-shadow: inset 0 -3px 0 <部位色>` 是写在
+ * `MountainZones.tsx` 的**内联 style** 里的，而全站其它地方表达「选中」
+ * 只有一种办法 —— `.mz-chip.is-on` 的墨底反白。
+ * 内联样式的坏处是它不在样式表里：改配色要翻 TSX，而且**不受任何统一规则约束**，
+ * 这正是「这块 UI 和别处不像」的来源之一。
+ *
+ * 现在改成：JSX 只把部位色塞进 `--part-color` 这一个变量，
+ * 阴影/粗细/位置全部由样式表声明。色条保留 —— 它承担信息
+ * （"你现在标的是**哪一种**颜色"），不是纯装饰。
+ */
+.mz-chip.is-part.is-on {
+  box-shadow: inset 0 -4px 0 var(--part-color, var(--ink));
+}
+
+/** 选中时色点加一圈纸色描边，否则深色部位色点在墨底上会糊掉 */
+.mz-chip.is-part.is-on .mz-chip-dot {
+  border-color: var(--paper-3);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
 .mz-chip.is-part:disabled {
   opacity: 0.42;
   cursor: not-allowed;
@@ -577,6 +600,81 @@ button {
 
 .mz-hint b {
   color: var(--ink);
+}
+
+/* 组内的一行小标题（比 .mz-group-title 小一号，用于分两段的动作） */
+.mz-sub {
+  margin-top: 8px;
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+.mz-sub b {
+  color: var(--ink);
+}
+
+/*
+ * 人工标注（v2.4.5）的两处状态色。
+ *
+ * ⚠ 与`.mz-hint.is-warn` 的分工：`is-marking` 是**操作中**（蓝），
+ * `is-warn` 是**环境问题**（红）。两者语义不同 ——
+ * 混成一个颜色会让「我正在标注」看起来像「出错了」。
+ *
+ * 底色用 `color-mix` 把语义色压到 8%：不引新的颜色常量（§101 装饰色/语义色分离），
+ * 也不会在暗色主题下变成一块脏灰。
+ *
+ * ⚠ **v2.5.3 统一**：这两个框原先是全站**唯一**带圆角的东西
+ * （`border-radius: 0 4px 4px 0`），左边框也比别处细一档（3px vs 4px）。
+ * 同一屏里 `.mz-tplcard` / `.mz-dex-card` / `.mz-notice` 全是「0 圆角 + 4px 左条」，
+ * 夹着一个圆角提示框，看起来就像另一个项目做的。
+ * ⇒ 圆角归零、左条加粗到 4px，与 `.mz-notice` / `.mz-pending` 完全同规格。
+ */
+.mz-hint.is-marking {
+  padding: 6px 9px;
+  border-left: 4px solid var(--blue);
+  background: color-mix(in srgb, var(--blue) 8%, transparent);
+  border-radius: 0;
+  /* 操作中的这一条要能在一堆说明文字里被一眼看见（原先 weight 400 与
+     周围的 `.mz-hint` 一模一样，等于靠底色单独撑着） */
+  font-weight: 700;
+}
+
+.mz-hint.is-warn {
+  padding: 6px 9px;
+  border-left: 4px solid var(--red);
+  background: color-mix(in srgb, var(--red) 8%, transparent);
+  border-radius: 0;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/**
+ * 说明文字里嵌的小动作按钮（「退出」「删除本机这份标注」那种）。
+ *
+ * ⚠ **v2.5.3 统一**：这原先是全站唯一的「1px 细边 + 3px 圆角 + 透明底」按钮，
+ * 规格与 `.mz-chip`（2px 实墨边 / 0 圆角 / 纸色底）、`.mz-pickbar-x`（同上）都对不上，
+ * 点下去之前完全看不出这是个按钮。
+ * ⇒ 抄 `.mz-pickbar-x` 的规格：小号但仍是 **2px 实墨边 + 纸色底 + 0 圆角**，
+ * hover 走「墨底反白」（和别的按钮一致，而不是只换个浅底）。
+ * 保留 `margin-top` 让它仍然另起一行 —— 挤在句尾会读成句子的延续。
+ */
+.mz-inline-x {
+  display: block;
+  margin-top: 6px;
+  padding: 3px 9px;
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--ink);
+  background: var(--paper-3);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.mz-inline-x:hover {
+  color: var(--paper-3);
+  background: var(--ink);
 }
 
 .mz-slider {

@@ -29,6 +29,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+/* v2.5.3：给部位按钮的 `--part-color` 定制属性做的类型断言用 */
+import type { CSSProperties } from "react";
 import {
   createEngine, MAX_PROFILE_SEGMENTS, type Engine, type Params, type Pt, type Snapshot
 } from "./engine";
@@ -49,6 +51,7 @@ import {
 import {
   BELTS, SEASON_LABEL, SEASONS, beltColor, beltDef, type SeasonId
 } from "./zonation";
+import { type ManualKind } from "./manualMark";
 
 type Tab = "plan" | "list" | "profile" | "dex";
 /** 图鉴筛选：某类型 / 某部位 / 全部 */
@@ -116,6 +119,15 @@ const EXAGGERATION_STEPS = [1, 1.5, 2, 5, 10, 20];
  */
 const CLICK_MOVE_PX = 4;
 const CLICK_MS = 500;
+/**
+ * 人工标注记号的命中半径（**屏幕像素**，v2.4.5）。
+ *
+ * 与端点命中半径同一个量级 —— 但方向相反：端点越小越难点中（拖错了很难受），
+ * 记号反过来要够大（教师点的是屏幕上那个三角形，不是 1 px 的精确位置），
+ * 同时不能大到"想新增却误删旁边那个"，所以取 14 px：大于端点（12 px 级），
+ * 且明显小于最小记号在屏幕上的直径。
+ */
+const MARK_HIT_PX = 14;
 /** 端点命中半径（屏幕像素）。太小点不中，太大两个端点会互相抢 */
 const ENDPOINT_HIT_PX = 14;
 
@@ -156,6 +168,14 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
   /** 图鉴筛选：按地形类型 / 按地形部位，两者可叠加 */
   const [dexType, setDexType] = useState<DexFilter<LandTypeId>>("all");
   const [dexPart, setDexPart] = useState<DexFilter<LandPartId>>("all");
+  /**
+   * 人工标注（v2.4.5）：当前要往图上落的部位类型。
+   *
+   * `null` = 不在标注模式 ⇒ 沙盘上的点击仍然归"转视角/画剖面"，
+   * 与v2.4.4 的行为逐字一致。两个模式**互斥**而不是并存 ——
+   * 共存的话教师点一下到底算什么，全靠猜。
+   */
+  const [markKind, setMarkKind] = useState<ManualKind | null>(null);
 
   // ---------- 引擎初始化（只跑一次） ----------
   useEffect(() => {
@@ -313,6 +333,14 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
       landformParts: () => engineRef.current?.snapshot().landform ?? null,
       /** 网格坐标 → 屏幕像素（端点命中判定用，与界面同一条路径） */
       project: (gx: number, gy: number) => engineRef.current?.view?.project(gx, gy) ?? null,
+      /**
+       * 屏幕像素 → 网格坐标（只拾取，不落任何状态）。
+       *
+       * 与界面点沙盘走**同一条** `engine.pickOnly`（ray-march），
+       * 所以回归脚本能分辨「拾取没命中地形」和「命中了但引擎拒绝加标注」——
+       * 这两种失败在界面上长得一模一样（都是"点了没反应"）。
+       */
+      pickOnly: (px: number, py: number) => engineRef.current?.pickOnly(px, py) ?? null,
       /** 引擎字段直读（验证脚本核对地形数据是否与源一致） */
       terrainInfo: () => {
         const f = engineRef.current?.field;
@@ -421,6 +449,50 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
         apply({ showParts: ids });
         return engineRef.current?.view?.debug() ?? null;
       },
+      /* ---- 人工标注（v2.4.5）—— 回归脚本要与界面按钮走同一条路径 ---- */
+      manualInfo: () => engineRef.current?.manualInfo() ?? null,
+      /**
+       * 存储是否可用（v2.4.5）。
+       *
+       * 单独挂出来是因为「localStorage 不可用」这件事**在界面上完全看不出来**：
+       * 标注照样能加、刷新就没了。所以回归脚本要能直接读它，
+       * 判据见 `.workbuddy/tmp/mzverify-v245/shot.js` 的 I14 节。
+       */
+      manualStorageOK: () => engineRef.current?.manualStorageOK() ?? false,
+      setManualMode: (on: boolean) => {
+        const s = engineRef.current?.setManualMode(on) ?? null;
+        setSnap(s);
+        return s;
+      },
+      adoptMachineMarks: () => {
+        const s = engineRef.current?.adoptMachineMarks() ?? null;
+        setSnap(s);
+        return s;
+      },
+      clearAllManualMarks: () => {
+        const s = engineRef.current?.clearAllManualMarks() ?? null;
+        setSnap(s);
+        return s;
+      },
+      forgetManualMarks: () => {
+        const s = engineRef.current?.forgetManualMarks() ?? null;
+        setSnap(s);
+        return s;
+      },
+      addManualMark: (kind: ManualKind, i: number, j: number) => {
+        const r = engineRef.current?.addManualMark(kind, i, j);
+        if (r) {
+          setSnap(r.snapshot);
+        }
+        return r?.reason ?? null;
+      },
+      removeManualMark: (kind: ManualKind, i: number, j: number, hitCells: number) => {
+        const r = engineRef.current?.removeManualMark(kind, i, j, hitCells);
+        if (r) {
+          setSnap(r.snapshot);
+        }
+        return r?.hit ?? false;
+      },
       /** 三维视图的调试读数（含标注层的实际对象数） */
       viewDebug: () => engineRef.current?.view?.debug() ?? null,
       setTab: (t: Tab) => setTab(t),
@@ -481,7 +553,21 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (!pickMode) {
+      /*
+       * ⚠⚠️ 这里必须放行**人工标注**模式，不能只认 `pickMode`。
+       *
+       * 病根：v2.4.5 加人工标注时让两个模式**共用手势判据**（位移 + 时长），
+       * 但忘了 `onPointerDown` 开头这个 `if (!pickMode) return` ——
+       * 人工标注时"画剖面"按钮是灰的（`pickMode === false`），
+       * 于是 `downRef.current` **从没被记录**，`onPointerUp` 里
+       * `down === null` ⇒ `isClick` 恒为 false ⇒ 点沙盘**毫无反应**。
+       *
+       * 为什么难发现：事件确实投出去了、React 确实收到了 `pointerup`、
+       * 引擎旁路调用也确实能加标注 —— 全都绿，只有"真鼠标点沙盘"这一条路是死的。
+       * 判据见 `.workbuddy/tmp/mzverify-v245/shot.js` 的 I8/I9 两节
+       * （含事件计数探针与引擎旁路探针，就是靠"一刀切成两半"定位到这里的）。
+       */
+      if (!pickMode && !markKind) {
         return;
       }
       downRef.current = { x: e.clientX, y: e.clientY, t: performance.now() };
@@ -494,7 +580,10 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
         setNotice(null);
       }
     },
-    [pickMode, hitEndpoint]
+    // ⚠ `markKind` 必须在依赖里：它从 null 变成 "peak" 的那一刻，
+    //   这个回调要换成"认标注模式"的版本，否则点第一下仍然没反应
+    //   （useCallback 复用旧函数 ⇒ 旧闭包里 markKind 还是 null）。
+    [pickMode, markKind, hitEndpoint]
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -532,16 +621,75 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
         e.currentTarget.releasePointerCapture?.(e.pointerId);
         return;
       }
+      const engine = engineRef.current;
+      if (!engine) {
+        return;
+      }
+      const moved = down ? Math.hypot(e.clientX - down.x, e.clientY - down.y) : Infinity;
+      const isClick =
+        down !== null && moved <= CLICK_MOVE_PX && performance.now() - down.t <= CLICK_MS;
+
+      /*
+       * 人工标注（v2.4.5）优先于画剖面 —— 两者互斥（`markKind !== null` 时
+       * 画剖面按钮是灰的），所以这里先判它就不会两者都响应。
+       *
+       * ⚠ 手势判据与画剖面**完全相同**（位移 + 时长）：教师标点时同样可能
+       * 手抖，也同样会拖动视角。两个模式各写一套判据必然出现"标不准"的某一边。
+       */
+      if (markKind) {
+        if (!isClick) {
+          return; // 是在转视角，不是点选
+        }
+        const hit = engine.pickOnly(e.clientX, e.clientY);
+        if (!hit) {
+          return;
+        }
+        /*
+         * 先试着**删掉已有的**，删不掉才新增 —— 于是同一个动作有两种含义，
+         * 教师不必先想"我现在是加还是删"：点在空处 = 标一个，点在记号上 = 删掉它。
+         *
+         * 命中半径必须换算成**格**：记号的屏幕大小不随缩放变，而 `i/j` 是格坐标。
+         * 换算靠"该格在地形上的世界尺度 → 屏幕像素"的比例，取`view.project`
+         * 两个相邻格点的屏幕距离来量（一次减法，不做矩阵逆）。
+         */
+        const view = engine.view;
+        let hitCells = 0;
+        if (view) {
+          const p0 = view.project(hit.gx, hit.gy);
+          const p1 = view.project(hit.gx + 1, hit.gy);
+          if (p0 && p1) {
+            const pxPerCell = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+            if (pxPerCell > 0.01) {
+              hitCells = MARK_HIT_PX / pxPerCell;
+            }
+          }
+        }
+        const rm = engine.removeManualMark(markKind, hit.gx, hit.gy, hitCells);
+        if (rm.hit) {
+          setSnap(rm.snapshot);
+          setNotice(null);
+          return;
+        }
+        // 没点到已有的 ⇒ 当作新增。若换算不出格距（相机恰好正对），退给0.5格：
+        // 宁可"点空处也删不掉"也不要"点哪儿都删"。
+        const r = engine.addManualMark(markKind, hit.gx, hit.gy);
+        setSnap(r.snapshot);
+        if (r.reason === "duplicate") {
+          setNotice("这里已经标过一个同类部位了");
+        } else {
+          setNotice(null);
+        }
+        return;
+      }
+
       if (!pickMode || !down) {
         return;
       }
-      const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
       if (moved > CLICK_MOVE_PX || performance.now() - down.t > CLICK_MS) {
         return; // 是拖着转视角，不是点选
       }
-      const engine = engineRef.current;
-      const hit = engine?.pickOnly(e.clientX, e.clientY);
-      if (!engine || !hit) {
+      const hit = engine.pickOnly(e.clientX, e.clientY);
+      if (!hit) {
         return;
       }
       const p: Pt = [hit.gx, hit.gy];
@@ -567,7 +715,7 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
         setNotice(res.reason ?? "这段画不了");
       }
     },
-    [pickMode, pending]
+    [pickMode, pending, markKind]
   );
 
   /**
@@ -1162,8 +1310,17 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
                     disabled={!drawable}
                     className={`mz-chip is-part${on ? " is-on" : ""}`}
                     /* 选中时用该部位的颜色描个下边线 —— 与三块画面上的记号同色，
-                       学生才能把"这个按钮"和"图上那条线"对上。 */
-                    style={on ? { boxShadow: `inset 0 -3px 0 ${PART_COLORS[p.id]}` } : undefined}
+                       学生才能把"这个按钮"和"图上那条线"对上。
+                       ⚠ v2.5.3：原来这里是**内联 boxShadow**（TSX 里写死 `inset 0 -3px 0 …`），
+                       它会**覆盖**样式表 —— 于是同一个 is-part 按钮，
+                       「自己标部位」那组走样式表（本组没内联）、这一组走内联，
+                       规格还不一样（-3px vs -4px）。现在两处都只喂
+                       `--part-color`，色条由 `.mz-chip.is-part.is-on` 统一声明。 */
+                    style={
+                      on
+                        ? ({ "--part-color": PART_COLORS[p.id] } as CSSProperties)
+                        : undefined
+                    }
                     title={
                       drawable
                         ? `${p.name}：${p.rule}（本样本检出 ${n} 处${isCappedPart(p.id, n) ? "+" : ""}）`
@@ -1212,6 +1369,159 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
               细化成线，不是人工画的分水线；所以它表示「检测到的脊 / 谷在哪一段」，
               不等于严格的流域分界。
             </div>
+          </div>
+        ) : null}
+
+        {/* 人工标注（v2.4.5）。紧跟在「地形部位标注」之后 ——
+            动作顺序是「先打开部位标注，再决定要不要自己改」。
+            这一档把「机器说了算」换成「你说了算」，但**不删机器结果**：
+            下方随时能一键退回，不是只能进不能退。 */}
+        {snap ? (
+          <div className="mz-group">
+            <div className="mz-group-title">
+              自己标部位
+              <b className="mz-num">
+                {snap.landform.manual.active
+                  ? snap.landform.manual.count + " 处"
+                  : "未启用"}
+              </b>
+            </div>
+            <div className="mz-btn-row">
+              <button
+                type="button"
+                className={"mz-chip" + (snap.landform.manual.active ? " is-on" : "")}
+                onClick={() => {
+                  const next = !snap.landform.manual.active;
+                  setSnap(engineRef.current?.setManualMode(next) ?? snap);
+                  // 退出人工模式时必须把落点模式也关掉：否则按钮还亮着，
+                  // 而点沙盘什么都不发生（画的是人工标注，可人工标注已经关了）。
+                  if (!next) {
+                    setMarkKind(null);
+                  }
+                  setNotice(null);
+                }}
+              >
+                人工标注
+              </button>
+              <button
+                type="button"
+                className="mz-chip is-small"
+                disabled={!snap.landform.manual.active}
+                title="把机器检出的每类前 3 处收进来当起点，再自己增删改"
+                onClick={() => {
+                  setSnap(engineRef.current?.adoptMachineMarks() ?? snap);
+                  setNotice("已把机器检出收进来，可以接着改");
+                }}
+              >
+                采用机器结果
+              </button>
+              <button
+                type="button"
+                className="mz-chip is-small"
+                disabled={!snap.landform.manual.active || !snap.landform.manual.count}
+                title="清空成「标过但一处不留」—— 与「从未标过」不同，它会被记住"
+                onClick={() => {
+                  setSnap(engineRef.current?.clearAllManualMarks() ?? snap);
+                  setNotice(null);
+                }}
+              >
+                清空
+              </button>
+            </div>
+
+            {snap.landform.manual.active ? (
+              <>
+                <div className="mz-sub">
+                  点部位类型，再在<b>三维沙盘</b>上点一下就标上
+                </div>
+                <div className="mz-btn-row">
+                  {(["peak", "saddle", "cliff"] as ManualKind[]).map((k) => {
+                    const on = markKind === k;
+                    const cnt = (snap.landform.manual.marks ?? []).filter(
+                      (m) => m.kind === k
+                    ).length;
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        className={"mz-chip is-part" + (on ? " is-on" : "")}
+                        /* ⚠ 选中态的部位色条由样式表声明（`.mz-chip.is-part.is-on`），
+                           这里只负责把颜色**喂**给它 —— 见 styles.css 里那段注释：
+                           内联 boxShadow 绕开了样式表，改配色要去翻 TSX，
+                           正是「这块 UI 和别处不像」的来源之一。 */
+                        style={
+                          on
+                            ? ({ "--part-color": PART_COLORS[k] } as CSSProperties)
+                            : undefined
+                        }
+                        title={landPartDef(k).name + "：点地形标上；点已标的记号可以删掉"}
+                        onClick={() => {
+                          setMarkKind(on ? null : k);
+                          setNotice(null);
+                          // 进标注模式时把这一类打开，否则标上了却仍然看不见
+                          const cur = engineRef.current?.params.showParts ?? [];
+                          if (!on && !cur.includes(k)) {
+                            apply({
+                              showParts: LAND_PARTS.map((p) => p.id).filter(
+                                (x) => cur.includes(x) || x === k
+                              )
+                            });
+                          }
+                        }}
+                      >
+                        <span
+                          className="mz-chip-dot"
+                          style={{ background: PART_COLORS[k] }}
+                        />
+                        {landPartDef(k).name}
+                        <em className="mz-chip-n">{cnt > 0 ? String(cnt) : "—"}</em>
+                      </button>
+                    );
+                  })}
+                </div>
+                {markKind ? (
+                  <div className="mz-hint is-marking">
+                    正在标<b>{landPartDef(markKind).name}</b>：在沙盘上点一下落标注，
+                    点已落的记号可以删掉。
+                    <button
+                      type="button"
+                      className="mz-inline-x"
+                      onClick={() => setMarkKind(null)}
+                    >
+                      退出
+                    </button>
+                  </div>
+                ) : null}
+                {snap.landform.manual.sessionOnly ? (
+                  <div className="mz-hint is-warn">
+                    ⚠ 本浏览器不让存数据（隐私模式或空间已满）——
+                    标注<b>本次有效</b>，关掉页面就没了。
+                  </div>
+                ) : null}
+                <div className="mz-hint">
+                  标注存在<b>这台电脑</b>上，不上传、不跟着账号走。
+                  <br />
+                  山脊与山谷是<b>线</b>，仍由程序算（手画线不现实），这两类不可人工标注。
+                  <br />
+                  <button
+                    type="button"
+                    className="mz-inline-x"
+                    onClick={() => {
+                      setSnap(engineRef.current?.forgetManualMarks() ?? snap);
+                      setMarkKind(null);
+                      setNotice(null);
+                    }}
+                  >
+                    删除本机这份标注
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="mz-hint">
+                关着时画的是<b>程序检出</b>的结果（真实山地上可能一次标出十几处）。
+                打开后由你决定标哪几处，存在本机，下次打开还在。
+              </div>
+            )}
           </div>
         ) : null}
 
