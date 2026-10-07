@@ -1,7 +1,7 @@
 {
   "gameCode": "mountain_zones",
   "name": "口袋地形",
-  "version": "2.5.3",
+  "version": "2.5.5",
   "minPlatformVersion": "0.1.0",
   "maxPlatformVersion": "1.0.0",
   "type": "iframe",

@@ -6,7 +6,7 @@ import type { PlayerInfo } from "./MountainZones";
 import "./styles.css";
 
 const gameCode = "mountain_zones";
-const version = "2.5.3";
+const version = "2.5.5";
 
 function postToPlatform(message: unknown) {
   if (window.parent && window.parent !== window) {

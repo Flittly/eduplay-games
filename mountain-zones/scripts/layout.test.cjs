@@ -42,6 +42,41 @@ function readSrc(name) {
 }
 
 /**
+ * 取某个函数的**函数体**（按大括号配对），供静态断言用。
+ *
+ * 为什么不写 `/function foo[\s\S]{0,300}关键字/`：那个"往后数 300 个字符"
+ * 的窗口**会被注释撑爆** —— 往里插一段说明文字就假红，而"红"的原因跟
+ * 被测行为毫无关系（v2.5.4 加了一条注记注释，`setTerrainVisible` 里到
+ * `frameAssembly` 的距离从 300 涨到 485，判据当场翻脸）。
+ * 覆盖范围用**函数边界**表达，才不会因为排版变化而失效。
+ *
+ * ⚠ 前提：函数体里不能出现字符串 / 注释形式的大括号（本仓库这几处都没有）。
+ */
+function bodyOf(src, name) {
+  const i = src.indexOf(`function ${name}(`);
+  if (i < 0) {
+    return "";
+  }
+  const open = src.indexOf("{", i);
+  if (open < 0) {
+    return "";
+  }
+  let depth = 0;
+  for (let k = open; k < src.length; k++) {
+    const c = src[k];
+    if (c === "{") {
+      depth++;
+    } else if (c === "}") {
+      depth--;
+      if (depth === 0) {
+        return src.slice(open, k + 1);
+      }
+    }
+  }
+  return "";
+}
+
+/**
  * 世界点 → NDC（three.js 透视投影的标准公式）。
  *
  * 这是**标准数学**，不是复刻 layout 的实现：layout 只负责"给出相机位姿"，
@@ -264,7 +299,7 @@ check("terrain.ts 的「关三维」只收沙盘本体，不动图纸",
   /basePlane\.visible = visible/.test(terrainSrc) &&
   !/projPlane\.visible = visible/.test(terrainSrc));
 check("view3d.ts 关掉沙盘后会重新取景（否则镜头对着空气）",
-  /function setTerrainVisible[\s\S]{0,300}frameAssembly\(field\)/.test(viewSrc));
+  bodyOf(viewSrc, "setTerrainVisible").includes("frameAssembly(field)"));
 check("view3d.ts 关掉沙盘后拾取平面切到图纸（否则鼠标点什么都没反应）",
   /if \(!terrainVisible\)[\s\S]{0,600}projectionY\(\)/.test(viewSrc));
 check("view3d.ts 关掉沙盘后端点投影也切到纸面（否则拖拽判定按不存在的地表算）",
@@ -285,7 +320,23 @@ check("取景的下端随图纸显隐切换（图纸高度 ↔ 沙盘底边）",
   /projVisible \? projY : terrain\.baseBottomY\(\)/.test(viewSrc) &&
   /baseBottomY/.test(terrainSrc) && /baseBottomY/.test(viewSrc));
 check("view3d 关掉/打开图纸后也重新取景（否则沙盘缩在画面中间一小块）",
-  /function setProjection[\s\S]{0,420}frameAssembly\(field\)/.test(viewSrc));
+  bodyOf(viewSrc, "setProjection").includes("frameAssembly(field)"));
+
+/*
+ * bodyOf 自己的牙口 —— 静态断言的口径也要能被证伪。
+ *
+ * 只写"包含 frameAssembly"是不够的：如果 bodyOf 实际上返回了**全文**，
+ * 那条断言在任何情况下都是绿的（等于没测）。所以补两条：
+ * 圈出的范围要止于函数末尾、且对不存在的名字返回空串。
+ */
+{
+  const body = bodyOf(viewSrc, "setTerrainVisible");
+  check("bodyOf 真的圈的是函数体（不是全文，也不越过下一个函数）",
+    body.length > 0 && body.length < viewSrc.length / 4 && !body.includes("function setProjection"),
+    `函数体 ${body.length} 字符 / 源文件 ${viewSrc.length} 字符`);
+  check("bodyOf 对不存在的函数名返回空串（不会静默当成全文）",
+    bodyOf(viewSrc, "noSuchFunctionName") === "");
+}
 check("切开关才重取景，改海拔/换季节不会重置视角（否则学生会一直被掰回默认视角）",
   /s\.visible !== projVisible/.test(viewSrc));
 

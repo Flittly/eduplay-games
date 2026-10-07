@@ -177,6 +177,33 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
    */
   const [markKind, setMarkKind] = useState<ManualKind | null>(null);
 
+  /**
+   * 三个边栏的收起 / 展开（v2.5.4）。
+   *
+   * ⚠ **收起是"折起来"，不是"卸下来"** —— 三个边栏里各有一条命令式画布依赖链
+   * （底栏的两张 canvas、右边栏的位置图），把内容从 DOM 里摘掉就会踩
+   * 「宿主没了、引擎还在跑」那个坑。所以这里只切 class，节点永远挂着；
+   * 代价是折叠期间画布尺寸为 0，展开后要补一次重绘（见下面那个 effect）。
+   *
+   * 左栏的初始值看视口宽度：1024×768 的教室投影仪上，左 292 + 右 372
+   * 会把三维舞台压到 360 px，不如先收成一条窄轨；宽屏则三栏全开。
+   * 这**不是**"记住上次"（用户明确不要记忆），只是首屏的合理默认。
+   */
+  const [leftOpen, setLeftOpen] = useState(
+    () => !window.matchMedia("(max-width: 1120px)").matches
+  );
+  const [rightOpen, setRightOpen] = useState(true);
+  const [bottomOpen, setBottomOpen] = useState(true);
+
+  /*
+   * 边栏一收，三维舞台的宽高就变了：渲染器的视口与 `camera.aspect`
+   * 都是**上一帧**的尺寸，不补这一下画面会被拉扁（而且只有宽高比错了才看得明显）。
+   * 这里不用 `window.resize` —— 那是窗口事件，边栏折叠根本不触发它。
+   */
+  useEffect(() => {
+    engineRef.current?.view?.resize();
+  }, [leftOpen, rightOpen, bottomOpen]);
+
   // ---------- 引擎初始化（只跑一次） ----------
   useEffect(() => {
     const host = hostRef.current;
@@ -273,6 +300,8 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
       setMode: (m: Params["mode"]) => apply({ mode: m }),
       setContourInterval: (v: number) => apply({ contourInterval: v }),
       setShowContours: (v: boolean) => apply({ showContours: v }),
+      setShowContourLabels: (v: boolean) => apply({ showContourLabels: v }),
+      setShowElevationSlices: (v: boolean) => apply({ showElevationSlices: v }),
       setShowBands: (v: boolean) => apply({ showBands: v }),
       setHighlight: (v: number | null) => apply({ highlightLevel: v }),
       setVerticalExaggeration: (v: number) => apply({ verticalExaggeration: v }),
@@ -331,6 +360,30 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
       profileSeries: () => engineRef.current?.snapshot().profileSeries ?? [],
       /** 五类地形部位的检测结果 + 被物理闸门剔除的异常格数 */
       landformParts: () => engineRef.current?.snapshot().landform ?? null,
+      /* ---- 三个边栏的收起状态（v2.5.4）----
+         回归要能"把某一栏收起来再把相机摆回原处"，所以必须能读能写。
+         ⚠ 这里给的是**真实 DOM 上的类名**，不是 React state 的回显：
+         状态改了、类没落上去（比如类名拼错）正是最需要被抓到的一种坏。 */
+      readPanels: () => ({
+        left: leftOpen,
+        right: rightOpen,
+        bottom: bottomOpen,
+        cls: document.querySelector(".mz-root")?.className ?? "",
+        leftW: document.querySelector(".mz-left")?.getBoundingClientRect().width ?? 0,
+        rightW: document.querySelector(".mz-panel")?.getBoundingClientRect().width ?? 0,
+        bottomH: document.querySelector(".mz-bottom")?.getBoundingClientRect().height ?? 0
+      }),
+      setPanel: (which: "left" | "right" | "bottom", open: boolean) => {
+        if (which === "left") {
+          setLeftOpen(open);
+        } else if (which === "right") {
+          setRightOpen(open);
+        } else {
+          setBottomOpen(open);
+        }
+      },
+      /** 三维注记层的现场读数（条数 + 整层可见性 + 场景子对象数），与 view3d.debug 同源 */
+      labelDebug: () => engineRef.current?.view?.debug() ?? null,
       /** 网格坐标 → 屏幕像素（端点命中判定用，与界面同一条路径） */
       project: (gx: number, gy: number) => engineRef.current?.view?.project(gx, gy) ?? null,
       /**
@@ -812,7 +865,12 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
       segments: segmentsOf(snap),
       annotations: snap.annotation ?? undefined
     });
-  }, [tab, snap, planData]);
+    /*
+     * ⚠ 依赖里必须有 `bottomOpen`：底栏折起来时这块画布的盒子尺寸为 0，
+     * 画不了；展开后如果 effect 不重跑，屏幕上就只剩一张折叠前留下的旧图
+     * （尺寸还是窄的那版，被 CSS 拉伸成糊的）。节点没换，所以不能靠 ref 变化触发。
+     */
+  }, [tab, snap, planData, bottomOpen]);
 
   useEffect(() => {
     const c = profileRef.current;
@@ -843,7 +901,8 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
       treeline: snap.treeline,
       cursorT: null
     });
-  }, [tab, snap]);
+    // `bottomOpen` 的理由同上面那张平面图：折叠期间画布尺寸为 0，展开后必须重画
+  }, [tab, snap, bottomOpen]);
 
   // 切页签时 canvas 是刚挂上的，尺寸还没量到 —— 用一个微任务补画一次
   useEffect(() => {
@@ -857,7 +916,112 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
   const contoured = snap?.showContours ?? true;
 
   return (
-    <div className="mz-root">
+    <div
+      className={`mz-root${leftOpen ? "" : " is-left-collapsed"}${
+        rightOpen ? "" : " is-right-collapsed"
+      }${bottomOpen ? "" : " is-bottom-collapsed"}`}
+    >
+      {/* ============ 左栏：选择地形（v2.5.4 从参数栏搬出来） ============ */}
+      {/*
+        为什么值得单独一栏：学生的动作顺序是「先挑一座山，再问它哪里有峰 / 脊 / 谷」，
+        而"挑山"原先埋在右栏十几组参数之间 —— 换一座山要滚半屏，还容易点错。
+        搬到左栏之后，"左挑地形 → 中看立体 → 下看平面"正好就是阅读顺序。
+
+        ⚠ 内容是**折起来**不是**卸下来**：见 `leftOpen` 的注释。
+      */}
+      <aside className="mz-left">
+        <div className="mz-left-head">
+          <h2 className="mz-left-title">选择地形</h2>
+          <button
+            type="button"
+            className="mz-collapse"
+            onClick={() => setLeftOpen((v) => !v)}
+            title={leftOpen ? "收起「选择地形」栏" : "展开「选择地形」栏"}
+            aria-expanded={leftOpen}
+            aria-controls="mz-left-body"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 5 L8 12 L15 19" />
+            </svg>
+          </button>
+        </div>
+        <div className="mz-left-body" id="mz-left-body">
+          {/* 第一档：模板地形（示意）。课前几分钟先看它 —— 一处部位对应一个术语 */}
+          <div className="mz-group">
+            <div className="mz-group-title">
+              模板地形 · 示意
+              {snap?.isTemplate ? (
+                <b className="mz-num">{landTypeDef(snap.landType).name}</b>
+              ) : null}
+            </div>
+            <div className="mz-pickgroup">
+              <span className="mz-pickgroup-label" title="解析生成的示意地形，形状按判据反解，不对应任何真实地点">
+                入门
+              </span>
+              <div className="mz-btn-row">
+                {TEMPLATE_SOURCES.map((s) => (
+                  <button
+                    key={s.tag}
+                    type="button"
+                    className={`mz-chip${snap?.mountainTag === s.tag ? " is-on" : ""}`}
+                    onClick={() => apply({ mountainTag: s.tag })}
+                    title={`${landTypeDef(s.landType).name} · 示意地形 · 无真实经纬度 · ${s.spanKm} km 见方`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mz-hint">
+              不是真实地点，是照着课本示意图做的「干净地形」：一处部位对应一个术语。
+            </div>
+          </div>
+
+          {/* 第二档：真实地形（DEM）。按五种地形类型分组 */}
+          <div className="mz-group">
+            <div className="mz-group-title">
+              真实地形（DEM）
+              {snap && !snap.isTemplate ? (
+                <b className="mz-num">{landTypeDef(snap.landType).name}</b>
+              ) : null}
+            </div>
+            {LAND_TYPES.map((t) => {
+              const list = REAL_SOURCES.filter((s) => s.landType === t.id);
+              if (!list.length) {
+                return null;
+              }
+              return (
+                <div key={t.id} className="mz-pickgroup">
+                  <span className="mz-pickgroup-label" title={t.rule}>
+                    {t.name}
+                  </span>
+                  <div className="mz-btn-row">
+                    {list.map((s) => (
+                      <button
+                        key={s.tag}
+                        type="button"
+                        className={`mz-chip${snap?.mountainTag === s.tag ? " is-on" : ""}`}
+                        onClick={() => apply({ mountainTag: s.tag })}
+                        title={`${t.name} · ${s.peakName} ${s.peakAltitude} m · 取景 ${s.spanKm} km 见方`}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {snap && !snap.isTemplate ? (
+              <div className="mz-hint">
+                {snap.peakName} {snap.peakAltitude} m · 取景 {snap.spanKm} km 见方 · 网格{" "}
+                {snap.grid}×{snap.grid}
+              </div>
+            ) : null}
+          </div>
+
+        </div>
+      </aside>
+
       {/* ============ 三维视图 ============ */}
       <div
         className={`mz-stage${pickMode ? " is-picking" : ""}`}
@@ -878,13 +1042,19 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
       >
         <div className="mz-canvas-host" ref={hostRef} />
 
-        {/* ⚠ 这里**故意**不放任何文字标注（v2.4.3 撤掉）。
+        {/* ⚠ 三维沙盘上**不放部位名称之类的文字标注**（v2.4.3 撤掉）。
             五类地形部位在三维地形上本来就各有一套**彩色记号**（脊线/谷线是贴地折线，
             山峰/鞍部/陡崖是立体 ▲◆▼），由 `view3d.ts` 画在三维场景里；
             右下角的「部位标注」图例负责说明"哪种颜色是哪一类"。
             文字标签（v2.4.1 贴在锚点上、v2.4.2 用引线甩出去）看着是把
             "哪个峰多高"讲清楚了，代价却是**盖住地形本身** —— 而看清地形
-            正是这个游戏唯一要做的事。要读数就看右下的「地貌图鉴」与「等高线清单」。 */}
+            正是这个游戏唯一要做的事。要读数就看右下的「地貌图鉴」与「等高线清单」。
+
+            v2.5.4 补一个**例外**：计曲线的**高程数字**（「等高线数字」开关）。
+            它和上面被撤掉的文字不是一回事 —— 那些是**部位的名字**，贴在山体上会
+            盖住地貌；高程数字是**线自己的读数**，落点由 `majorLabelAnchors` 挑在
+            线最平缓的一段、彼此至少隔开 12% 图幅，且只标计曲线（每 5 条一条）。
+            开关默认开着，嫌乱的学生一键就能关掉，见 `view3d.ts` 的 `setContourLabels`。 */}
 
         {errors ? (
           <div className="mz-error">
@@ -989,6 +1159,18 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
       {/* ============ 底部等高线栏 ============ */}
       <section className="mz-bottom">
         <header className="mz-bottom-head">
+          <button
+            type="button"
+            className="mz-collapse is-down"
+            onClick={() => setBottomOpen((v) => !v)}
+            title={bottomOpen ? "收起等高线栏" : "展开等高线栏"}
+            aria-expanded={bottomOpen}
+            aria-controls="mz-bottom-body"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 5 L8 12 L15 19" />
+            </svg>
+          </button>
           <h2>等高线栏</h2>
           <div className="mz-tabs">
             <button
@@ -1035,7 +1217,7 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
           </div>
         </header>
 
-        <div className="mz-bottom-body">
+        <div className="mz-bottom-body" id="mz-bottom-body">
           {tab === "plan" ? (
             <canvas className="mz-canvas-plan" ref={planRef} />
           ) : null}
@@ -1208,80 +1390,21 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
         <h1 className="mz-title">
           <span>口袋地形</span>
           <em>垂直自然带</em>
+          <button
+            type="button"
+            className="mz-collapse"
+            onClick={() => setRightOpen((v) => !v)}
+            title={rightOpen ? "收起参数栏" : "展开参数栏"}
+            aria-expanded={rightOpen}
+            aria-controls="mz-panel-body"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 5 L8 12 L15 19" />
+            </svg>
+          </button>
         </h1>
 
-        {/* 第一档：模板地形（示意）。课前几分钟先看它 —— 一处部位对应一个术语 */}
-        <div className="mz-group">
-          <div className="mz-group-title">
-            模板地形 · 示意
-            {snap?.isTemplate ? (
-              <b className="mz-num">{landTypeDef(snap.landType).name}</b>
-            ) : null}
-          </div>
-          <div className="mz-pickgroup">
-            <span className="mz-pickgroup-label" title="解析生成的示意地形，形状按判据反解，不对应任何真实地点">
-              入门
-            </span>
-            <div className="mz-btn-row">
-              {TEMPLATE_SOURCES.map((s) => (
-                <button
-                  key={s.tag}
-                  type="button"
-                  className={`mz-chip${snap?.mountainTag === s.tag ? " is-on" : ""}`}
-                  onClick={() => apply({ mountainTag: s.tag })}
-                  title={`${landTypeDef(s.landType).name} · 示意地形 · 无真实经纬度 · ${s.spanKm} km 见方`}
-                >
-                  {s.name}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="mz-hint">
-            不是真实地点，是照着课本示意图做的「干净地形」：一处部位对应一个术语。
-          </div>
-        </div>
-
-        {/* 第二档：真实地形（DEM）。按五种地形类型分组 */}
-        <div className="mz-group">
-          <div className="mz-group-title">
-            真实地形（DEM）
-            {snap && !snap.isTemplate ? (
-              <b className="mz-num">{landTypeDef(snap.landType).name}</b>
-            ) : null}
-          </div>
-          {LAND_TYPES.map((t) => {
-            const list = REAL_SOURCES.filter((s) => s.landType === t.id);
-            if (!list.length) {
-              return null;
-            }
-            return (
-              <div key={t.id} className="mz-pickgroup">
-                <span className="mz-pickgroup-label" title={t.rule}>
-                  {t.name}
-                </span>
-                <div className="mz-btn-row">
-                  {list.map((s) => (
-                    <button
-                      key={s.tag}
-                      type="button"
-                      className={`mz-chip${snap?.mountainTag === s.tag ? " is-on" : ""}`}
-                      onClick={() => apply({ mountainTag: s.tag })}
-                      title={`${t.name} · ${s.peakName} ${s.peakAltitude} m · 取景 ${s.spanKm} km 见方`}
-                    >
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          {snap && !snap.isTemplate ? (
-            <div className="mz-hint">
-              {snap.peakName} {snap.peakAltitude} m · 取景 {snap.spanKm} km 见方 · 网格{" "}
-              {snap.grid}×{snap.grid}
-            </div>
-          ) : null}
-        </div>
+        <div className="mz-panel-body" id="mz-panel-body">
 
         {/* 第三档：地形部位标注（v2.4.1）。
             紧跟在「选地形」后面 —— 学生的动作顺序就是"先挑一座山，再问它哪里有峰/脊/谷" */}
@@ -1716,6 +1839,36 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
             >
               自然带配色
             </button>
+            <button
+              type="button"
+              className={`mz-chip${snap?.showContourLabels ? " is-on" : ""}`}
+              onClick={() => apply({ showContourLabels: !snap?.showContourLabels })}
+              /* 线都没了，标数字无从谈起 —— 灰掉而不是静默无效，
+                 悬停时的 title 会说明先去开哪一项 */
+              disabled={!contoured}
+              title={
+                contoured
+                  ? "在三维沙盘上给计曲线标出高程数字（每 5 条一条）；底栏平面图一直有数字"
+                  : "先点亮「地表等高线」，才有线可标"
+              }
+            >
+              等高线数字
+            </button>
+            <button
+              type="button"
+              className={`mz-chip${snap?.showElevationSlices ? " is-on" : ""}`}
+              onClick={() => apply({ showElevationSlices: !snap?.showElevationSlices })}
+              /* 与「等高线数字」同一个理由灰掉：没有线就没有交线可讲，
+                 一层层空板子切在光秃秃的山上只会让人以为画错了 */
+              disabled={!contoured}
+              title={
+                contoured
+                  ? "在每条计曲线的高度上铺一块半透明水平面，图幅外再立一根带刻度的高度尺；关掉即收起"
+                  : "先点亮「地表等高线」，才有层可切"
+              }
+            >
+              高程切面
+            </button>
           </div>
           <div className="mz-group-subtitle">等高距</div>
           <div className="mz-btn-row">
@@ -1953,6 +2106,7 @@ export default function MountainZones({ roster = [] }: { roster?: PlayerInfo[] }
           {snap?.isTemplate
             ? "地形数据：解析函数生成（示意地形，无随机数、可逐字节复现）· 不对应任何真实地点"
             : "地形数据：AWS Terrain Tiles（Terrarium，公有领域）· 按真实 DEM 网格渲染"}
+        </div>
         </div>
       </aside>
     </div>

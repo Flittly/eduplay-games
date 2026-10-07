@@ -24,7 +24,17 @@ import { applyElevation, altitudeAtWorld, createField, heightFn, sampleGrid, wor
 import type { DemField } from "./data/types";
 import { DEM_SOURCES, sourceByTag } from "./data";
 import { createView3d, type HoverHit, type View3dHandle, type ViewMode } from "./view3d";
-import { extractAll, levelsFor, pickContourInterval, type ContourLevel } from "./contour";
+import {
+  CONTOUR_MAJOR_EVERY,
+  extractAll,
+  levelsFor,
+  majorLabelCandidates,
+  majorLevels,
+  pickContourInterval,
+  type ContourLabelAnchor,
+  type ContourLabelCandidate,
+  type ContourLevel
+} from "./contour";
 import { buildRunoff, runoffSummary, type RunoffNetwork } from "./runoff";
 import { drawProjectionMap, hasAnyAnnotation, PROFILE_COLORS, type PartAnnotation, type ProfileSeries } from "./panels";
 import {
@@ -91,6 +101,30 @@ export interface Params {
   /** 等高距（米） */
   contourInterval: number;
   showContours: boolean;
+  /**
+   * 三维沙盘上是否把**计曲线的高程数字**标出来（v2.5.4）。
+   *
+   * 与 `showContours` 是两件事：关掉线就什么都没有；开着线但关掉这个，
+   * 沙盘回到"干净地形"。默认开着 —— 学生一进来就能把"这一圈是 2000 m"
+   * 和地形对上，不用先去底栏那张平面图里找答案。
+   */
+  showContourLabels: boolean;
+  /**
+   * 三维沙盘上是否铺**高程切面**（v2.5.5）。
+   *
+   * 每条计曲线所在的高度铺一块半透明的水平面（铺满图幅），并在图幅外的角上
+   * 立一根竖直高度尺 —— 把「等高线 = 地形与水平切面的交线」这件事直接演出来，
+   * 而不是只在文字里讲。
+   *
+   * 默认**关**：它是"讲这个知识点时才打开"的教具。四五层玻璃板压在山体上，
+   * 一眼看到的先是板子、后才是地形，一进来就开着会盖住地形本身的形态。
+   *
+   * 与另外两个开关的关系是「**有计曲线才有面**」：线关了必然没有面
+   * （判据在 `pushElevationSlices`），但数字注记**不影响**面 ——
+   * 屏幕上放不下会丢掉几个数字（见 `view3d.setContourLabels`），
+   * 而"那一层有没有切面"不该跟着屏幕拥挤程度变。
+   */
+  showElevationSlices: boolean;
   /** 是否按自然带着色（关掉就是裸地形） */
   showBands: boolean;
   /** 清单里点选要高亮的那条等高线（米）；null = 不高亮 */
@@ -213,6 +247,23 @@ export interface Snapshot {
   showContours: boolean;
   showBands: boolean;
   contourInterval: number;
+  /** 三维沙盘上是否显示计曲线高程注记（v2.5.4） */
+  showContourLabels: boolean;
+  /** 当前实际算出来的注记条数（回归用；0 = 这个样本/等高距下没有计曲线） */
+  contourLabelCount: number;
+  /** 注记落点明细（网格坐标），供回归换算到屏幕判重叠 */
+  contourLabelAnchors: Array<{ level: number; x: number; y: number }>;
+  /** 三维沙盘上是否铺着高程切面（v2.5.5） */
+  showElevationSlices: boolean;
+  /**
+   * 实际铺出来的切面层数 + 各层高程（从高到低）。
+   *
+   * 与 `contourLabelCount` 同一个报告口径：报「**真的铺了几层**」而不是
+   * 「开关开着」—— 视图可能在 `field` 还没就绪时拒绝建层，只报开关的
+   * 回归会两头都绿而画面是空的。
+   */
+  sliceCount: number;
+  sliceLevels: number[];
   /** 清单里点选要高亮的那条等高线（米） */
   highlightLevel: number | null;
   showProjection: boolean;
@@ -354,6 +405,9 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
     season: "summer",
     contourInterval: 200,
     showContours: true,
+    showContourLabels: true,
+    // 默认不铺切面：它是"讲等高线怎么来的"那一步才打开的教具（见 Params 里的说明）
+    showElevationSlices: false,
     showBands: true,
     highlightLevel: null,
     weather: "clear",
@@ -370,6 +424,31 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
 
   let field: DemField = createField(sourceByTag(params.mountainTag));
   let contours: ContourLevel[] = [];
+  /** 三维沙盘的计曲线高程注记**候选**（与 `contours` 同批算出，见 `recomputeContours`） */
+  let contourLabelCands: ContourLabelCandidate[] = [];
+  /**
+   * 要铺切面的那几层高程（计曲线，从高到低），与 `contours` 同批算出。
+   *
+   * ⚠ 与 `contourLabelCands` 分开存，虽然直觉上"有数字的那几层"就是"要铺面的那几层"：
+   * 注记会因为**屏幕上放不下**而丢掉整级（那是屏幕拥挤程度，跟这个知识点无关），
+   * 拿它当切面层数的话，学生转一下视角切面就少一层 —— 而这层还在讲"每一层等高线
+   * 都有一个水平面"，少一层就直接把话讲错了。所以两者共用**同一个口径**
+   * （`isMajorLevel`）但各自走各自的路径。
+   */
+  let sliceLevels: number[] = [];
+  /**
+   * 三维沙盘的高程注记落点**不在这里存**。
+   *
+   * 与 `contourLabelCands` 的重合部分只有"都要分得清候选与落点"这一条：
+   * 候选是"算出来的"，落点是"放上去的"，三维那边会因为屏幕上放不下而
+   * **丢掉整级**（见 `view3d.setContourLabels`）。把两者混成一个数，回归
+   * 就分不清"这一级没算出来"和"算了但被挤掉了"。
+   *
+   * 但落点**必须现读** `view.getContourLabels()`：选址除了 engine 触发的那一次，
+   * 还会在 `tick` 里因取景 / 画布比例变化**再跑一次**（v2.5.4 挂载时就是
+   * "先选 4 条、紧接着重选 3 条"）。存一份副本的话，快照会报 4 条而画面上只有
+   * 3 条 —— 判据跟着一起骗人。
+   */
   let runoff: RunoffNetwork = buildRunoff(field, params.lat, params.season, WEATHER_RAIN[params.weather]);
   let hover: HoverReadout | null = null;
   let view: View3dHandle | null = null;
@@ -581,6 +660,63 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
   }
 
   /**
+   * 屏幕上**真的有**的那几条注记落点。现读，不留副本（理由见上面那段）。
+   */
+  function placedLabelAnchors(): ContourLabelAnchor[] {
+    return view?.getContourLabels() ?? [];
+  }
+
+  /**
+   * 沙盘上**真的铺出来**的那几层切面高程。与 `placedLabelAnchors` 同一个纪律：
+   * 现读视图，不留副本 —— `setElevationSlices` 在 `field` 未就绪时会静默不建层，
+   * 缓存返回值的话快照会报 N 层而画面是空的（v2.5.4 踩过同型的坑，见 §153）。
+   */
+  function placedSliceLevels(): number[] {
+    return view?.getElevationSlices() ?? [];
+  }
+
+  /**
+   * 把三维沙盘的高程注记推给视图（v2.5.4）。
+   *
+   * 关掉开关时传 `null`（而不是空数组）—— 语义是"这一层不要"，
+   * 视图那边据此整层清掉，不留一个空 Group。
+   *
+   * ⚠ 与 `pushAnnotations` 一样**只推不算**：落点在 `recomputeContours` 里
+   * 跟等高线同批算好。这里是唯一把 `showContourLabels` 变成画面行为的地方。
+   */
+  function pushContourLabels(): void {
+    /*
+     * 等高线自己都关了就别再标数字 —— 一串数字悬在光秃秃的山上，
+     * 学生找不到它对应的那条线，只会以为画面坏了。
+     * 注意这里**没有**把 `showContourLabels` 改掉：等高线开回来，数字自己就回来。
+     */
+    const on = params.showContours && params.showContourLabels;
+    // 返回值丢给视图自己保管（`view.getContourLabels()` 现读），这里不留副本
+    view?.setContourLabels(on ? contourLabelCands : null);
+  }
+
+  /**
+   * 把「高程切面 + 高度尺」这一层推给三维视图（v2.5.5）。
+   *
+   * 关掉开关时传 `null`（而不是空数组）—— 语义是"这一层不要"，
+   * 视图据此把切面与高度尺整组清掉，不留一个空 Group。
+   *
+   * ⚠ 与 `pushContourLabels` 的**唯一**差别：这里**不看 `showContourLabels`**。
+   * 数字因为屏幕拥挤被丢掉几条，不该让那一层的切面跟着消失 ——
+   * 两者共用的是"哪些高程是计曲线"这个口径，不是"这一次有没有画上字"。
+   */
+  function pushElevationSlices(): void {
+    /*
+     * 等高线自己都关了就没有"交线"可讲 —— 一层层空板子切在光秃秃的山上，
+     * 学生看的是"玻璃栈道"而不是等高线。
+     * 与注记同一个口径：**不篡改 `showElevationSlices` 本身**，
+     * 等高线开回来，切面自己就回来。
+     */
+    const on = params.showContours && params.showElevationSlices;
+    view?.setElevationSlices(on ? sliceLevels : null);
+  }
+
+  /**
    * 把二维投影图纸交给三维视图。
    *
    * 图纸上的等高线用的就是 `contours`（三维地表那批）——**同一份数据**，
@@ -594,7 +730,7 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
           field,
           contours,
           interval: params.contourInterval,
-          majorEvery: 5,
+          majorEvery: CONTOUR_MAJOR_EVERY,
           lat: params.lat,
           season: params.season,
           segments: params.segments.map((s, k) => ({
@@ -634,6 +770,21 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
       ? levels.filter((_, i) => i % Math.ceil(levels.length / 80) === 0)
       : levels;
     contours = extractAll(heightFn(field), field.grid, capped);
+    /*
+     * 高程注记的**候选**与等高线同批算出来 —— 两者必须对得上，
+     * 分成两次提线就会出现"这条线画了、数字却按另一批线摆"。
+     *
+     * ⚠ 这里**不做避让**：屏幕避让需要相机，住在 `view3d.ts`。
+     *   （曾经在这里按网格空间卡最小距离，实测无效：24° 俯角下
+     *     网格 j 轴几乎退化成深度方向，56 格的间距在屏幕上只有 34 px。）
+     */
+    contourLabelCands = majorLabelCandidates(contours, params.contourInterval, CONTOUR_MAJOR_EVERY);
+    /*
+     * 切面层与注记候选**同批算、同一个口径**（都用 `isMajorLevel`）——
+     * 分成两次筛的话，改等高距时很容易只刷新一处，出现"数字标在 3000、
+     * 切面铺在 2500"这种画面正常、知识点自相矛盾的错。
+     */
+    sliceLevels = majorLevels(contours, params.contourInterval, CONTOUR_MAJOR_EVERY);
   }
 
   function recomputeRunoff(): void {
@@ -704,10 +855,12 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
       view?.setContours({
         enabled: params.showContours,
         interval: params.contourInterval,
-        majorEvery: 5,
+        majorEvery: CONTOUR_MAJOR_EVERY,
         opacity: 0.5,
         highlight: params.highlightLevel
       });
+      pushContourLabels();
+      pushElevationSlices();
       pushProjection();
       pushProfile();
       return snapshot();
@@ -720,6 +873,10 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
     const contourSpecChanged =
       params.contourInterval !== prev.contourInterval ||
       params.showContours !== prev.showContours;
+    /** 注记开关本身变了（v2.5.4）。它不改线、只改标不标数字 */
+    const labelsToggled = params.showContourLabels !== prev.showContourLabels;
+    /** 切面开关本身变了（v2.5.5）。同样不改线、只改铺不铺面 */
+    const slicesToggled = params.showElevationSlices !== prev.showElevationSlices;
     const bandChanged = params.showBands !== prev.showBands;
     const weatherChanged = params.weather !== prev.weather;
     const highlightChanged = params.highlightLevel !== prev.highlightLevel;
@@ -749,10 +906,26 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
       view?.setContours({
         enabled: params.showContours,
         interval: params.contourInterval,
-        majorEvery: 5,
+        majorEvery: CONTOUR_MAJOR_EVERY,
         opacity: 0.5,
         highlight: params.highlightLevel
       });
+    }
+    /*
+     * 注记与线**同生共死**：线重算了（海拔/等高距）落点必须跟着换；
+     * 线被关了也要把数字收掉（判据在 `pushContourLabels` 里）。
+     * `labelsToggled` 单独列出来 —— 它不触发任何重算，只是"标不标"。
+     */
+    if (contourSpecChanged || elevationChanged || labelsToggled) {
+      pushContourLabels();
+    }
+    /*
+     * 切面与线同样**同生共死**：海拔/等高距一变，层的**高度**就全变了
+     * （海拔偏移会把整摞切面一起抬起来）；线关了要把面收掉。
+     * `slicesToggled` 单独列出来 —— 它不触发任何重算，只是"铺不铺"。
+     */
+    if (contourSpecChanged || elevationChanged || slicesToggled) {
+      pushElevationSlices();
     }
     // 图纸上的内容 = 等高线 + 剖面段 + 自然带底色 + 部位标注 ⇒ 这几样任一变了都要重画
     if (
@@ -867,6 +1040,17 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
       season: params.season,
       weather: params.weather,
       showContours: params.showContours,
+      showContourLabels: params.showContourLabels,
+      /* 「实际画出来几条」而不是「开关开着」—— 平原样本上计曲线可能一条都没有，
+         回归要靠它区分"开关没生效"与"这个样本本来就没得标"。 */
+      contourLabelCount: params.showContours && params.showContourLabels ? placedLabelAnchors().length : 0,
+      /* 落点明细（网格坐标 + 高程）。回归要靠它把"标在哪"换算到屏幕再判重叠 ——
+         只报条数的话，"4 条全挤在峰顶"和"4 条铺开"长得一模一样。 */
+      contourLabelAnchors: placedLabelAnchors().map((a) => ({ level: a.level, x: a.x, y: a.y })),
+      showElevationSlices: params.showElevationSlices,
+      /* 同 `contourLabelCount` 的口径：报"真的铺了几层"而不是"开关开着" */
+      sliceCount: params.showContours && params.showElevationSlices ? placedSliceLevels().length : 0,
+      sliceLevels: params.showContours && params.showElevationSlices ? placedSliceLevels() : [],
       showBands: params.showBands,
       contourInterval: params.contourInterval,
       highlightLevel: params.highlightLevel,
@@ -937,13 +1121,15 @@ export function createEngine(initial: Partial<Params> = {}): Engine {
       view.setContours({
         enabled: params.showContours,
         interval: params.contourInterval,
-        majorEvery: 5,
+        majorEvery: CONTOUR_MAJOR_EVERY,
         opacity: 0.5,
         highlight: params.highlightLevel
       });
       if (contours.length === 0) {
         recomputeContours();
       }
+      pushContourLabels();
+      pushElevationSlices();
       pushProjection();
       pushProfile();
       // 标注层也要给一份：视图是新建的，不推它就没有图层（而参数里可能已经开着）

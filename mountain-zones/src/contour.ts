@@ -237,6 +237,17 @@ export const CONTOUR_INTERVAL_STEPS = [20, 50, 100, 200, 500, 1000];
 export const CONTOUR_MIN_LEVELS = 3;
 
 /**
+ * 「计曲线」每几条细线加粗一条（并给它加高程注记）。
+ *
+ * ⚠ 这个数是**一个口径、五处使用**：三维地表着色器（`terrain.ts` 的 `uMajor`）、
+ * 三维高程注记、底栏平面图注记、投影图纸、以及平面图的图例文案
+ * （「等高距 / 计曲线 200 m / 每 5 条」）。散成五个字面量 `5` 的话，
+ * 改一处就会让"加粗的那条线"和"标了数字的那条线"错位 ——
+ * 而错位之后画面看着仍然正常，最难查。
+ */
+export const CONTOUR_MAJOR_EVERY = 5;
+
+/**
  * 按样本自动落一档等高距。
  *
  * 山峰（贡嘎 2204~7414 m）用 200 m 一档正好出 26 条；
@@ -305,6 +316,183 @@ export function labelAnchor(
     y: (y0 + y1) / 2,
     angle: Math.atan2(y1 - y0, x1 - x0)
   };
+}
+
+/**
+ * 一条计曲线**最终放上去**的注记落点。
+ *
+ * 与 `ContourLabelCandidate` 的区别：那个是"候选"，这个是三维那边
+ * 按屏幕避让挑完之后**真的画出来**的。回归要靠它判"到底标了几条、标在哪"。
+ */
+export interface ContourLabelAnchor {
+  level: number;
+  /** 网格坐标（分数） */
+  x: number;
+  y: number;
+}
+
+/** 一条计曲线的**候选**注记落点（网格坐标），由三维那边按屏幕位置挑一个 */
+export interface ContourLabelCandidate {
+  /** 这条等高线的高程（米），已经是「当前海拔」口径 */
+  level: number;
+  /**
+   * 折线上若干个备选落点（网格坐标），按"适合写字"的程度从好到差。
+   *
+   * ⚠ 挑哪一个**不在这里决定** —— 判据是"屏幕上的字不会互相压住"，
+   * 而那需要相机；相机住在 `view3d.ts`。这里只负责把候选算全（见下面注释）。
+   */
+  cands: Array<{ x: number; y: number }>;
+}
+
+/**
+ * 一条折线上**多个**备选注记落点（按"适合写字"的程度排序）。
+ *
+ * 为什么需要"多个"：`labelAnchor` 只给折线中段一个点，而同一座山的
+ * 高空等高线是**一圈一圈套着的同心环** —— 每级的"中段"都落在环的同一侧，
+ * 于是 3000/4000 挤成一团（第一版实测：两个数字在屏幕上叠住）。
+ * 有了备选，调用方就能"挑一个离已放的注记最远的"，把数字沿环铺开。
+ *
+ * 取点口径与 `labelAnchor` 完全一致（越接近水平的窗口越适合写字），
+ * 只是把打分前 `count` 名都留下，并且**彼此在折线上隔开一段**，
+ * 否则前几名会全落在同一个弯里、等于只有一个候选。
+ */
+export function labelCandidates(p: ContourPolyline, win = 4, count = 9): Array<{ x: number; y: number }> {
+  const cnt = p.pts.length / 2;
+  if (cnt < win + 1 || count < 1) {
+    return [];
+  }
+  const scored: Array<{ k: number; score: number }> = [];
+  for (let k = 0; k + win < cnt; k++) {
+    const x0 = p.pts[k * 2], y0 = p.pts[k * 2 + 1];
+    const x1 = p.pts[(k + win) * 2], y1 = p.pts[(k + win) * 2 + 1];
+    const dx = x1 - x0, dy = y1 - y0;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-6) {
+      continue;
+    }
+    // 水平得越标准越好；同样水平时取**短**段（短段更直，字压上去更平）
+    const score = Math.abs(dx / len) - len * 0.002;
+    scored.push({ k, score });
+  }
+  if (!scored.length) {
+    return [];
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const minSep = Math.max(1, Math.floor(cnt / (count + 1)));
+  const picked: number[] = [];
+  for (const s of scored) {
+    if (picked.some((k) => Math.abs(k - s.k) < minSep)) {
+      continue;
+    }
+    picked.push(s.k);
+    if (picked.length >= count) {
+      break;
+    }
+  }
+  return picked.map((k) => {
+    const x0 = p.pts[k * 2], y0 = p.pts[k * 2 + 1];
+    const x1 = p.pts[(k + win) * 2], y1 = p.pts[(k + win) * 2 + 1];
+    return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+  });
+}
+
+/**
+ * 某一条等高线是不是**计曲线**（每 `majorEvery` 条加粗一条的那条）。
+ *
+ * 判据 = 高程能被 `interval × majorEvery` 整除。
+ * 抽成独立函数只为一件事：让「**标高程数字**」与「**铺高程切面**」用同一个口径。
+ * 两处各写一遍 `Math.round(level / span) * span` 的话，改阈值时必然漏一处 ——
+ * 症状是「数字标在 3000、切面却铺在 2500」这种画面看着正常、但知识点自相矛盾的错。
+ *
+ * ⚠ 用 `1e-6` 容差比对，不能写 `level % span === 0`：
+ * `level` 是 `k · interval` 累加出来的浮点，`interval` 不是 2 的幂时会落成
+ * 近似值（200 m 档上 `3000` 可能是 `2999.9999999999995`），取模直接判假。
+ */
+export function isMajorLevel(
+  level: number,
+  interval: number,
+  majorEvery = CONTOUR_MAJOR_EVERY
+): boolean {
+  const span = Math.max(1, Math.round(majorEvery)) * Math.max(1, interval);
+  return Math.abs(Math.round(level / span) * span - level) < 1e-6;
+}
+
+/**
+ * 计曲线的高程列表（**从高到低**），供「高程切面」铺水平面用。
+ *
+ * ⚠ 只收**地形真的穿过**的那些层（`ContourLevel.polylines` 非空的那几级）。
+ * `extractAll` 对传入的每个高度都会返回一个 `ContourLevel`，哪怕一条交线都没有；
+ * 高于山顶的那一级虽然也满足"能被 span 整除"，但它与地形没有交线 ——
+ * 铺一块**悬在山顶之上**的空板子，学生只会以为画错了。
+ * （这也是 `levelsFor` 只列到 `maxH` 的原因，但取整误差仍可能多列一级。）
+ */
+export function majorLevels(
+  contours: ContourLevel[],
+  interval: number,
+  majorEvery = CONTOUR_MAJOR_EVERY
+): number[] {
+  const out: number[] = [];
+  for (const lv of contours) {
+    if (lv.polylines.length && isMajorLevel(lv.level, interval, majorEvery)) {
+      out.push(lv.level);
+    }
+  }
+  out.sort((a, b) => b - a);
+  return out;
+}
+
+/**
+ * 挑出三维沙盘上要显示的「计曲线高程注记」的**候选**落点。
+ *
+ * ## 与二维那两套注记的关系
+ *
+ * 底栏平面图（`drawPlanMap`）与投影图纸各自有一套注记，落点用的是同一个
+ * `longestPolyline` + `labelAnchor`，避让在**画布像素空间**做（`placed` 文字框）。
+ * 三维这里也是像素空间避让，只是画布换成了相机 —— 所以选址这一步搬到了
+ * `view3d.ts` 的 `setContourLabels`（只有它有相机）。本函数只负责"每级备几个点"。
+ *
+ * ## ⚠ 为什么"网格空间够远"不能当判据（踩过）
+ *
+ * 第一版在这里就卡了一道网格空间的最小距离。实测 4000 m 与 3000 m 的落点
+ * 在网格里隔 **56 格**（远超阈值 20），屏幕上却只差 **34 px** —— 两个数字叠死。
+ * 因为相机俯角只有 24°（近乎平视），网格的 j 轴几乎退化成**深度方向**：
+ * 沿 j 走 56 格在屏幕上几乎不动。**网格距离与屏幕距离在这个机位下不成比例**，
+ * 想靠调大阈值修，结果就是"要么叠住、要么把 4000 m 那一级整个挤掉"。
+ *
+ * ## 只标计曲线
+ *
+ * `majorEvery` 与二维口径一致（默认 5）。等高线在陡坡上密到两三像素一条，
+ * 每条都标会糊成一片麻点；计曲线才是"读得出数"的那几条。这也是地形图的通用惯例。
+ *
+ * ⚠ `level` 落进来之前已经是**当前海拔**（engine 的 `contours` 就是从
+ * `heightFn` 提的）—— 这里不再碰任何海拔口径，`elevationOffset` 改了它会自己跟着走。
+ * ⚠ 遍历顺序按**高程从高到低**：高的那几级是"这座山有多高"的关键读数，
+ * 让它们先挑位置；反过来先放 1000 m 的话，峰顶那几个数字会被挤到边角。
+ */
+export function majorLabelCandidates(
+  contours: ContourLevel[],
+  interval: number,
+  majorEvery = 5,
+  perLevel = 9
+): ContourLabelCandidate[] {
+  // 「是不是计曲线」用共用判据（见 `isMajorLevel`）—— 与 `majorLevels` 同源，
+  // 免得"标了数字的那几条"与"铺了切面的那几层"悄悄错开
+  const majors = contours
+    .filter((lv) => isMajorLevel(lv.level, interval, majorEvery))
+    .sort((a, b) => b.level - a.level);
+  const out: ContourLabelCandidate[] = [];
+  for (const lv of majors) {
+    const p = longestPolyline(lv);
+    if (!p) {
+      continue;
+    }
+    const cands = labelCandidates(p, 4, perLevel);
+    if (!cands.length) {
+      continue;
+    }
+    out.push({ level: lv.level, cands });
+  }
+  return out;
 }
 
 /**

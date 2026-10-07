@@ -331,6 +331,230 @@ const near = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
   }
 }
 
+/* ===== 10) labelCandidates / majorLabelCandidates：三维高程注记的候选点 ===== */
+{
+  /** 造一条折线：flat = [x0,y0, x1,y1, ...] */
+  const line = (flat, closed = false) => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < flat.length; i += 2) {
+      x0 = Math.min(x0, flat[i]); x1 = Math.max(x1, flat[i]);
+      y0 = Math.min(y0, flat[i + 1]); y1 = Math.max(y1, flat[i + 1]);
+    }
+    return { pts: Float32Array.from(flat), closed, bbox: [x0, y0, x1, y1] };
+  };
+
+  // 100 个点、间距 1 的水平直线：每个窗口一样水平也一样长 ⇒ 分数全等，
+  // 稳定排序下按 k 递增取点。win=4、count=9 ⇒ minSep = floor(100/10) = 10。
+  const flat = [];
+  for (let k = 0; k < 100; k++) flat.push(k, 0);
+  const cands = ct.labelCandidates(line(flat), 4, 9);
+  check("labelCandidates：水平直线上取满 9 个候选", cands.length === 9, String(cands.length));
+  check("labelCandidates：候选全部落在折线上（y = 0）", cands.every((c) => c.y === 0),
+    cands.map((c) => c.y).join(","));
+  // 落点 = 该窗口两端的中点 ⇒ x = 2, 12, 22, …, 82（手算值）
+  const xs = cands.map((c) => c.x);
+  check("labelCandidates：x = 2,12,…,82（窗口中点，手算值）",
+    xs.length === 9 && xs.every((x, i) => Math.abs(x - (2 + i * 10)) < 1e-4), xs.join(","));
+
+  /*
+   * 候选之间必须**真的隔开**。
+   *
+   * 第一版没有这道约束：打分最高的前几名全落在同一个弯里，等于只有一个候选
+   * —— "挑一个离已放的注记最远的"就挑不动了，高空那几级的数字照样叠在一起。
+   */
+  let minGap = Infinity;
+  for (let i = 1; i < xs.length; i++) minGap = Math.min(minGap, xs[i] - xs[i - 1]);
+  check("labelCandidates：相邻候选在折线上隔 ≥ floor(100/10) = 10", minGap >= 10 - 1e-4,
+    `最小 ${minGap.toFixed(3)}`);
+
+  /*
+   * 竖直线：一个"水平窗口"都挑不出来（分数全负），但**不能因此返回空**
+   * —— 陡坡上的等高线整条都竖，返回空就是"这座山一个数字都不标"。
+   */
+  const vflat = [];
+  for (let k = 0; k < 100; k++) vflat.push(0, k);
+  const vc = ct.labelCandidates(line(vflat), 4, 9);
+  check("labelCandidates：竖直线上仍给出 9 个候选（不因分数低就静默返回空）",
+    vc.length === 9, String(vc.length));
+  check("labelCandidates：竖直线上的候选 x 全为 0（仍落在折线上）",
+    vc.every((c) => c.x === 0), vc.map((c) => c.x).join(","));
+
+  // 边界：折线太短 / count < 1 ⇒ 空数组（不是抛错）
+  check("labelCandidates：折线点数 ≤ win 时返回空",
+    ct.labelCandidates(line([0, 0, 1, 1, 2, 2]), 4, 9).length === 0);
+  check("labelCandidates：count < 1 时返回空",
+    ct.labelCandidates(line(flat), 4, 0).length === 0);
+  // count 只是**上限**，实际个数还受"折线上有几个窗口"约束：100 点、win=4 ⇒ 96 个窗口
+  check("labelCandidates：count 超过窗口数时按实际窗口数封顶（96）",
+    ct.labelCandidates(line(flat), 4, 999).length === 96,
+    String(ct.labelCandidates(line(flat), 4, 999).length));
+
+  const mk = (level, pts) => ({ level, polylines: [line(pts)], segCount: 1, totalLen: 1 });
+  const ladder = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map((v) => mk(v, flat));
+
+  const majors = ct.majorLabelCandidates(ladder, 100, 5, 3);
+  check("majorLabelCandidates：只留 500 的整数倍（计曲线），不是每条等高线都标",
+    majors.length > 0 && majors.every((m) => m.level % 500 === 0),
+    majors.map((m) => m.level).join(",") || "空");
+  check("majorLabelCandidates：计曲线一条不漏（500 与 1000，共 2 级）",
+    majors.length === 2, majors.map((m) => m.level).join(",") || "空");
+  check("majorLabelCandidates：按高程**从高到低**排（高的先挑位置，峰顶读数不被挤到边角）",
+    majors.length === 2 && majors[0].level === 1000 && majors[1].level === 500,
+    majors.map((m) => m.level).join(",") || "空");
+  check("majorLabelCandidates：每级带上 perLevel 个候选",
+    majors.length === 2 && majors.every((m) => m.cands.length === 3),
+    majors.map((m) => m.cands.length).join(",") || "空");
+
+  const asc = [500, 1000].map((v) => mk(v, flat));
+  check("majorLabelCandidates：与输入顺序无关（升序进来也降序出去）",
+    ct.majorLabelCandidates(asc, 100, 5, 3).map((m) => m.level).join(",") === "1000,500",
+    ct.majorLabelCandidates(asc, 100, 5, 3).map((m) => m.level).join(","));
+
+  /*
+   * 浮点容差：高程是从高度场插值出来的，难免带 1e-7 级误差。
+   * 判据若写成 `level % majorSpan === 0`，差一点点就会**整级漏标**（一声不响）。
+   */
+  check("majorLabelCandidates：1e-6 以内的浮点误差不会漏掉一整级",
+    ct.majorLabelCandidates([mk(500.0000004, flat), mk(999.9999996, flat)], 100, 5, 3).length === 2,
+    String(ct.majorLabelCandidates([mk(500.0000004, flat), mk(999.9999996, flat)], 100, 5, 3).length));
+  check("majorLabelCandidates：真的偏了 1 m 就不算计曲线",
+    ct.majorLabelCandidates([mk(501, flat)], 100, 5, 3).length === 0,
+    String(ct.majorLabelCandidates([mk(501, flat)], 100, 5, 3).length));
+
+  // 折线太短的计曲线 ⇒ **整级不出现**，不留一个 `cands: []` 的条目
+  // （engine 那边靠"条目存在"判断要不要推给视图，空条目会推出一层空注记）
+  check("majorLabelCandidates：折线太短的计曲线整级不出现（不留空 cands 条目）",
+    ct.majorLabelCandidates([mk(500, [0, 0, 1, 1, 2, 2])], 100, 5, 3).length === 0,
+    String(ct.majorLabelCandidates([mk(500, [0, 0, 1, 1, 2, 2])], 100, 5, 3).length));
+
+  // 默认参数必须就是那个常量 —— 否则工程量里会有第二个 "5"
+  const def = ct.majorLabelCandidates(ladder, 100);
+  const exp = ct.majorLabelCandidates(ladder, 100, ct.CONTOUR_MAJOR_EVERY);
+  check("majorLabelCandidates：默认 majorEvery 与 CONTOUR_MAJOR_EVERY 同源（口径只有一处）",
+    def.length === exp.length && def.every((m, i) => m.level === exp[i].level && m.cands.length === exp[i].cands.length),
+    `CONTOUR_MAJOR_EVERY=${ct.CONTOUR_MAJOR_EVERY}`);
+
+  /*
+   * 走一遍**真实提取路径**（`extractContour` 出来的折线，不是手搓的直线）。
+   *
+   * 圆锥地形是少数"半径可以直接手算"的形状：h = 3000 − 100·r ⇒
+   * 高程 L 的等高线就是半径 (3000 − L)/100 的圆。于是可以断言
+   * **每个候选点都落在它那一级的环上** —— 这是"候选确实取自该级等高线"
+   * 的直接证据（只断言"候选非空"证明不了它没取错环）。
+   */
+  const n = 48;
+  const cc = (n - 1) / 2;
+  const cone = (i, j) => Math.max(0, 3000 - Math.hypot(i - cc, j - cc) * 100);
+  const coneLevels = ct.levelsFor(0, 3000, 100, 0).map((L) => ct.extractContour(cone, n, L));
+  const coneMajors = ct.majorLabelCandidates(coneLevels, 100, 5, 5);
+  let maxRadErr = 0;
+  for (const m of coneMajors) {
+    const want = (3000 - m.level) / 100;
+    for (const p of m.cands) {
+      maxRadErr = Math.max(maxRadErr, Math.abs(Math.hypot(p.x - cc, p.y - cc) - want));
+    }
+  }
+  check("真实提取（圆锥）：候选确实取自计曲线（每级至少 4 档）",
+    coneMajors.length >= 4, `${coneMajors.length} 档：${coneMajors.map((m) => m.level).join(",")}`);
+  check("真实提取（圆锥）：只取 500 的整数倍那几级",
+    coneMajors.every((m) => m.level % 500 === 0), coneMajors.map((m) => m.level).join(","));
+  check("真实提取（圆锥）：每个候选点都落在它那一级的环上（半径 =（3000 − 高程）/100）",
+    maxRadErr < 1.5, `最大半径偏差 ${maxRadErr.toFixed(3)} 格`);
+}
+
+/* ===== 11) isMajorLevel / majorLevels：计曲线口径（标数字与铺切面共用一处） ===== */
+{
+  check("isMajorLevel：等高距 100、每 5 条一条 ⇒ 500 的整数倍",
+    ct.isMajorLevel(0, 100, 5) && ct.isMajorLevel(500, 100, 5) && ct.isMajorLevel(1000, 100, 5));
+  check("isMajorLevel：非整数倍一律不算（100/200/300/400/600 都不是计曲线）",
+    ![100, 200, 300, 400, 600].some((L) => ct.isMajorLevel(L, 100, 5)));
+  check("isMajorLevel：默认 majorEvery 就是 CONTOUR_MAJOR_EVERY（口径只有一处）",
+    ct.isMajorLevel(500, 100) === ct.isMajorLevel(500, 100, ct.CONTOUR_MAJOR_EVERY) &&
+      ct.CONTOUR_MAJOR_EVERY === 5,
+    `CONTOUR_MAJOR_EVERY=${ct.CONTOUR_MAJOR_EVERY}`);
+  /*
+   * 浮点容差。`level` 是 `k · interval` 累加出来的，200 m 这一档上
+   * `5 × 200` 落成 `999.9999999999995` —— 判据若写成 `level % span === 0`
+   * 会**整级漏判**，而症状是"切面少了一层"，最难联想到取模。
+   */
+  check("isMajorLevel：1e-6 以内的浮点误差仍判为计曲线",
+    ct.isMajorLevel(500.0000004, 100, 5) && ct.isMajorLevel(999.9999996, 100, 5),
+    `999.9999999999995 ⇒ ${ct.isMajorLevel(999.9999999999995, 200, 5)}`);
+  check("isMajorLevel：真的偏了 1 m 就不算",
+    !ct.isMajorLevel(501, 100, 5) && !ct.isMajorLevel(499, 100, 5));
+
+  /*
+   * 造一个 ContourLevel：`hasLine` 决定有没有交线。
+   *
+   * 折线取**100 个点**的直线 —— 不能只给两点：`labelCandidates` 要求
+   * 点数 ≥ `win + 1`（默认 5），两点的折线在注记那边会被判为"太短"，
+   * 于是下面那条"两个口径指向同一批层"的交叉判据会两边都空、**假绿**。
+   */
+  const flat2 = [];
+  for (let k = 0; k < 100; k++) flat2.push(k, 0);
+  const mkLv = (level, hasLine) => ({
+    level,
+    polylines: hasLine
+      ? [{ pts: Float32Array.from(flat2), closed: false, bbox: [0, 0, 99, 0] }]
+      : [],
+    segCount: hasLine ? 1 : 0,
+    totalLen: hasLine ? 99 : 0
+  });
+  const ladder2 = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000].map((L) => mkLv(L, true));
+  check("majorLevels 夹具自身有效（折线够长，注记侧不会因\"太短\"而空）",
+    ct.majorLabelCandidates(ladder2, 100, 5, 3).length === 2,
+    String(ct.majorLabelCandidates(ladder2, 100, 5, 3).length));
+
+  check("majorLevels：只留 500 的整数倍（计曲线），细线一层不铺",
+    ct.majorLevels(ladder2, 100, 5).join(",") === "1000,500",
+    ct.majorLevels(ladder2, 100, 5).join(",") || "空");
+  check("majorLevels：从高到低（切面自上而下铺，与读图顺序一致）",
+    ct.majorLevels([mkLv(500, true), mkLv(1000, true)], 100, 5).join(",") === "1000,500",
+    ct.majorLevels([mkLv(500, true), mkLv(1000, true)], 100, 5).join(","));
+  check("majorLevels：与输入顺序无关（升序进来也降序出去）",
+    ct.majorLevels([...ladder2].reverse(), 100, 5).join(",") === "1000,500",
+    ct.majorLevels([...ladder2].reverse(), 100, 5).join(","));
+  /*
+   * `extractAll` 对传入的**每一个**高度都返回一个 ContourLevel，哪怕一条交线都没有
+   * （高于山顶的那一级就是这样）。给它铺一块水平面 = 山顶上方悬着一块空板子。
+   */
+  check("majorLevels：没有交线的那一级不铺（否则山顶上空悬一块板子）",
+    ct.majorLevels([mkLv(1000, true), mkLv(500, false)], 100, 5).join(",") === "1000",
+    ct.majorLevels([mkLv(1000, true), mkLv(500, false)], 100, 5).join(",") || "空");
+  check("majorLevels：空输入 → 空（不铺任何切面）", ct.majorLevels([], 100, 5).length === 0);
+  check("majorLevels：默认 majorEvery 与 CONTOUR_MAJOR_EVERY 同源",
+    ct.majorLevels(ladder2, 100).join(",") === ct.majorLevels(ladder2, 100, ct.CONTOUR_MAJOR_EVERY).join(","),
+    ct.majorLevels(ladder2, 100).join(","));
+  /*
+   * 两个口径**必须指向同一批层**：数字标在 3000 而切面铺在 2500 是
+   * "画面正常、知识点自相矛盾"的错，机器不查就没人会发现。
+   */
+  check("majorLevels 与 majorLabelCandidates 指向同一批层（同源）",
+    ct.majorLevels(ladder2, 100, 5).join(",") ===
+      ct.majorLabelCandidates(ladder2, 100, 5, 3).map((m) => m.level).join(","),
+    `${ct.majorLevels(ladder2, 100, 5).join(",")} vs ` +
+      ct.majorLabelCandidates(ladder2, 100, 5, 3).map((m) => m.level).join(","));
+
+  /*
+   * 真实提取路径（圆锥）交叉验证 —— 与第 10 段的圆锥同一口径。
+   * 断言的是"**有数字的那一层一定有切面**"：反过来（有切面没数字）是允许的，
+   * 因为数字会因屏幕上放不下而被丢掉几条（见 `view3d.setContourLabels`），
+   * 而切面没有这个约束。
+   */
+  const cn = 48;
+  const ccc = (cn - 1) / 2;
+  const coneShape = (i, j) => Math.max(0, 3000 - Math.hypot(i - ccc, j - ccc) * 100);
+  const coneLv = ct.levelsFor(0, 3000, 100, 0).map((L) => ct.extractContour(coneShape, cn, L));
+  const sliceLv = ct.majorLevels(coneLv, 100, 5);
+  const candLv = ct.majorLabelCandidates(coneLv, 100, 5, 5).map((m) => m.level);
+  check("真实提取（圆锥）：切面层级 ⊇ 数字注记层级（有数字的那层一定有面）",
+    candLv.every((L) => sliceLv.includes(L)), `面 ${sliceLv.join(",")} / 字 ${candLv.join(",")}`);
+  check("真实提取（圆锥）：切面层级严格从高到低",
+    sliceLv.every((L, i) => i === 0 || sliceLv[i - 1] > L), sliceLv.join(","));
+  check("真实提取（圆锥）：切面层级全是 500 的整数倍",
+    sliceLv.length >= 4 && sliceLv.every((L) => L % 500 === 0), sliceLv.join(",") || "空");
+}
+
 /* ===== 汇总 ===== */
 const failed = checks.filter((c) => !c.ok);
 for (const c of checks) {
